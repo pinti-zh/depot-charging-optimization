@@ -3,6 +3,7 @@ import argparse
 import gurobipy as gp
 import polars as pl
 from gurobipy import GRB
+from rich import print
 
 from utils import plot_result, print_model_summary
 
@@ -72,9 +73,9 @@ def main():
 
     # print solution
     try:
-        print(f"Optimal Energy Cost: {model.ObjVal:.0f}$")
+        print(f"Optimal Energy Cost: [bold green]{model.ObjVal:.0f}$")
     except AttributeError:
-        print("No solution found =(")
+        print("[red]No solution found")
         return
 
     plot_result(
