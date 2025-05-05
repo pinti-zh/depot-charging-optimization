@@ -19,6 +19,51 @@ def natural_keys(text):
     return [atoi(c) for c in re.split(r"(\d+)", text)]
 
 
+def print_linear_constraints(model):
+    constraints = model.getConstrs()
+    print("[bold]Linear Constraints:")
+    max_name_len = max(len(constraint.ConstrName) for constraint in constraints)
+    max_constraint_len = max(len(str(model.getRow(constraint))) for constraint in constraints)
+    for constraint in sorted(constraints, key=lambda x: natural_keys(x.ConstrName)):
+        match constraint.Sense:
+            case GRB.LESS_EQUAL:
+                sense = "[bold]<=[/bold]"
+            case GRB.EQUAL:
+                sense = "[bold]==[/bold]"
+            case GRB.GREATER_EQUAL:
+                sense = "[bold]>=[/bold]"
+            case _:
+                sense = "???"
+        name_buffer = (max_name_len - len(constraint.ConstrName)) * " "
+        print(
+            f"  {name_buffer}[bright_blue italic]{constraint.ConstrName}[/bright_blue italic]: ",
+            end="",
+        )
+        constraint_buffer = (max_constraint_len - len(str(model.getRow(constraint)))) * " "
+        print(f"{constraint_buffer}{model.getRow(constraint)} {sense} {constraint.RHS}")
+
+
+def print_general_constraints(model):
+    constraints = model.getGenConstrs()
+    print("[bold]General Constraints:")
+    max_constraint_len = max(len(constraint.genConstrName) for constraint in constraints)
+    for constraint in constraints:
+        name_buffer = (max_constraint_len - len(constraint.genConstrName)) * " "
+        print(f"  {name_buffer}[bright_blue italic]{constraint.genConstrName}")
+
+
+def print_variables(model):
+    print("[bold]Variable Bounds:")
+    max_variable_len = max(len(variable.VarName) for variable in model.getVars())
+    max_lower_bound_len = max(len(str(variable.LB)) for variable in model.getVars())
+    for variable in sorted(model.getVars(), key=lambda x: natural_keys(x.VarName)):
+        variable_buffer = (max_variable_len - len(variable.VarName)) * " "
+        lb_buffer = (max_lower_bound_len - len(str(variable.LB))) * " "
+        print(f"  {lb_buffer}{variable.LB} [bold]<=[/bold] ", end="")
+        print(f"[bright_blue italic]{variable_buffer}{variable.VarName}[/bright_blue italic] ", end="")
+        print(f"[bold]<=[/bold] {variable.UB}")
+
+
 def print_model_summary(model, verbosity):
     if verbosity >= 1:
         model.setParam("OutputFlag", 1)
@@ -28,33 +73,15 @@ def print_model_summary(model, verbosity):
         model.printStats()
         if verbosity >= 2:
             print("[bold]" + "-" * 100)
-            print("[bold]Constraints:")
-            max_name_len = max(len(constraint.ConstrName) for constraint in model.getConstrs())
-            max_constraint_len = max(len(str(model.getRow(constraint))) for constraint in model.getConstrs())
-            for constraint in sorted(model.getConstrs(), key=lambda x: natural_keys(x.ConstrName)):
-                match constraint.Sense:
-                    case GRB.LESS_EQUAL:
-                        sense = "[bold]<=[/bold]"
-                    case GRB.EQUAL:
-                        sense = "[bold]==[/bold]"
-                    case GRB.GREATER_EQUAL:
-                        sense = "[bold]>=[/bold]"
-                    case _:
-                        sense = "???"
-                name_buffer = (max_name_len - len(constraint.ConstrName)) * " "
-                print(f"  {name_buffer}[bright_blue italic]{constraint.ConstrName}[/bright_blue italic]: ", end="")
-                constraint_buffer = (max_constraint_len - len(str(model.getRow(constraint)))) * " "
-                print(f"{constraint_buffer}{model.getRow(constraint)} {sense} {constraint.RHS}")
 
-            print("\n[bold]Variable Bounds:")
-            max_variable_len = max(len(variable.VarName) for variable in model.getVars())
-            max_lower_bound_len = max(len(str(variable.LB)) for variable in model.getVars())
-            for variable in sorted(model.getVars(), key=lambda x: natural_keys(x.VarName)):
-                variable_buffer = (max_variable_len - len(variable.VarName)) * " "
-                lb_buffer = (max_lower_bound_len - len(str(variable.LB))) * " "
-                print(f"  {lb_buffer}{variable.LB} [bold]<=[/bold] ", end="")
-                print(f"[bright_blue italic]{variable_buffer}{variable.VarName}[/bright_blue italic] ", end="")
-                print(f"[bold]<=[/bold] {variable.UB}")
+            if len(model.getConstrs()):
+                print_linear_constraints(model)
+                print()
+            if len(model.getGenConstrs()):
+                print_general_constraints(model)
+                print()
+            if len(model.getVars()):
+                print_variables(model)
 
         print("[bold]" + "=" * 100)
         model.setParam("OutputFlag", 0)
