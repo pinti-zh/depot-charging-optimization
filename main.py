@@ -84,7 +84,14 @@ def main():
 
     # print solution
     try:
-        print(f"Optimal Energy Cost: [bold green]{model.ObjVal:.0f}$")
+        grid_cost = max_charging_power.X * data["powerGridTariff"]
+        energy_cost = sum(
+            data["energyPrice"][i] * cp.X * data["timeStepDuration"] for i, cp in zip(charging_indices, charging_power)
+        )
+        print(f"Energy Cost:        [bold green]{energy_cost:.2f}$")
+        print(f"Grid Cost:        + [bold green]{grid_cost:.2f}$")
+        print("-------------------------")
+        print(f"Total Optimal Cost: [bold green]{model.ObjVal:.2f}$")
     except AttributeError:
         print("[red]No solution found")
         return
