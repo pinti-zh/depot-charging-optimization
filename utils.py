@@ -3,6 +3,7 @@ import re
 import matplotlib.pyplot as plt
 import seaborn as sns
 from gurobipy import GRB
+from matplotlib.patches import Rectangle
 from rich import print
 
 
@@ -87,54 +88,47 @@ def print_model_summary(model, verbosity):
         model.setParam("OutputFlag", 0)
 
 
-def plot_result(power, state_of_energy, df, state_of_energy_lower_bound, state_of_energy_upper_bound):
-    num_timesteps = len(df)
-
+def plot_result(charging_indices, charging_power, state_of_energy, data):
     sns.set_style("darkgrid")
     _, axes = plt.subplots(2, height_ratios=[2, 1], figsize=(12, 8))
-
-    # y = 0 line
-    axes[0].plot([0, num_timesteps], [0, 0], c="black", linestyle="dashed")
-
-    # state of energy
+    axes[0].plot(range(data["numTimeSteps"] + 1), [soe.X for soe in state_of_energy], color="navy")
     axes[0].plot(
-        range(num_timesteps + 1),
-        [state_of_energy[t].X for t in range(num_timesteps + 1)],
-        c="navy",
-        label="SoE",
+        range(data["numTimeSteps"] + 1),
+        [data["stateOfEnergyLowerBound"]] * (data["numTimeSteps"] + 1),
+        color="navy",
+        linestyle="dashed",
+        label="SoE lb",
     )
-    # soe lower bound
     axes[0].plot(
-        range(num_timesteps + 1), [state_of_energy_lower_bound] * (num_timesteps + 1), linestyle="dashed", c="navy"
+        range(data["numTimeSteps"] + 1),
+        [data["stateOfEnergyUpperBound"]] * (data["numTimeSteps"] + 1),
+        color="navy",
+        linestyle="dashed",
+        label="SoE ub",
     )
-    # soe upper bound
-    axes[0].plot(
-        range(num_timesteps + 1), [state_of_energy_upper_bound] * (num_timesteps + 1), linestyle="dashed", c="navy"
+    axes[0].bar(
+        [i + 0.5 for i in charging_indices],
+        [cp.X for cp in charging_power],
+        color="firebrick",
+        width=1.0,
+        label="charging power",
     )
-
-    # power
-    power_values = [power[t].X for t in range(num_timesteps)]
-    power_values = [val for val in power_values for _ in (0, 1)]  # duplicate power values
-    time_steps = [0] + [t for t in range(1, num_timesteps) for _ in (0, 1)] + [num_timesteps]
-    positive_power_values = list(map(lambda x: max(0, x), power_values))
-    negative_power_values = list(map(lambda x: min(0, x), power_values))
-    axes[0].plot(
-        time_steps, negative_power_values, c="firebrick", linestyle="dashed", label="power consumption"
-    )  # power consumption
-    axes[0].plot(time_steps, positive_power_values, c="firebrick", label="charging power")  # charging power
-
-    # axis 0 config
-    axes[0].set_ylim(-max(df["EnergyDemand"]) * 1.1, 100)
+    for energy_demand in data["energyDemand"]:
+        axes[0].add_patch(
+            Rectangle(
+                (energy_demand["start"], 0),
+                energy_demand["end"] - energy_demand["start"],
+                100,
+                color="firebrick",
+                alpha=0.2,
+            )
+        )
     axes[0].legend()
-    axes[0].set_title("SoE and Power")
-
-    # energy price
-    energy_price_values = [val for val in df["EnergyPrice"] for _ in (0, 1)]
-    axes[1].plot(time_steps, energy_price_values, c="forestgreen")
-
-    # axis 1 config
-    axes[1].set_ylim(0, max(df["EnergyPrice"]) * 1.1)
-    axes[1].set_title("Energy Price")
-
-    plt.tight_layout()
+    axes[0].set_ylim(0, 100)
+    axes[0].set_xlim(0, data["numTimeSteps"])
+    energy_time_steps = [0] + [i for i in range(1, data["numTimeSteps"]) for _ in (0, 1)] + [data["numTimeSteps"]]
+    energy_price_values = [val for val in data["energyPrice"] for _ in (0, 1)]
+    axes[1].plot(energy_time_steps, energy_price_values, color="forestgreen", label="energy price")
+    axes[1].set_xlim(0, data["numTimeSteps"])
+    axes[1].legend()
     plt.show()
