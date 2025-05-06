@@ -88,6 +88,19 @@ def print_model_summary(model, verbosity):
         model.setParam("OutputFlag", 0)
 
 
+def print_params(data):
+    print("[bold]Parameters:")
+    print(f"  numTimeSteps: {data['numTimeSteps']}")
+    print(f"  timeStepDuration: {data['timeStepDuration']}")
+    print(f"  powerGridTariff: {data['powerGridTariff']}")
+    print(f"  maxChargingPower: {data['maxChargingPower']}")
+    print(f"  stateOfEnergyLowerBound: {data['stateOfEnergyLowerBound']}")
+    print(f"  stateOfEnergyUpperBound: {data['stateOfEnergyUpperBound']}")
+    print(f"  energyPrice: {len(data['energyPrice'])} Prices")
+    print(f"  energyDemand: {[demand['value'] for demand in data['energyDemand']]}")
+    print("[bold]" + "=" * 100)
+
+
 def plot_result(charging_indices, charging_power, state_of_energy, data):
     sns.set_style("darkgrid")
     fig, axes = plt.subplots(2, height_ratios=[2, 1], figsize=(12, 8))
