@@ -90,28 +90,31 @@ def print_model_summary(model, verbosity):
 
 def plot_result(charging_indices, charging_power, state_of_energy, data):
     sns.set_style("darkgrid")
-    _, axes = plt.subplots(2, height_ratios=[2, 1], figsize=(12, 8))
+    fig, axes = plt.subplots(2, height_ratios=[2, 1], figsize=(12, 8))
+    plt.tight_layout()
+    fig.subplots_adjust(top=0.92)
+    fig.suptitle("Optimization Result", fontsize=16)
     axes[0].plot(range(data["numTimeSteps"] + 1), [soe.X for soe in state_of_energy], color="navy")
     axes[0].plot(
         range(data["numTimeSteps"] + 1),
         [data["stateOfEnergyLowerBound"]] * (data["numTimeSteps"] + 1),
         color="navy",
         linestyle="dashed",
-        label="SoE lb",
+        label="SoE Lower Bound",
     )
     axes[0].plot(
         range(data["numTimeSteps"] + 1),
         [data["stateOfEnergyUpperBound"]] * (data["numTimeSteps"] + 1),
         color="navy",
         linestyle="dashed",
-        label="SoE ub",
+        label="SoE Upper Bound",
     )
     axes[0].bar(
         [i + 0.5 for i in charging_indices],
         [cp.X for cp in charging_power],
         color="firebrick",
         width=1.0,
-        label="charging power",
+        label="Charging Power",
     )
     for energy_demand in data["energyDemand"]:
         axes[0].add_patch(
@@ -128,7 +131,7 @@ def plot_result(charging_indices, charging_power, state_of_energy, data):
     axes[0].set_xlim(0, data["numTimeSteps"])
     energy_time_steps = [0] + [i for i in range(1, data["numTimeSteps"]) for _ in (0, 1)] + [data["numTimeSteps"]]
     energy_price_values = [val for val in data["energyPrice"] for _ in (0, 1)]
-    axes[1].plot(energy_time_steps, energy_price_values, color="forestgreen", label="energy price")
+    axes[1].plot(energy_time_steps, energy_price_values, color="forestgreen", label="Energy Price")
     axes[1].set_xlim(0, data["numTimeSteps"])
     axes[1].legend()
     plt.show()

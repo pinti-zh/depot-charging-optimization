@@ -54,7 +54,7 @@ def main():
     # aux variables
     max_charging_power = model.addVar(name="maxChargingPower", vtype=GRB.CONTINUOUS, lb=0)
     for i, cp in zip(charging_indices, charging_power):
-        model.addConstr(max_charging_power >= cp, f"max_power_{i}")  # relaxed max constraint
+        model.addConstr(max_charging_power >= cp, f"maxPower_{i}")  # relaxed max constraint
 
     # constraints
     for i, energy_demand in enumerate(data["energyDemand"]):
