@@ -138,7 +138,7 @@ def print_variables(model):
         print(f"[bold]<=[/bold] {variable.UB}")
 
 
-def print_model_summary(opt_model, verbosity):
+def print_model_summary(opt_model, verbosity=1):
     if verbosity >= 1:
         opt_model.model.setParam("OutputFlag", 1)
         print("[bold]" + "=" * 100)
@@ -161,7 +161,7 @@ def print_model_summary(opt_model, verbosity):
         opt_model.model.setParam("OutputFlag", 0)
 
 
-def print_solution(opt_model, verbosity):
+def print_solution(opt_model, verbosity=1):
     if verbosity >= 2:
         soe_strings = list(map(lambda x: f"{x.X:.2f}", opt_model.state_of_energy))
         cp_strings = []
