@@ -33,13 +33,13 @@ def main():
     opt_model.set_objective()
 
     # display model
-    print_model_summary(opt_model, args.verbosity)
+    print_model_summary(opt_model, verbosity=args.verbosity)
 
     # solve
     opt_model.optimize()
 
     # print solution
-    print_solution(opt_model, args.verbosity)
+    print_solution(opt_model, verbosity=args.verbosity)
     plot_solution(opt_model)
 
 
