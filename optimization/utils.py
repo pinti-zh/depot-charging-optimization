@@ -8,6 +8,7 @@ from rich import print
 
 
 def print_params(data):
+    print("[bold]" + "=" * 100)
     print("[bold]Parameters:")
     print(f"  numTimeSteps: {data['numTimeSteps']}")
     print(f"  timeStepDuration: {data['timeStepDuration']}")
