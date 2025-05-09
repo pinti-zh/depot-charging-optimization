@@ -7,6 +7,14 @@ from matplotlib.patches import Rectangle
 from rich import print
 
 
+def get_list_start_string(values, num):
+    s = str(values[:num])
+    if len(values) <= num:
+        return s
+    else:
+        return s[:-1] + ", ...]"
+
+
 def print_params(data):
     print("[bold]" + "=" * 100)
     print("[bold]Parameters:")
@@ -16,7 +24,7 @@ def print_params(data):
     print(f"  maxChargingPower: {data['maxChargingPower']}")
     print(f"  stateOfEnergyLowerBound: {data['stateOfEnergyLowerBound']}")
     print(f"  stateOfEnergyUpperBound: {data['stateOfEnergyUpperBound']}")
-    print(f"  energyPrice: {len(data['energyPrice'])} Prices")
+    print(f"  energyPrice: {len(data['energyPrice'])} Prices: {get_list_start_string(data['energyPrice'], 5)}")
     print(f"  energyDemand: {[demand['value'] for demand in data['energyDemand']]}")
     print("[bold]" + "=" * 100)
 
