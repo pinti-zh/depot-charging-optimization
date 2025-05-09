@@ -97,8 +97,10 @@ class OptimizationModel:
 
 def charging_efficiency(cp, function_type, alpha, max_charging_power):
     match function_type:
-        case "constant":
+        case "one":
             return 1
+        case "constant":
+            return alpha
         case "quadratic":
             return 1 - alpha * (cp / max_charging_power) ** 2
         case _:
