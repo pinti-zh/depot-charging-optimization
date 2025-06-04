@@ -16,7 +16,7 @@ def main():
     parser.add_argument(
         "--verbosity", "-v", choices=[0, 1, 2], type=int, default=1, help="0 = only output, 1 = verbose, 2 = debug"
     )
-    parser.add_argument("--ce_function", "-cef", type=str, choices=["constant", "quadratic"], default="constant")
+    parser.add_argument("--ce_function", "-cef", type=str, choices=["constant", "quadratic", "one"], default="one")
     args = parser.parse_args()
 
     with open(args.data, "r") as f:
