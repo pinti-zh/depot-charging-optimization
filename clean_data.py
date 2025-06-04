@@ -35,6 +35,7 @@ def main():
     data = pl.read_csv(args.source, separator=args.sep, infer_schema=False)
 
     printr(f"loaded [magenta]{args.source}[/magenta]\n  {len(data.columns)} columns and {len(data)} rows")
+    printr("  head", data.head())
 
     none_value_placeholders = ["NA"]
     for col in data.columns:
