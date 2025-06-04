@@ -1,5 +1,6 @@
 import argparse
 import os
+from typing import Optional
 
 import polars as pl
 from rich import print as printr
@@ -14,6 +15,14 @@ def is_comma_float(string):
             return False
     else:
         return False
+
+
+def add_decimal_point_to_int(string):
+    try:
+        x = int(string)
+        return f"{x}.0"
+    except ValueError:
+        return string
 
 
 def main():
@@ -38,6 +47,9 @@ def main():
         if any(data[col].map_elements(is_comma_float, return_dtype=pl.Boolean)):
             found_comma_floats = True
             data = data.with_columns(pl.col(col).str.replace(",", "."))
+            data = data.with_columns(
+                pl.col(col).map_elements(add_decimal_point_to_int, return_dtype=Optional[pl.String])
+            )
         printr(f"    column [cyan]{col}[/cyan]  ", end="")
         if not (found_placeholder or found_comma_floats):
             printr("[bold green]ok")
