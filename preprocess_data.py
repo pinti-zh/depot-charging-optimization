@@ -26,6 +26,7 @@ def process_group(group, args):
             lambda x: x == group[args.capacity_column][0], return_dtype=pl.Boolean
         )
     )
+    battery_capacity = group[args.capacity_column][0]
 
     # assert chronological order
     for t1, t2 in zip(group[args.time_column], group[args.time_column][1:]):
@@ -123,6 +124,7 @@ def process_group(group, args):
         "depot_charge": depot_charge,
         "charge_amount": charge_amounts,
         "max_charging_power": max_charging_powers,
+        "battery_capacity": [battery_capacity] * len(times),
         "uid_switches": uid_switches,
     }
 
