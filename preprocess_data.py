@@ -34,12 +34,19 @@ def process_group(group, args):
     times = []
     energy_demands = []
     depot_charge = []
+    charge_amounts = []
+    max_charging_powers = []
     uid_switches = []
 
     # remove unnecessary rows at uid switches
     current_uid = None
-    for time, uid, energy_demand, step_type in zip(
-        group[args.time_column], group[args.cycle_id], group[args.demand_column], group[args.type_column]
+    for time, uid, energy_demand, step_type, charge_amount, max_charging_power in zip(
+        group[args.time_column],
+        group[args.cycle_id],
+        group[args.demand_column],
+        group[args.type_column],
+        group[args.charge_amount_column],
+        group[args.max_charging_power_column],
     ):
         if uid != current_uid:
             current_uid = uid
@@ -50,10 +57,14 @@ def process_group(group, args):
                 times = [time]
                 energy_demands = [0.0]
                 depot_charge = [True]
+                charge_amounts = [charge_amount]
+                max_charging_powers = [max_charging_power]
         else:
             times.append(time)
             energy_demands.append(energy_demand)
             depot_charge.append(step_type == "LadungDepot")
+            charge_amounts.append(charge_amount)
+            max_charging_powers.append(max_charging_power)
 
     assert len(times) == len(energy_demands) == len(depot_charge)
     assert times[0] < DAY
@@ -67,8 +78,15 @@ def process_group(group, args):
             ed_proportion = ((DAY - times[i - 1]) / dt, (times[i] - DAY) / dt)
             ed_1 = energy_demands[i] * ed_proportion[0]
             ed_2 = energy_demands[i] * ed_proportion[1]
-
             energy_demands = energy_demands[:i] + [ed_1, ed_2] + energy_demands[i + 1 :]
+
+            # adjust charge amounts
+            ca_1 = charge_amounts[i] * ed_proportion[0]
+            ca_2 = charge_amounts[i] * ed_proportion[1]
+            charge_amounts = charge_amounts[:i] + [ca_1, ca_2] + charge_amounts[i + 1 :]
+
+            # adjust max charging powers
+            max_charging_powers = max_charging_powers[:i] + [max_charging_powers[i]] + max_charging_powers[i:]
 
             # adjust depot charge
             depot_charge = depot_charge[:i] + [depot_charge[i]] + depot_charge[i:]
@@ -80,8 +98,11 @@ def process_group(group, args):
         times.append(DAY)
         energy_demands.append(0.0)
         depot_charge.append(True)
+        max_charging_powers.append(max(max_charging_powers))
+        left_over_charge = sum(energy_demands) - sum(charge_amounts)
+        charge_amounts.append(left_over_charge)
 
-    # modulo but keeps day instead of 0
+    # modulo but keeps DAY instead of 0
     times = list(map(lambda x: (x - 1) % DAY + 1, times))
     uid_switches = list(map(lambda x: (x - 1) % DAY + 1, uid_switches))
     uid_switches = sorted(uid_switches)
@@ -92,9 +113,18 @@ def process_group(group, args):
             times = times[i + 1 :] + times[: i + 1]
             energy_demands = energy_demands[i + 1 :] + energy_demands[: i + 1]
             depot_charge = depot_charge[i + 1 :] + depot_charge[: i + 1]
+            charge_amounts = charge_amounts[i + 1 :] + charge_amounts[: i + 1]
+            max_charging_powers = max_charging_powers[i + 1 :] + max_charging_powers[: i + 1]
             break
 
-    return times, energy_demands, depot_charge, uid_switches
+    return {
+        "time": times,
+        "energy_demand": energy_demands,
+        "depot_charge": depot_charge,
+        "charge_amount": charge_amounts,
+        "max_charging_power": max_charging_powers,
+        "uid_switches": uid_switches,
+    }
 
 
 def plot_processed_group(times, energy_demands, depot_charge, uid_switches, name="blank", plot_dir=""):
@@ -149,25 +179,21 @@ def plot_processed_group(times, energy_demands, depot_charge, uid_switches, name
     plt.show()
 
 
-def save_processed_group_to_csv(file_name, times, energy_demands, depot_charge, uid_switches):
+def save_processed_group_to_csv(file_name, data_dict):
     cycles = []
     cycle = 0
-    for time in times:
+    for time in data_dict["time"]:
         cycles.append(cycle)
-        if len(uid_switches) > cycle and time == uid_switches[cycle]:
+        if len(data_dict["uid_switches"]) > cycle and time == data_dict["uid_switches"][cycle]:
             cycle += 1
     cycles = list(map(lambda x: x % max(cycles), cycles))
 
-    df = pl.DataFrame(
-        {
-            "time": times,
-            "energy_demand": energy_demands,
-            "depot_charge": depot_charge,
-            "cycle": cycles,
-        }
-    )
-    df.write_csv(f"{file_name}.csv")
-    printr(f"    saved processed data to [green]{file_name}.csv")
+    del data_dict["uid_switches"]
+    data_dict["cycle"] = cycles
+
+    df = pl.DataFrame(data_dict)
+    df.write_csv(file_name)
+    printr(f"    saved processed data to [green]{file_name}")
 
 
 def main():
@@ -186,6 +212,15 @@ def main():
     parser.add_argument(
         "--capacity_column", type=str, default="Batteriekapazitaet", help="column containing battery capacity"
     )
+    parser.add_argument(
+        "--charge_amount_column", type=str, default="EffektiveLademenge", help="column containing charge amount"
+    )
+    parser.add_argument(
+        "--max_charging_power_column",
+        type=str,
+        default="Ladegeschwindigkeit",
+        help="column containing max charging power",
+    )
     args = parser.parse_args()
 
     data = pl.read_csv(args.source)
@@ -198,23 +233,30 @@ def main():
     for id, group in data.group_by(args.group_by, maintain_order=True):
         num_groups += 1
         printr(f"processing [cyan]{args.group_by}[/cyan] [dark_cyan]{id[0]}", end="")
-        times, energy_demands, depot_charge, uid_switches = process_group(group, args)
+        data_dict = process_group(group, args)
         try:
             eps = 1e-6
-            assert abs(group[args.demand_column].sum() - sum(energy_demands) < eps)
-            assert times[-1] == DAY
-            assert len(set(times)) == len(times)
-            assert len(times) == len(energy_demands) == len(depot_charge)
+            assert abs(group[args.demand_column].sum() - sum(data_dict["energy_demand"])) < eps
+            assert data_dict["time"][-1] == DAY
+            assert len(set(data_dict["time"])) == len(data_dict["time"])
+            assert abs(sum(data_dict["energy_demand"]) - sum(data_dict["charge_amount"])) < eps
+            for key, values in data_dict.items():
+                if key == "uid_switches":
+                    continue
+                assert len(data_dict["time"]) == len(values)
             num_successes += 1
             printr("  [bold green]ok")
             os.makedirs(args.target, exist_ok=True)
-            save_processed_group_to_csv(
-                f"{args.target}/{id[0]}.csv", times, energy_demands, depot_charge, uid_switches
-            )
+            save_processed_group_to_csv(f"{args.target}/{id[0]}.csv", data_dict)
             if args.plot:
                 os.makedirs(args.plot_dir, exist_ok=True)
                 plot_processed_group(
-                    times, energy_demands, depot_charge, uid_switches, name=id[0], plot_dir=args.plot_dir
+                    data_dict["time"],
+                    data_dict["energy_demand"],
+                    data_dict["depot_charge"],
+                    data_dict["uid_switches"],
+                    name=id[0],
+                    plot_dir=args.plot_dir,
                 )
         except AssertionError:
             printr("  [bold red]not ok [/bold red] | [orange1]skipping")
