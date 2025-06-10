@@ -136,7 +136,7 @@ def plot_processed_group(times, energy_demands, depot_charge, uid_switches, name
     )
     ax.set_ylim(ylim)
     ax.set_xlim(0.0, DAY)
-    ax.set_xlabel("Time [h]")
+    ax.set_xlabel("Time [s]")
     ax.set_ylabel("Power Demand [kW]")
     plt.legend()
     if len(uid_switches) == 1:
