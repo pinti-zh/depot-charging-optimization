@@ -120,11 +120,11 @@ def process_group(group, args):
 
     return {
         "time": times,
-        "energy_demand": energy_demands,
+        "energy_demand": [ed * 3.6e6 for ed in energy_demands],  # convert from kWh to J
         "depot_charge": depot_charge,
-        "charge_amount": charge_amounts,
-        "max_charging_power": max_charging_powers,
-        "battery_capacity": [battery_capacity] * len(times),
+        "charge_amount": [ca * 3.6e6 for ca in charge_amounts],  # convert from kWh to J
+        "max_charging_power": [mcp * 1.0e3 for mcp in max_charging_powers],  # convert from kW to W
+        "battery_capacity": [battery_capacity * 3.6e6] * len(times),  # convert from kWh to J
         "uid_switches": uid_switches,
     }
 
@@ -238,7 +238,7 @@ def main():
         data_dict = process_group(group, args)
         try:
             eps = 1e-6
-            assert abs(group[args.demand_column].sum() - sum(data_dict["energy_demand"])) < eps
+            assert abs(group[args.demand_column].sum() * 3.6e6 - sum(data_dict["energy_demand"])) < eps
             assert data_dict["time"][-1] == DAY
             assert len(set(data_dict["time"])) == len(data_dict["time"])
             assert abs(sum(data_dict["energy_demand"]) - sum(data_dict["charge_amount"])) < eps
