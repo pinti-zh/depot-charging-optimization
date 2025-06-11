@@ -1,42 +1,61 @@
+from functools import reduce
+from math import gcd
+
 import gurobipy as gp
 from gurobipy import GRB
 
+from optimization.utils import expand_df
+
 
 class OptimizationModel:
-    def __init__(self, data, name):
+    def __init__(self, data, energy_price, name, granularity="auto"):
         self.data = data
+        self.energy_price = energy_price
         self.name = name
+        self.granularity = granularity
         self.model = gp.Model(self.name)
         self.charing_indices = None
         self.charging_power = None
         self.state_of_energy = None
-        self.max_charging_power = None
+        self.dt = None
+        self.power_grid_tariff = 0.01
         self.solution = None
         self.vars_initialized = False
         self.constraints_initialized = False
         self.objective_initialized = False
 
     def set_variables(self):
+        all_times = list(self.data["time"]) + list(self.energy_price["time"])
+        if self.granularity == "auto":
+            self.dt = gcd_of_list(all_times)
+        else:
+            for t in all_times:
+                assert t % self.granularity == 0
+            self.dt = self.granularity
+
+        self.data = expand_df(self.data, "time", self.dt)
+        self.energy_price = expand_df(self.energy_price, "time", self.dt, no_interpolation=True)
+
         # charging mask
-        self.charging_indices = get_charging_indices(self.data["numTimeSteps"], self.data["energyDemand"])
+        self.charging_indices = [i for i in range(len(self.data)) if self.data["depot_charge"][i]]
 
         # decision variables
         self.charging_power = []
         for i in self.charging_indices:
             self.charging_power.append(
                 self.model.addVar(
-                    name=f"chargingPower_{i}", vtype=GRB.CONTINUOUS, lb=0, ub=self.data["maxChargingPower"]
+                    name=f"chargingPower_{i}", vtype=GRB.CONTINUOUS, lb=0, ub=self.data["max_charging_power"][i] / 3600
                 )
             )
 
         self.state_of_energy = []
-        for i in range(self.data["numTimeSteps"] + 1):
+        for i in range(len(self.data) + 1):
             self.state_of_energy.append(
                 self.model.addVar(
                     name=f"stateOfEnergy_{i}",
                     vtype=GRB.CONTINUOUS,
-                    lb=self.data["stateOfEnergyLowerBound"],
-                    ub=self.data["stateOfEnergyUpperBound"],
+                    lb=self.data["battery_capacity"][0] * 0.2,
+                    ub=self.data["battery_capacity"][0] * 0.8,
                 )
             )
 
@@ -51,23 +70,24 @@ class OptimizationModel:
         if not self.vars_initialized:
             raise ValueError("Variables must be initialized before constraints")
 
-        for i, energy_demand in enumerate(self.data["energyDemand"]):
-            self.model.addConstr(
-                self.state_of_energy[energy_demand["end"]]
-                == self.state_of_energy[energy_demand["start"]] - energy_demand["value"],
-                f"energyDemand_{i}",
-            )
+        for i, v in enumerate(zip(self.data["depot_charge"], self.data["energy_demand"])):
+            depot_charge, energy_demand = v
+            if not depot_charge:
+                self.model.addConstr(
+                    self.state_of_energy[i + 1] == self.state_of_energy[i] - energy_demand,
+                    f"energyDemand_{i}",
+                )
         for i, cp in zip(self.charging_indices, self.charging_power):
             self.model.addConstr(
                 self.state_of_energy[i + 1]
                 == self.state_of_energy[i]
-                + charging_efficiency(cp, ce_function_type, alpha, self.data["maxChargingPower"])
+                + charging_efficiency(cp, ce_function_type, alpha, self.data["max_charging_power"][i] / 3600)
                 * cp
-                * self.data["timeStepDuration"],
+                * self.dt,
                 f"charging_{i}",
             )
 
-        self.model.addConstr(self.state_of_energy[0] <= self.state_of_energy[self.data["numTimeSteps"]], "energyLoop")
+        self.model.addConstr(self.state_of_energy[0] <= self.state_of_energy[len(self.data)], "energyLoop")
 
         self.constraints_initialized = True
 
@@ -76,10 +96,10 @@ class OptimizationModel:
             raise ValueError("Constraints must be initialized before objective")
         self.model.setObjective(
             gp.quicksum(
-                self.data["energyPrice"][i] * cp * self.data["timeStepDuration"]
+                self.energy_price["energy_price"][i] * cp * self.dt
                 for i, cp in zip(self.charging_indices, self.charging_power)
             )
-            + self.max_charging_power * self.data["powerGridTariff"],
+            + self.max_charging_power * self.power_grid_tariff,
             GRB.MINIMIZE,
         )
 
@@ -113,3 +133,8 @@ def get_charging_indices(num_timesteps, energy_demands):
         for i in range(energy_demand["start"], energy_demand["end"]):
             non_charging_indices.append(i)
     return [i for i in range(num_timesteps) if i not in non_charging_indices]
+
+
+def gcd_of_list(values):
+    assert len(values) >= 2
+    return reduce(gcd, values)

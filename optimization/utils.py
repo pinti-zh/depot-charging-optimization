@@ -1,6 +1,7 @@
 import re
 
 import matplotlib.pyplot as plt
+import polars as pl
 import seaborn as sns
 from gurobipy import GRB
 from matplotlib.patches import Rectangle
@@ -30,53 +31,76 @@ def print_params(data):
 
 
 def plot_solution(opt_model):
-    sns.set_style("darkgrid")
+    num_time_steps = len(opt_model.data)
+    time_steps = [i * opt_model.dt for i in range(num_time_steps + 1)]
+    cap = opt_model.data["battery_capacity"][0]
+    sns.set_style("dark")
     fig, axes = plt.subplots(2, height_ratios=[2, 1], figsize=(12, 8))
-    plt.tight_layout()
     fig.subplots_adjust(top=0.92)
     fig.suptitle("Optimization Result", fontsize=16)
-    axes[0].plot(range(opt_model.data["numTimeSteps"] + 1), [soe.X for soe in opt_model.state_of_energy], color="navy")
+    twin_axis = axes[0].twinx()
+    twin_axis.bar(
+        [(i + 0.5) * opt_model.dt for i in opt_model.charging_indices],
+        [cp.X * 3600 for cp in opt_model.charging_power],
+        color="forestgreen",
+        width=opt_model.dt,
+        label="Charging Power",
+        zorder=1.2,
+    )
     axes[0].plot(
-        range(opt_model.data["numTimeSteps"] + 1),
-        [opt_model.data["stateOfEnergyLowerBound"]] * (opt_model.data["numTimeSteps"] + 1),
+        time_steps,
+        [soe.X for soe in opt_model.state_of_energy],
+        color="navy",
+    )
+    axes[0].plot(
+        time_steps,
+        [cap * 0.2] * (num_time_steps + 1),
         color="navy",
         linestyle="dashed",
         label="SoE Lower Bound",
     )
     axes[0].plot(
-        range(opt_model.data["numTimeSteps"] + 1),
-        [opt_model.data["stateOfEnergyUpperBound"]] * (opt_model.data["numTimeSteps"] + 1),
+        time_steps,
+        [cap * 0.8] * (num_time_steps + 1),
         color="navy",
         linestyle="dashed",
         label="SoE Upper Bound",
     )
-    axes[0].bar(
-        [i + 0.5 for i in opt_model.charging_indices],
-        [cp.X for cp in opt_model.charging_power],
-        color="firebrick",
-        width=1.0,
-        label="Charging Power",
-    )
-    for energy_demand in opt_model.data["energyDemand"]:
-        axes[0].add_patch(
-            Rectangle(
-                (energy_demand["start"], 0),
-                energy_demand["end"] - energy_demand["start"],
-                100,
-                color="firebrick",
-                alpha=0.2,
-            )
+    for time, mcp in zip(opt_model.data["time"], opt_model.data["max_charging_power"]):
+        twin_axis.plot(
+            [time - opt_model.dt, time],
+            [mcp, mcp],
+            color="forestgreen",
         )
+    for time, depot_charge in zip(opt_model.data["time"], opt_model.data["depot_charge"]):
+        if depot_charge and False:
+            axes[0].add_patch(
+                Rectangle((time - opt_model.dt, 0), opt_model.dt, cap, color="forestgreen", alpha=0.2, linewidth=None)
+            )
+    # for energy_demand in opt_model.data["energyDemand"]:
+    # axes[0].add_patch(
+    # Rectangle(
+    # (energy_demand["start"], 0),
+    # energy_demand["end"] - energy_demand["start"],
+    # 100,
+    # color="firebrick",
+    # alpha=0.2,
+    # )
+    # )
     axes[0].legend()
-    axes[0].set_ylim(0, 100)
-    axes[0].set_xlim(0, opt_model.data["numTimeSteps"])
-    energy_time_steps = (
-        [0] + [i for i in range(1, opt_model.data["numTimeSteps"]) for _ in (0, 1)] + [opt_model.data["numTimeSteps"]]
-    )
-    energy_price_values = [val for val in opt_model.data["energyPrice"] for _ in (0, 1)]
-    axes[1].plot(energy_time_steps, energy_price_values, color="forestgreen", label="Energy Price")
-    axes[1].set_xlim(0, opt_model.data["numTimeSteps"])
+    twin_axis.legend()
+    axes[0].set_ylim(0, cap)
+    axes[0].set_xlim(0, max(opt_model.data["time"]))
+    axes[0].set_xlabel("Time [s]")
+    axes[0].set_ylabel("SoE [kWh]")
+    twin_axis.set_ylabel("Charing Power [kW]")
+    energy_time_steps = [0] + [t for t in time_steps[1:-1] for _ in (0, 1)] + [time_steps[-1]]
+    energy_price_values = [val for val in opt_model.energy_price["energy_price"] for _ in (0, 1)]
+    axes[1].plot(energy_time_steps, energy_price_values, color="darkmagenta", label="Energy Price")
+    axes[1].set_xlim(0, max(opt_model.data["time"]))
     axes[1].legend()
+    axes[1].set_xlabel("Time [s]")
+    axes[1].set_ylabel("Price [Chf]")
     plt.show()
 
 
@@ -166,9 +190,9 @@ def print_solution(opt_model, verbosity=1):
         soe_strings = list(map(lambda x: f"{x.X:.2f}", opt_model.state_of_energy))
         cp_strings = []
         cp_index = 0
-        for i in range(opt_model.data["numTimeSteps"]):
+        for i in range(len(opt_model.data)):
             if i in opt_model.charging_indices:
-                cp_strings.append(f"{opt_model.charging_power[cp_index].X:.2f}")
+                cp_strings.append(f"{opt_model.charging_power[cp_index].X:.4f}")
                 cp_index += 1
             else:
                 cp_strings.append(" ")
@@ -181,12 +205,14 @@ def print_solution(opt_model, verbosity=1):
         for cp_string in cp_strings:
             buffer = " " * (max_string_len - len(cp_string))
             print(f"[bold red]{' ' * max_string_len}{buffer}{cp_string}", end="")
-        print(f"[bold red]{' ' * max_string_len} -> {sum([cp.X for cp in opt_model.charging_power]):.2f}")
+        print(
+            f"[bold red]{' ' * max_string_len} -> {sum([cp.X * opt_model.dt for cp in opt_model.charging_power]):.2f}kWh"
+        )
         print("[bold]" + "-" * 100)
     if verbosity >= 1:
-        grid_cost = opt_model.max_charging_power.X * opt_model.data["powerGridTariff"]
+        grid_cost = opt_model.max_charging_power.X * opt_model.power_grid_tariff
         energy_cost = sum(
-            opt_model.data["energyPrice"][i] * cp.X * opt_model.data["timeStepDuration"]
+            opt_model.energy_price["energy_price"][i] * cp.X * opt_model.dt
             for i, cp in zip(opt_model.charging_indices, opt_model.charging_power)
         )
         print(f"Energy Cost:        [bold green]{energy_cost:.2f}$")
@@ -195,3 +221,28 @@ def print_solution(opt_model, verbosity=1):
         print(f"Total Optimal Cost: [bold green]{opt_model.model.ObjVal:.2f}$")
     else:
         print(opt_model.solution)
+
+
+def expand_df(df, time_col_name, granularity, no_interpolation=False):
+    expanded = {}
+    for col in df.columns:
+        if col == time_col_name:
+            continue
+        expanded[col] = []
+        last_time = 0
+        for time, value in zip(df[time_col_name], df[col]):
+            nums = (time - last_time) // granularity
+            if no_interpolation or col == "battery_capacity":
+                granular_value = value
+            elif isinstance(value, float):
+                granular_value = value / nums
+            elif isinstance(value, int):
+                granular_value = value
+            elif isinstance(value, bool):
+                granular_value = value
+            else:
+                raise ValueError(f"Invalid value type: {type(value)}")
+            expanded[col] += [granular_value] * nums
+            last_time = time
+    expanded[time_col_name] = [(i + 1) * granularity for i in range(max(df[time_col_name]) // granularity)]
+    return pl.DataFrame(expanded)
