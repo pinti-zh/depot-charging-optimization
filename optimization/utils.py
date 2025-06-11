@@ -2,7 +2,6 @@ import re
 from typing import Iterable, TypeVar
 
 import matplotlib.pyplot as plt
-import polars as pl
 import seaborn as sns
 from gurobipy import GRB
 from matplotlib.patches import Rectangle
@@ -11,26 +10,12 @@ from rich import print
 T = TypeVar("T")
 
 
-def get_list_start_string(values, num):
+def list_start_string(values: Iterable, num: int):
     s = str(values[:num])
     if len(values) <= num:
         return s
     else:
         return s[:-1] + ", ...]"
-
-
-def print_params(data):
-    print("[bold]" + "=" * 100)
-    print("[bold]Parameters:")
-    print(f"  numTimeSteps: {data['numTimeSteps']}")
-    print(f"  timeStepDuration: {data['timeStepDuration']}")
-    print(f"  powerGridTariff: {data['powerGridTariff']}")
-    print(f"  maxChargingPower: {data['maxChargingPower']}")
-    print(f"  stateOfEnergyLowerBound: {data['stateOfEnergyLowerBound']}")
-    print(f"  stateOfEnergyUpperBound: {data['stateOfEnergyUpperBound']}")
-    print(f"  energyPrice: {len(data['energyPrice'])} Prices: {get_list_start_string(data['energyPrice'], 5)}")
-    print(f"  energyDemand: {[demand['value'] for demand in data['energyDemand']]}")
-    print("[bold]" + "=" * 100)
 
 
 def plot_solution(opt_model):
@@ -80,16 +65,6 @@ def plot_solution(opt_model):
             axes[0].add_patch(
                 Rectangle((time - opt_model.dt, 0), opt_model.dt, cap, color="forestgreen", alpha=0.2, linewidth=None)
             )
-    # for energy_demand in opt_model.data["energyDemand"]:
-    # axes[0].add_patch(
-    # Rectangle(
-    # (energy_demand["start"], 0),
-    # energy_demand["end"] - energy_demand["start"],
-    # 100,
-    # color="firebrick",
-    # alpha=0.2,
-    # )
-    # )
     axes[0].legend()
     twin_axis.legend()
     axes[0].set_ylim(0, cap)
@@ -226,34 +201,10 @@ def print_solution(opt_model, verbosity=1):
         print(opt_model.solution)
 
 
-def expand_df(df, time_col_name, granularity, no_interpolation=False):
-    expanded = {}
-    for col in df.columns:
-        if col == time_col_name:
-            continue
-        expanded[col] = []
-        last_time = 0
-        for time, value in zip(df[time_col_name], df[col]):
-            nums = (time - last_time) // granularity
-            if no_interpolation or col == "battery_capacity":
-                granular_value = value
-            elif isinstance(value, float):
-                granular_value = value / nums
-            elif isinstance(value, int):
-                granular_value = value
-            elif isinstance(value, bool):
-                granular_value = value
-            else:
-                raise ValueError(f"Invalid value type: {type(value)}")
-            expanded[col] += [granular_value] * nums
-            last_time = time
-    expanded[time_col_name] = [(i + 1) * granularity for i in range(max(df[time_col_name]) // granularity)]
-    return pl.DataFrame(expanded)
-
-
 def expand_values(time: Iterable[int], values: Iterable[T], granularity: int, interpolation: str = "same") -> list[T]:
     expanded_values = []
     current_time = 0
+    current_value = 0
     for t, v in zip(time, values):
         assert t >= current_time
         assert t % granularity == 0
@@ -261,10 +212,22 @@ def expand_values(time: Iterable[int], values: Iterable[T], granularity: int, in
         current_time = t
         if interpolation == "same":
             expanded_values += [v] * num
-        elif interpolation == "linear" and type(v) in [float, int]:
+        elif interpolation == "split" and type(v) in [float, int]:
             ev = v / num
+            if isinstance(v, int):
+                ev = int(ev)
+            else:
+                ev = float(ev)
             assert ev * num == v
             expanded_values += [ev] * num
+        elif interpolation == "linear" and type(v) in [float, int]:
+            unit = (v - current_value) / num
+            if isinstance(v, int):
+                unit = int(unit)
+            else:
+                unit = float(unit)
+            expanded_values += [current_value + unit * (i + 1) for i in range(num)]
+            current_value = v
         else:
             raise ValueError(f"Invalid interpolation type: {interpolation} with type {type(v)}")
     return expanded_values

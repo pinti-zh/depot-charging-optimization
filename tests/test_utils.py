@@ -19,14 +19,16 @@ class TestExpandValues:
         values = [2, 4]
         assert expand_values(time, values, 120) == [2, 4]
         assert expand_values(time, values, 60) == [2, 2, 4, 4]
-        assert expand_values(time, values, 60, interpolation="linear") == [1, 1, 2, 2]
+        assert expand_values(time, values, 60, interpolation="split") == [1, 1, 2, 2]
+        assert expand_values(time, values, 60, interpolation="linear") == [1, 2, 3, 4]
 
     def test_float(self):
         time = [120, 240]
         values = [2.4, 3.6]
         assert expand_values(time, values, 120) == [2.4, 3.6]
         assert expand_values(time, values, 60) == [2.4, 2.4, 3.6, 3.6]
-        assert expand_values(time, values, 60, interpolation="linear") == [1.2, 1.2, 1.8, 1.8]
+        assert expand_values(time, values, 60, interpolation="split") == [1.2, 1.2, 1.8, 1.8]
+        assert expand_values(time, values, 60, interpolation="linear") == [1.2, 2.4, 3.0, 3.6]
 
 
 class TestNaturalKeysSorting:
