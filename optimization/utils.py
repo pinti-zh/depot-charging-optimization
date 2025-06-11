@@ -1,4 +1,5 @@
 import re
+from typing import Iterable, TypeVar
 
 import matplotlib.pyplot as plt
 import polars as pl
@@ -6,6 +7,8 @@ import seaborn as sns
 from gurobipy import GRB
 from matplotlib.patches import Rectangle
 from rich import print
+
+T = TypeVar("T")
 
 
 def get_list_start_string(values, num):
@@ -246,3 +249,22 @@ def expand_df(df, time_col_name, granularity, no_interpolation=False):
             last_time = time
     expanded[time_col_name] = [(i + 1) * granularity for i in range(max(df[time_col_name]) // granularity)]
     return pl.DataFrame(expanded)
+
+
+def expand_values(time: Iterable[int], values: Iterable[T], granularity: int, interpolation: str = "same") -> list[T]:
+    expanded_values = []
+    current_time = 0
+    for t, v in zip(time, values):
+        assert t >= current_time
+        assert t % granularity == 0
+        num = (t - current_time) // granularity
+        current_time = t
+        if interpolation == "same":
+            expanded_values += [v] * num
+        elif interpolation == "linear" and type(v) in [float, int]:
+            ev = v / num
+            assert ev * num == v
+            expanded_values += [ev] * num
+        else:
+            raise ValueError(f"Invalid interpolation type: {interpolation} with type {type(v)}")
+    return expanded_values
