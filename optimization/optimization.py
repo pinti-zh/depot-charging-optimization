@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Optional, Tuple
 
 import gurobipy as gp
@@ -6,6 +7,19 @@ import polars as pl
 from gurobipy import GRB
 
 from optimization.utils import list_start_string, partial_sums
+
+
+@dataclass
+class OptimizationResult:
+    total_cost: float
+    energy_cost: float
+    power_cost: int = 0
+
+    def __repr__(self):
+        return f"{self.total_cost:.3f}$ ({self.energy_cost:.3f}$ + {self.power_cost:.3f}$)"
+
+    def __str__(self):
+        return self.__repr__()
 
 
 class OptimizationInput:
@@ -65,6 +79,46 @@ class OptimizationInput:
                     return False, "not enough battery capacity"
 
         return True, ""
+
+    def naive_greedy_solution(self) -> OptimizationResult:
+        current_dc = self.depot_charge[0]
+        start = None
+        if current_dc:
+            switches = 1
+        else:
+            switches = 0
+        for i, dc in enumerate(self.depot_charge):
+            if dc != current_dc:
+                current_dc = dc
+                switches += 1
+            if switches >= 2:
+                start = i
+                break
+        assert start is not None
+
+        depot_charge = np.concatenate([self.depot_charge[start:], self.depot_charge[:start]])
+        max_charging_power = np.concatenate([self.max_charging_power[start:], self.max_charging_power[:start]])
+        energy_demand = np.concatenate([self.energy_demand[start:], self.energy_demand[:start]])
+        energy_price = np.concatenate([self.energy_price[start:], self.energy_price[:start]])
+
+        relative_soe = 0.0
+        max_depot_charging_power = 0.0
+        cumulative_ep = 0.0
+
+        for dc, mcp, ed, ep in zip(depot_charge, max_charging_power, energy_demand, energy_price):
+            if dc:
+                if relative_soe < 0.0:
+                    relative_soe = min(0.0, relative_soe + mcp * self.dt)
+                    max_depot_charging_power = max(mcp, max_depot_charging_power)
+                    cumulative_ep += min(-relative_soe * ep, mcp * self.dt * ep)
+            else:
+                relative_soe -= ed
+
+        return OptimizationResult(
+            total_cost=cumulative_ep + max_depot_charging_power * self.grid_tariff,
+            energy_cost=cumulative_ep,
+            power_cost=max_depot_charging_power * self.grid_tariff,
+        )
 
 
 class OptimizationModel:
@@ -158,15 +212,20 @@ class OptimizationModel:
 
         self.objective_initialized = True
 
-    def solve(self) -> Optional[float]:
+    def solve(self) -> Optional[OptimizationResult]:
         if not self.objective_initialized:
             raise ValueError("Objective must be initialized before optimization")
         self.model.optimize()
         try:
             self.solution = self.model.ObjVal
+            power_cost = self.mcp.X * self.opt_input.grid_tariff
+            energy_cost = sum(
+                self.opt_input.energy_price[i] * cp.X * self.opt_input.dt
+                for i, cp in zip(self.charging_indices, self.charging_power)
+            )
         except AttributeError:
-            self.solution = None
-        return self.solution
+            return None
+        return OptimizationResult(self.solution, energy_cost, power_cost)
 
     def get_charging_power(self) -> np.ndarray[np.float64]:
         charging_power = np.zeros(self.opt_input.num)

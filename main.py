@@ -67,7 +67,8 @@ def main():
     if solution is None:
         printr("[orange1]no solution found")
     else:
-        printr(f"[green]found solution with objective value: {solution:.2f}")
+        printr(f"[green]found solution with objective value: {solution}")
+        printr(f"              [navajo_white3]naive greedy solution: {opt_input.naive_greedy_solution()}")
 
     if solution is not None and args.plot:
         sns.set_style("darkgrid")
