@@ -1,11 +1,11 @@
-from typing import Optional
+from typing import Optional, Tuple
 
 import gurobipy as gp
 import numpy as np
 import polars as pl
 from gurobipy import GRB
 
-from optimization.utils import list_start_string
+from optimization.utils import list_start_string, partial_sums
 
 
 class OptimizationInput:
@@ -21,6 +21,8 @@ class OptimizationInput:
         self.num: int = len(data)
         self.dt: int = data["time"][0]
         self.battery_capacity: float = float(data["battery_capacity"][0])
+        self.soe_lb: float = self.battery_capacity * 0.2
+        self.soe_ub: float = self.battery_capacity * 0.8
         self.grid_tariff: float = grid_tariff
 
         self.energy_demand: np.ndarray[np.float64] = data["energy_demand"].to_numpy()
@@ -44,6 +46,25 @@ class OptimizationInput:
 
     def __str__(self) -> str:
         return self.__repr__()
+
+    def is_feasible(self) -> Tuple[bool, str]:
+        energy_deltas = []
+        for dc, mcp, ed in zip(self.depot_charge, self.max_charging_power, self.energy_demand):
+            if dc:
+                energy_deltas.append(mcp * self.dt)
+            else:
+                energy_deltas.append(-ed)
+
+        if sum(energy_deltas) < 0.0:
+            return False, "not enough time to charge"
+
+        demand_indices = [i for i, dc in enumerate(self.depot_charge) if not dc]
+        for i, start in enumerate(demand_indices):
+            for stop in demand_indices[i:]:
+                if any(x < -(self.soe_ub - self.soe_lb) for x in partial_sums(energy_deltas[start : stop + 1])):
+                    return False, "not enough battery capacity"
+
+        return True, ""
 
 
 class OptimizationModel:
@@ -82,10 +103,7 @@ class OptimizationModel:
         for i in range(self.opt_input.num + 1):
             self.state_of_energy.append(
                 self.model.addVar(
-                    name=f"stateOfEnergy_{i}",
-                    vtype=GRB.CONTINUOUS,
-                    lb=self.opt_input.battery_capacity * 0.2,
-                    ub=self.opt_input.battery_capacity * 0.8,
+                    name=f"stateOfEnergy_{i}", vtype=GRB.CONTINUOUS, lb=self.opt_input.soe_lb, ub=self.opt_input.soe_ub
                 )
             )
 

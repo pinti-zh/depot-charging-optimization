@@ -12,6 +12,13 @@ def list_start_string(values: Iterable, num: int) -> str:
         return s[:-1] + ", ...]"
 
 
+def partial_sums(iterable: Iterable) -> Iterable:
+    total = 0
+    for i in iterable:
+        total += i
+        yield total
+
+
 def atoi(text: str) -> int | str:
     return int(text) if text.isdigit() else text
 

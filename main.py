@@ -24,6 +24,7 @@ def main():
     parser.add_argument("--data", "-d", type=str, required=True, help="path to data file")
     parser.add_argument("--energy_price", "-ep", type=str, default="data/energy_price.csv", help="energy price file")
     parser.add_argument("--ce_function", "-cef", type=str, choices=["constant", "quadratic", "one"], default="one")
+    parser.add_argument("--plot", "-p", action="store_true", help="plot results")
     args = parser.parse_args()
 
     data = pl.read_csv(args.data)
@@ -50,6 +51,9 @@ def main():
 
     # optimization
     opt_input = OptimizationInput(data, energy_price, 1.0)
+    ok, reason = opt_input.is_feasible()
+    if not ok:
+        printr(f"[gold1]optimization input is not feasible: {reason}")
     opt_model = OptimizationModel(opt_input)
     opt_model.set_variables()
     opt_model.set_constraints(ce_function_type=args.ce_function)
@@ -59,11 +63,11 @@ def main():
     solution = opt_model.solve()
 
     if solution is None:
-        printr("[gold1]no solution found")
+        printr("[orange1]no solution found")
     else:
         printr(f"[green]found solution with objective value: {solution:.2f}")
 
-    if solution is not None:
+    if solution is not None and args.plot:
         sns.set_style("darkgrid")
         _, axes = plt.subplots(3)
         soe = opt_model.get_state_of_energy()
