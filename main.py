@@ -1,5 +1,6 @@
 import argparse
 from functools import reduce
+from itertools import groupby
 from math import gcd
 
 import matplotlib.pyplot as plt
@@ -8,7 +9,7 @@ import seaborn as sns
 from rich import print as printr
 
 from optimization.optimization import OptimizationInput, OptimizationModel
-from optimization.utils import expand_values
+from optimization.utils import expand_values, partial_sums
 
 
 def get_interval_time_series(time):
@@ -29,6 +30,7 @@ def main():
 
     data = pl.read_csv(args.data)
     energy_price = pl.read_csv(args.energy_price)
+    energy_price = energy_price.with_columns(pl.col("energy_price").truediv(3.6e6))
 
     dt = reduce(gcd, list(data["time"]) + list(energy_price["time"]))
     data = pl.DataFrame(
@@ -50,7 +52,7 @@ def main():
     )
 
     # optimization
-    opt_input = OptimizationInput(data, energy_price, 1.0)
+    opt_input = OptimizationInput(data, energy_price, 0.2e-3)
     ok, reason = opt_input.is_feasible()
     if not ok:
         printr(f"[gold1]optimization input is not feasible: {reason}")
@@ -70,18 +72,27 @@ def main():
     if solution is not None and args.plot:
         sns.set_style("darkgrid")
         _, axes = plt.subplots(3)
-        soe = opt_model.get_state_of_energy()
-        charging_power = opt_model.get_charging_power()
+
+        joule_to_kwh = 1.0 / 3.6e6
+
+        soe = opt_model.get_state_of_energy() * joule_to_kwh
+        charging_power = opt_model.get_charging_power() / 1000.0
         energy_price_twice = []
         for ep in energy_price["energy_price"]:
-            energy_price_twice += [ep, ep]
+            energy_price_twice += [ep / joule_to_kwh, ep / joule_to_kwh]
+
+        # plot state of energy
         axes[0].plot([0] + list(data["time"]), soe, c="navy", label="SoE")
         axes[0].plot(
-            [0, 86400], 2 * [opt_input.battery_capacity * 0.0], c="navy", linestyle="dashed", label="SoE Lower Bound"
+            [0, 86400], 2 * [opt_input.soe_lb * joule_to_kwh], c="navy", linestyle="dashed", label="SoE Lower Bound"
         )
         axes[0].plot(
-            [0, 86400], 2 * [opt_input.battery_capacity * 1.0], c="navy", linestyle="dashed", label="SoE Upper Bound"
+            [0, 86400], 2 * [opt_input.soe_ub * joule_to_kwh], c="navy", linestyle="dashed", label="SoE Upper Bound"
         )
+        axes[0].set_ylabel("SoE [kWh]")
+        axes[0].set_ylim(0, opt_input.battery_capacity * joule_to_kwh)
+
+        # plot charging power
         axes[1].bar(
             [t - opt_input.dt / 2 for t in data["time"]],
             charging_power,
@@ -90,7 +101,28 @@ def main():
             label="Charging Power",
             edgecolor="none",
         )
+        axes[1].set_ylabel("Charging Power [kW]")
+        axes[1].set_ylim(0, max(opt_input.max_charging_power) / 1000.0)
+
+        # plot energy price
         axes[2].plot(get_interval_time_series(data["time"]), energy_price_twice, c="maroon", label="Energy Price")
+        axes[2].set_ylabel("Energy Price [$/kWh]")
+        axes[2].set_ylim(min(energy_price_twice) * 0.9, max(energy_price_twice) * 1.1)
+
+        # plot depot charge intervals
+        dc_dups = [sum(1 for _ in group) for _, group in groupby(data["depot_charge"])]
+        dup_intervals = [
+            (i * opt_input.dt, j * opt_input.dt)
+            for i, j in zip(partial_sums([0] + dc_dups[:-1]), partial_sums(dc_dups))
+        ]
+        if data["depot_charge"][0]:
+            dup_intervals = dup_intervals[::2]
+        else:
+            dup_intervals = dup_intervals[1::2]
+        for t1, t2 in dup_intervals:
+            for ax in axes:
+                ax.axvspan(t1, t2, color="forestgreen", alpha=0.2)
+
         for ax in axes:
             ax.legend()
             ax.set_xlim(0, 86400)
