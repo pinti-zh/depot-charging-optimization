@@ -151,7 +151,10 @@ class OptimizationModel:
         return self.solution
 
     def get_charging_power(self) -> np.ndarray[np.float64]:
-        return np.array([cp.X for cp in self.charging_power])
+        charging_power = np.zeros(self.opt_input.num)
+        for i, cp in zip(self.charging_indices, self.charging_power):
+            charging_power[i] = cp.X
+        return charging_power
 
     def get_state_of_energy(self) -> np.ndarray[np.float64]:
         return np.array([soe.X for soe in self.state_of_energy])
