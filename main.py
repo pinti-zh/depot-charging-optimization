@@ -102,7 +102,9 @@ def main():
             edgecolor="none",
         )
         axes[1].set_ylabel("Charging Power [kW]")
-        axes[1].set_ylim(0, max(opt_input.max_charging_power) / 1000.0)
+        axes[1].set_ylim(
+            0, max([mcp for dc, mcp in zip(opt_input.depot_charge, opt_input.max_charging_power) if dc]) / 1000.0
+        )
 
         # plot energy price
         axes[2].plot(get_interval_time_series(data["time"]), energy_price_twice, c="maroon", label="Energy Price")

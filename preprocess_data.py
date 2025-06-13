@@ -39,6 +39,17 @@ def process_group(group, args):
     max_charging_powers = []
     uid_switches = []
 
+    try:
+        max_depot_charging_power = max(
+            [
+                mcp
+                for dc, mcp in zip(group[args.type_column], group[args.max_charging_power_column])
+                if dc == "LadungDepot"
+            ]
+        )
+    except ValueError:
+        max_depot_charging_power = 150
+
     # remove unnecessary rows at uid switches
     current_uid = None
     for time, uid, energy_demand, step_type, charge_amount, max_charging_power in zip(
@@ -59,7 +70,7 @@ def process_group(group, args):
                 energy_demands = [0.0]
                 depot_charge = [True]
                 charge_amounts = [charge_amount]
-                max_charging_powers = [max_charging_power]
+                max_charging_powers = [max_depot_charging_power]
         else:
             times.append(time)
             energy_demands.append(energy_demand)
@@ -99,7 +110,7 @@ def process_group(group, args):
         times.append(DAY)
         energy_demands.append(0.0)
         depot_charge.append(True)
-        max_charging_powers.append(max(max_charging_powers))
+        max_charging_powers.append(max_depot_charging_power)
         left_over_charge = sum(energy_demands) - sum(charge_amounts)
         charge_amounts.append(left_over_charge)
 
