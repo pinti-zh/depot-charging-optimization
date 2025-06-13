@@ -18,13 +18,14 @@ class TestOptimization:
         grid_tariff = 4.0
 
         opt_input = OptimizationInput(data, energy_price, grid_tariff)
+        assert opt_input.is_feasible()[0]
         opt_model = OptimizationModel(opt_input)
         opt_model.set_variables()
         opt_model.set_constraints()
         opt_model.set_objective()
 
         solution = opt_model.solve()
-        for expected, value in zip([6.0, 0.0], opt_model.get_charging_power()):
+        for expected, value in zip([6.0, 0.0, 0.0], opt_model.get_charging_power()):
             assert expected == value
         assert solution == 54.0
 
@@ -42,13 +43,14 @@ class TestOptimization:
         grid_tariff = 6.0
 
         opt_input = OptimizationInput(data, energy_price, grid_tariff)
+        assert opt_input.is_feasible()[0]
         opt_model = OptimizationModel(opt_input)
         opt_model.set_variables()
         opt_model.set_constraints()
         opt_model.set_objective()
 
         solution = opt_model.solve()
-        for expected, value in zip([3.0, 3.0], opt_model.get_charging_power()):
+        for expected, value in zip([3.0, 0.0, 3.0], opt_model.get_charging_power()):
             assert expected == value
         assert solution == 63.0
 
@@ -66,6 +68,7 @@ class TestOptimization:
         grid_tariff = 4.0
 
         opt_input = OptimizationInput(data, energy_price, grid_tariff)
+        assert opt_input.is_feasible() == (False, "not enough time to charge")
         opt_model = OptimizationModel(opt_input)
         opt_model.set_variables()
         opt_model.set_constraints()
