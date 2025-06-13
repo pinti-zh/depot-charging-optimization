@@ -4,7 +4,7 @@ from typing import Iterable, TypeVar
 T = TypeVar("T")
 
 
-def list_start_string(values: Iterable, num: int):
+def list_start_string(values: Iterable, num: int) -> str:
     s = str(values[:num])
     if len(values) <= num:
         return s
