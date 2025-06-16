@@ -72,7 +72,7 @@ def main():
 
     if solution is not None and args.plot:
         sns.set_style("darkgrid")
-        _, axes = plt.subplots(3)
+        _, axes = plt.subplots(3, figsize=(12, 8))
 
         joule_to_kwh = 1.0 / 3.6e6
 
@@ -130,6 +130,8 @@ def main():
             ax.legend()
             ax.set_xlim(0, 86400)
         axes[0].set_title("Optimization Result")
+        solution_file_name = args.data.split("/")[-1].split(".")[0]
+        plt.savefig(f"plots/solutions/{solution_file_name}_solution.png")
         plt.show()
 
 
