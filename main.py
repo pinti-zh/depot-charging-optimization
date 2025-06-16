@@ -97,7 +97,7 @@ def main():
 
         # plot state of energy
         for i, soe_i in enumerate(soe):
-            axes[0].plot([0] + time, soe_i, color=colors[(i + 4) % len(colors)], label=f"Vehicle {i+1}")
+            axes[0].plot([0] + time, soe_i, color=colors[i % len(colors)], label=f"Vehicle {i+1}")
         axes[0].set_ylabel("SoE [kWh]")
 
         # plot charging power
@@ -116,7 +116,7 @@ def main():
                 bottom=charging_power[vehicle - 1],
                 width=opt_input.dt,
                 label=f"Vehicle {vehicle + 1}",
-                color=colors[(vehicle + 4) % len(colors)],
+                color=colors[vehicle % len(colors)],
                 edgecolor="none",
             )
         axes[1].set_ylabel("Charging Power [kW]")
