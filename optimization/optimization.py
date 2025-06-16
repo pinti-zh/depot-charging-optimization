@@ -108,9 +108,9 @@ class OptimizationInput:
         for dc, mcp, ed, ep in zip(depot_charge, max_charging_power, energy_demand, energy_price):
             if dc:
                 if relative_soe < 0.0:
-                    relative_soe = min(0.0, relative_soe + mcp * self.dt)
                     max_depot_charging_power = max(mcp, max_depot_charging_power)
                     cumulative_ep += min(-relative_soe * ep, mcp * self.dt * ep)
+                    relative_soe = min(0.0, relative_soe + mcp * self.dt)
             else:
                 relative_soe -= ed
 
