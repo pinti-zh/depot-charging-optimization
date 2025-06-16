@@ -1,4 +1,6 @@
-from optimization.utils import expand_values, natural_keys
+import numpy as np
+
+from optimization.utils import expand_values, group_vehicles_by_index, natural_keys
 
 
 class TestExpandValues:
@@ -39,3 +41,24 @@ class TestNaturalKeysSorting:
     def test_complex(self):
         values = ["a10", "b101", "a003", "a11", "a7", "b5", "b10", "a5b7"]
         assert sorted(values, key=natural_keys) == ["a003", "a5b7", "a7", "a10", "a11", "b5", "b10", "b101"]
+
+
+class TestGroupVehiclesByIndex:
+    def test_simple(self):
+        values = [
+            np.array([0, 3, 4, 6]),
+            np.array([0, 3, 5, 6]),
+            np.array([1, 2, 6]),
+            np.array([1, 4, 8]),
+        ]
+        grouped = group_vehicles_by_index(values)
+        expected_keys = [0, 1, 2, 3, 4, 5, 6, 8]
+        assert set(grouped.keys()) == set(expected_keys)
+        assert grouped[0] == [0, 1]
+        assert grouped[1] == [2, 3]
+        assert grouped[2] == [2]
+        assert grouped[3] == [0, 1]
+        assert grouped[4] == [0, 3]
+        assert grouped[5] == [1]
+        assert grouped[6] == [0, 1, 2]
+        assert grouped[8] == [3]

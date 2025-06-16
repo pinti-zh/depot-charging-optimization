@@ -1,6 +1,8 @@
 import re
 from typing import Iterable, TypeVar
 
+import numpy as np
+
 T = TypeVar("T")
 
 
@@ -21,6 +23,17 @@ def partial_sums(iterable: Iterable) -> Iterable:
 
 def atoi(text: str) -> int | str:
     return int(text) if text.isdigit() else text
+
+
+def group_vehicles_by_index(data: list[np.ndarray]) -> dict:
+    grouped = {}
+    for vehicle, indices in enumerate(data):
+        for index in indices:
+            if index not in grouped:
+                grouped[index] = [vehicle]
+            else:
+                grouped[index].append(vehicle)
+    return grouped
 
 
 def natural_keys(text: str) -> list:
