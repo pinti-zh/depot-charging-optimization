@@ -23,39 +23,47 @@ class OptimizationResult:
 
 
 class OptimizationInput:
-    def __init__(self, data: pl.DataFrame, energy_price: pl.DataFrame, grid_tariff: float):
+    def __init__(self, data: list[pl.DataFrame], energy_price: pl.DataFrame, grid_tariff: float):
         data_columns = ["time", "energy_demand", "depot_charge", "battery_capacity", "max_charging_power"]
         energy_price_columns = ["time", "energy_price"]
 
-        assert set(data_columns) <= set(data.columns)
+        assert len(data) > 0
+        for df in data:
+            assert set(data_columns) <= set(df.columns)
+            assert all(cap == df["battery_capacity"][0] for cap in df["battery_capacity"])
+            assert len(df) == len(energy_price) > 0
         assert set(energy_price_columns) <= set(energy_price.columns)
-        assert len(data) == len(energy_price) > 0
-        assert all(cap == data["battery_capacity"][0] for cap in data["battery_capacity"])
 
-        self.num: int = len(data)
-        self.dt: int = data["time"][0]
-        self.battery_capacity: float = float(data["battery_capacity"][0])
-        self.soe_lb: float = self.battery_capacity * 0.2
-        self.soe_ub: float = self.battery_capacity * 0.8
+        self.num: int = len(data[0])
+        self.num_vehicles = len(data)
+        self.dt: int = data[0]["time"][0]
+        self.battery_capacity: np.ndarray[np.float64] = np.array([df["battery_capacity"][0] for df in data])
+        self.soe_lb: np.ndarray[np.float64] = self.battery_capacity * 0.2
+        self.soe_ub: np.ndarray[np.float64] = self.battery_capacity * 0.8
         self.grid_tariff: float = grid_tariff
 
-        self.energy_demand: np.ndarray[np.float64] = data["energy_demand"].to_numpy()
-        self.depot_charge: np.ndarray[np.bool] = data["depot_charge"].to_numpy()
-        self.max_charging_power: np.ndarray[np.float64] = data["max_charging_power"].to_numpy().astype(np.float64)
+        self.energy_demand: np.ndarray[np.float64] = np.array([df["energy_demand"].to_numpy() for df in data])
+        self.depot_charge: np.ndarray[np.bool] = np.array([df["depot_charge"].to_numpy() for df in data])
+        self.max_charging_power: np.ndarray[np.float64] = np.array(
+            [df["max_charging_power"].to_numpy().astype(np.float64) for df in data]
+        )
         self.energy_price: np.ndarray[np.float64] = energy_price["energy_price"].to_numpy()
 
     def __repr__(self) -> str:
         return (
-            f"OptimizationInput(\n"
-            f"    num: {self.num},\n"
-            f"    dt: {self.dt},\n"
-            f"    battery_capacity: {self.battery_capacity},\n"
-            f"    grid_tariff: {self.grid_tariff},\n"
-            f"    energy_demand: {list_start_string(self.energy_demand, 5)},\n"
-            f"    depot_charge: {list_start_string(self.depot_charge, 5)},\n"
-            f"    max_charging_power: {list_start_string(self.max_charging_power, 5)},\n"
-            f"    energy_price: {list_start_string(self.energy_price, 5)}\n"
-            f")"
+            f"OptimizationInput\n"
+            f"    num: {self.num}\n"
+            f"    number of vehicles: {self.num_vehicles}\n"
+            f"    dt: {self.dt}\n"
+            f"    battery_capacity: {list_start_string(self.battery_capacity, 5)}\n"
+            f"    grid_tariff: {self.grid_tariff}\n"
+            f"    energy_price: {list_start_string(self.energy_price, 3)}\n"
+            f"    energy_demand:\n"
+            f"      {"\n      ".join([list_start_string(energy_demand_i, 5) for energy_demand_i in self.energy_demand])}\n"
+            f"    depot_charge:\n"
+            f"      {"\n      ".join([list_start_string(depot_charge_i, 5) for depot_charge_i in self.depot_charge])}\n"
+            f"    max_charging_power:\n"
+            f"      {"\n      ".join([list_start_string(max_charging_power_i, 5) for max_charging_power_i in self.max_charging_power])}\n"
         )
 
     def __str__(self) -> str:

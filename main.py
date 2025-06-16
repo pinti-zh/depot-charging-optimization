@@ -22,28 +22,38 @@ def get_interval_time_series(time):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data", "-d", type=str, required=True, help="path to data file")
+    parser.add_argument("--data", "-d", type=str, nargs="+", required=True, help="path to data file")
     parser.add_argument("--energy_price", "-ep", type=str, default="data/energy_price.csv", help="energy price file")
     parser.add_argument("--ce_function", "-cef", type=str, choices=["constant", "quadratic", "one"], default="one")
     parser.add_argument("--plot", "-p", action="store_true", help="plot results")
     args = parser.parse_args()
 
-    data = pl.read_csv(args.data)
+    print(args.data)
+    data = [pl.read_csv(data_file) for data_file in args.data]
     energy_price = pl.read_csv(args.energy_price)
     energy_price = energy_price.with_columns(pl.col("energy_price").truediv(3.6e6))
 
-    dt = reduce(gcd, list(data["time"]) + list(energy_price["time"]))
-    data = pl.DataFrame(
-        {
-            "time": expand_values(data["time"], data["time"], dt, interpolation="linear"),
-            "energy_demand": expand_values(data["time"], data["energy_demand"], dt, interpolation="split"),
-            "depot_charge": expand_values(data["time"], data["depot_charge"], dt),
-            "charge_amount": expand_values(data["time"], data["charge_amount"], dt, interpolation="split"),
-            "battery_capacity": expand_values(data["time"], data["battery_capacity"], dt),
-            "max_charging_power": expand_values(data["time"], data["max_charging_power"], dt),
-            "cycle": expand_values(data["time"], data["cycle"], dt),
-        }
-    )
+    all_timestamps = []
+    for df in data:
+        all_timestamps += list(df["time"])
+    all_timestamps += list(energy_price["time"])
+    dt = reduce(gcd, all_timestamps)
+
+    expanded_data = []
+    for df in data:
+        expanded_data.append(
+            pl.DataFrame(
+                {
+                    "time": expand_values(df["time"], df["time"], dt, interpolation="linear"),
+                    "energy_demand": expand_values(df["time"], df["energy_demand"], dt, interpolation="split"),
+                    "depot_charge": expand_values(df["time"], df["depot_charge"], dt),
+                    "charge_amount": expand_values(df["time"], df["charge_amount"], dt, interpolation="split"),
+                    "battery_capacity": expand_values(df["time"], df["battery_capacity"], dt),
+                    "max_charging_power": expand_values(df["time"], df["max_charging_power"], dt),
+                    "cycle": expand_values(df["time"], df["cycle"], dt),
+                }
+            )
+        )
     energy_price = pl.DataFrame(
         {
             "time": expand_values(energy_price["time"], energy_price["time"], dt, interpolation="linear"),
@@ -52,7 +62,7 @@ def main():
     )
 
     # optimization
-    opt_input = OptimizationInput(data, energy_price, 0.2e-3)
+    opt_input = OptimizationInput(expanded_data, energy_price, 0.2e-3)
     ok, reason = opt_input.is_feasible()
     if not ok:
         printr(f"[gold1]optimization input is not feasible: {reason}")
