@@ -87,14 +87,23 @@ class OptimizationInput:
 
             if sum(energy_deltas) < 0.0:
                 reasons["not enough time to charge"].append(vehicle)
+                break
 
             demand_indices = [i for i, dc in enumerate(self.depot_charge[vehicle]) if not dc]
             for i, start in enumerate(demand_indices):
+                found_reason = False
                 for stop in demand_indices[i:]:
-                    if any(x < -(self.soe_ub - self.soe_lb) for x in partial_sums(energy_deltas[start : stop + 1])):
+                    if any(
+                        x < -(self.soe_ub[vehicle] - self.soe_lb[vehicle])
+                        for x in partial_sums(energy_deltas[start : stop + 1])
+                    ):
                         reasons["not enough battery capacity"].append(vehicle)
+                        found_reason = True
+                        break
+                if found_reason:
+                    break
 
-        if any(map(len, reasons.values())):
+        if any(map(lambda x: len(x) > 0, reasons.values())):
             return False, reasons
 
         return True, reasons
