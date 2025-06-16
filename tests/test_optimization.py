@@ -27,7 +27,7 @@ class TestOptimization:
         solution = opt_model.solve()
         for expected, value in zip([6.0, 0.0, 0.0], opt_model.get_charging_power()):
             assert expected == value
-        assert solution == 54.0
+        assert solution.total_cost == 54.0
 
     def test_optimization_high_tariff(self):
         data = pl.DataFrame(
@@ -52,7 +52,7 @@ class TestOptimization:
         solution = opt_model.solve()
         for expected, value in zip([3.0, 0.0, 3.0], opt_model.get_charging_power()):
             assert expected == value
-        assert solution == 63.0
+        assert solution.total_cost == 63.0
 
     def test_optimization_no_solution(self):
         data = pl.DataFrame(
