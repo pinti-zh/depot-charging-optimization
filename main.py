@@ -63,9 +63,9 @@ def main():
 
     # optimization
     opt_input = OptimizationInput(expanded_data, energy_price, 0.2e-3)
-    ok, reason = opt_input.is_feasible()
+    ok, reasons = opt_input.is_feasible()
     if not ok:
-        printr(f"[gold1]optimization input is not feasible: {reason}")
+        printr(f"[gold1]optimization input is not feasible: {reasons}")
     opt_model = OptimizationModel(opt_input)
     opt_model.set_variables()
     opt_model.set_constraints(ce_function_type=args.ce_function)
