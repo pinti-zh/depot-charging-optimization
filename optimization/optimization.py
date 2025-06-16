@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from itertools import product
 from typing import Optional, Tuple
 
 import gurobipy as gp
@@ -6,7 +7,7 @@ import numpy as np
 import polars as pl
 from gurobipy import GRB
 
-from optimization.utils import list_start_string, partial_sums
+from optimization.utils import group_vehicles_by_index, list_start_string, partial_sums
 
 
 @dataclass
@@ -69,24 +70,34 @@ class OptimizationInput:
     def __str__(self) -> str:
         return self.__repr__()
 
-    def is_feasible(self) -> Tuple[bool, str]:
-        energy_deltas = []
-        for dc, mcp, ed in zip(self.depot_charge, self.max_charging_power, self.energy_demand):
-            if dc:
-                energy_deltas.append(mcp * self.dt)
-            else:
-                energy_deltas.append(-ed)
+    def is_feasible(self) -> Tuple[bool, dict]:
+        reasons = {
+            "not enough time to charge": [],
+            "not enough battery capacity": [],
+        }
+        for vehicle in range(self.num_vehicles):
+            energy_deltas = []
+            for dc, mcp, ed in zip(
+                self.depot_charge[vehicle], self.max_charging_power[vehicle], self.energy_demand[vehicle]
+            ):
+                if dc:
+                    energy_deltas.append(mcp * self.dt)
+                else:
+                    energy_deltas.append(-ed)
 
-        if sum(energy_deltas) < 0.0:
-            return False, "not enough time to charge"
+            if sum(energy_deltas) < 0.0:
+                reasons["not enough time to charge"].append(vehicle)
 
-        demand_indices = [i for i, dc in enumerate(self.depot_charge) if not dc]
-        for i, start in enumerate(demand_indices):
-            for stop in demand_indices[i:]:
-                if any(x < -(self.soe_ub - self.soe_lb) for x in partial_sums(energy_deltas[start : stop + 1])):
-                    return False, "not enough battery capacity"
+            demand_indices = [i for i, dc in enumerate(self.depot_charge[vehicle]) if not dc]
+            for i, start in enumerate(demand_indices):
+                for stop in demand_indices[i:]:
+                    if any(x < -(self.soe_ub - self.soe_lb) for x in partial_sums(energy_deltas[start : stop + 1])):
+                        reasons["not enough battery capacity"].append(vehicle)
 
-        return True, ""
+        if any(map(len, reasons.values())):
+            return False, reasons
+
+        return True, reasons
 
     def naive_greedy_solution(self) -> OptimizationResult:
         current_dc = self.depot_charge[0]
@@ -135,13 +146,13 @@ class OptimizationModel:
         self.name: str = name
         self.model: gp.Model = gp.Model(self.name)
 
-        self.charging_power: list[gp.Var] = []
-        self.state_of_energy: list[gp.Var] = []
+        self.charging_power: list[np.ndarray[gp.Var]] = []
+        self.state_of_energy: np.ndarray[gp.Var] = np.empty((opt_input.num_vehicles, opt_input.num + 1), dtype=gp.Var)
 
-        self.charging_indices: Optional[np.ndarray[np.int64]] = None
+        self.charging_indices: Optional[list[np.ndarray[np.int64]]] = None
         self.mcp: Optional[gp.Var] = None
 
-        self.solution: Optional[float] = None
+        self.solution: Optional[OptimizationResult] = None
         self.vars_initialized: bool = False
         self.constraints_initialized: bool = False
         self.objective_initialized: bool = False
@@ -149,30 +160,39 @@ class OptimizationModel:
     def set_variables(self):
 
         # charging mask
-        self.charging_indices = [i for i, d in enumerate(self.opt_input.depot_charge) if d]
+        self.charging_indices = [np.where(depot_charge_i)[0] for depot_charge_i in self.opt_input.depot_charge]
 
         # decision variables
-        for i in self.charging_indices:
-            self.charging_power.append(
-                self.model.addVar(
-                    name=f"chargingPower_{i}",
-                    vtype=GRB.CONTINUOUS,
-                    lb=0,
-                    ub=self.opt_input.max_charging_power[i],
-                )
+        for vehicle, vehicle_charging_indices in enumerate(self.charging_indices):
+            vehicle_charging_power = np.array(
+                [
+                    self.model.addVar(
+                        name=f"chargingPower_v{vehicle}_{i}",
+                        vtype=GRB.CONTINUOUS,
+                        lb=0,
+                        ub=self.opt_input.max_charging_power[vehicle, i],
+                    )
+                    for i in vehicle_charging_indices
+                ]
             )
+            self.charging_power.append(vehicle_charging_power)
 
-        for i in range(self.opt_input.num + 1):
-            self.state_of_energy.append(
-                self.model.addVar(
-                    name=f"stateOfEnergy_{i}", vtype=GRB.CONTINUOUS, lb=self.opt_input.soe_lb, ub=self.opt_input.soe_ub
-                )
+        for vehicle, i in product(range(self.opt_input.num_vehicles), range(self.opt_input.num + 1)):
+            self.state_of_energy[vehicle, i] = self.model.addVar(
+                name=f"stateOfEnergy_v{vehicle}_{i}",
+                vtype=GRB.CONTINUOUS,
+                lb=self.opt_input.soe_lb[vehicle],
+                ub=self.opt_input.soe_ub[vehicle],
             )
 
         # aux variables
         self.mcp = self.model.addVar(name="maxChargingPower", vtype=GRB.CONTINUOUS, lb=0)
-        for i, cp in zip(self.charging_indices, self.charging_power):
-            self.model.addConstr(self.mcp >= cp, f"maxPower_{i}")  # relaxed max constraint
+        for index, vehicles in group_vehicles_by_index(self.charging_indices).items():
+            indices = [np.where(self.charging_indices[vehicle] == index)[0][0] for vehicle in vehicles]
+            self.model.addConstr(
+                self.mcp >= gp.quicksum(self.charging_power[vehicle][i] for i, vehicle in zip(indices, vehicles)),
+                f"maxChargingPower_{index}",
+            )
 
         self.vars_initialized = True
 
@@ -181,27 +201,32 @@ class OptimizationModel:
             raise ValueError("Variables must be initialized before constraints")
 
         # energy demand
-        for i, v in enumerate(zip(self.opt_input.depot_charge, self.opt_input.energy_demand)):
-            depot_charge, energy_demand = v
-            if not depot_charge:
-                self.model.addConstr(
-                    self.state_of_energy[i + 1] == self.state_of_energy[i] - energy_demand,
-                    f"energyDemand_{i}",
-                )
+        for vehicle in range(self.opt_input.num_vehicles):
+            for i, v in enumerate(zip(self.opt_input.depot_charge[vehicle], self.opt_input.energy_demand[vehicle])):
+                depot_charge, energy_demand = v
+                if not depot_charge:
+                    self.model.addConstr(
+                        self.state_of_energy[vehicle, i + 1] == self.state_of_energy[vehicle, i] - energy_demand,
+                        f"energyDemand_v{vehicle}_{i}",
+                    )
 
         # charging
-        for i, cp in zip(self.charging_indices, self.charging_power):
-            self.model.addConstr(
-                self.state_of_energy[i + 1]
-                == self.state_of_energy[i]
-                + charging_efficiency(cp, self.opt_input.max_charging_power, ce_function_type, alpha)
-                * cp
-                * self.opt_input.dt,
-                f"charging_{i}",
-            )
+        for vehicle in range(self.opt_input.num_vehicles):
+            for i, cp in zip(self.charging_indices[vehicle], self.charging_power[vehicle]):
+                self.model.addConstr(
+                    self.state_of_energy[vehicle, i + 1]
+                    == self.state_of_energy[vehicle, i]
+                    + charging_efficiency(cp, self.opt_input.max_charging_power[vehicle], ce_function_type, alpha)
+                    * cp
+                    * self.opt_input.dt,
+                    f"charging_v{vehicle}_{i}",
+                )
 
         # energy loop
-        self.model.addConstr(self.state_of_energy[0] <= self.state_of_energy[self.opt_input.num], "energyLoop")
+        for vehicle in range(self.opt_input.num_vehicles):
+            self.model.addConstr(
+                self.state_of_energy[vehicle, 0] <= self.state_of_energy[vehicle, self.opt_input.num], "energyLoop"
+            )
 
         self.constraints_initialized = True
 
@@ -211,8 +236,11 @@ class OptimizationModel:
 
         self.model.setObjective(
             gp.quicksum(
-                self.opt_input.energy_price[i] * cp * self.opt_input.dt
-                for i, cp in zip(self.charging_indices, self.charging_power)
+                gp.quicksum(
+                    self.opt_input.energy_price[i] * cp * self.opt_input.dt
+                    for i, cp in zip(self.charging_indices[vehicle], self.charging_power[vehicle])
+                )
+                for vehicle in range(self.opt_input.num_vehicles)
             )
             + self.mcp * self.opt_input.grid_tariff,
             GRB.MINIMIZE,
@@ -228,21 +256,28 @@ class OptimizationModel:
             self.solution = self.model.ObjVal
             power_cost = self.mcp.X * self.opt_input.grid_tariff
             energy_cost = sum(
-                self.opt_input.energy_price[i] * cp.X * self.opt_input.dt
-                for i, cp in zip(self.charging_indices, self.charging_power)
+                sum(
+                    self.opt_input.energy_price[i] * cp.X * self.opt_input.dt
+                    for i, cp in zip(self.charging_indices[vehicle], self.charging_power[vehicle])
+                )
+                for vehicle in range(self.opt_input.num_vehicles)
             )
         except AttributeError:
             return None
         return OptimizationResult(self.solution, energy_cost, power_cost)
 
     def get_charging_power(self) -> np.ndarray[np.float64]:
-        charging_power = np.zeros(self.opt_input.num)
-        for i, cp in zip(self.charging_indices, self.charging_power):
-            charging_power[i] = cp.X
+        charging_power = np.zeros((self.opt_input.num_vehicles, self.opt_input.num))
+        for vehicle in range(self.opt_input.num_vehicles):
+            for i, cp in zip(self.charging_indices[vehicle], self.charging_power[vehicle]):
+                charging_power[vehicle, i] = cp.X
         return charging_power
 
     def get_state_of_energy(self) -> np.ndarray[np.float64]:
-        return np.array([soe.X for soe in self.state_of_energy])
+        soe = np.empty((self.opt_input.num_vehicles, self.opt_input.num + 1))
+        for vehicle in range(self.opt_input.num_vehicles):
+            soe[vehicle] = np.array([soe.X for soe in self.state_of_energy[vehicle]])
+        return soe
 
 
 def charging_efficiency(cp: float, mcp: float, function_type: str, alpha: float) -> float:
