@@ -46,6 +46,18 @@ class TestNaturalKeysSorting:
 class TestGroupVehiclesByIndex:
     def test_simple(self):
         values = [
+            np.array([5, 7]),
+            np.array([4, 6]),
+        ]
+        grouped = group_vehicles_by_index(values)
+        assert set(grouped.keys()) == set([4, 5, 6, 7])
+        assert grouped[4] == [1]
+        assert grouped[5] == [0]
+        assert grouped[6] == [1]
+        assert grouped[7] == [0]
+
+    def test_complex(self):
+        values = [
             np.array([0, 3, 4, 6]),
             np.array([0, 3, 5, 6]),
             np.array([1, 2, 6]),
