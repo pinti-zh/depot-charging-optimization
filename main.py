@@ -28,7 +28,9 @@ def main():
     parser.add_argument("--plot", "-p", action="store_true", help="plot results")
     args = parser.parse_args()
 
-    print(args.data)
+    printr("loading the following files:")
+    for i, file in enumerate(args.data):
+        printr(f"  {i+1}. [cyan3]{file}[/cyan3]")
     data = [pl.read_csv(data_file) for data_file in args.data]
     energy_price = pl.read_csv(args.energy_price)
     energy_price = energy_price.with_columns(pl.col("energy_price").truediv(3.6e6))
@@ -78,11 +80,12 @@ def main():
         printr("[orange1]no solution found")
     else:
         printr(f"[green]found solution with objective value: {solution}")
-        printr(f"              [navajo_white3]naive greedy solution: {opt_input.naive_greedy_solution()}")
 
     if solution is not None and args.plot:
         sns.set_style("darkgrid")
+        colors = ["navy", "gold", "orchid", "orangered", "mediumseagreen", "saddlebrown", "cornflowerblue"]
         _, axes = plt.subplots(3, figsize=(12, 8))
+        time = expanded_data[0]["time"].to_list()
 
         joule_to_kwh = 1.0 / 3.6e6
 
@@ -93,36 +96,43 @@ def main():
             energy_price_twice += [ep / joule_to_kwh, ep / joule_to_kwh]
 
         # plot state of energy
-        axes[0].plot([0] + list(data["time"]), soe, c="navy", label="SoE")
-        axes[0].plot(
-            [0, 86400], 2 * [opt_input.soe_lb * joule_to_kwh], c="navy", linestyle="dashed", label="SoE Lower Bound"
-        )
-        axes[0].plot(
-            [0, 86400], 2 * [opt_input.soe_ub * joule_to_kwh], c="navy", linestyle="dashed", label="SoE Upper Bound"
-        )
+        for i, soe_i in enumerate(soe):
+            axes[0].plot([0] + time, soe_i, color=colors[(i + 4) % len(colors)], label=f"Vehicle {i+1}")
         axes[0].set_ylabel("SoE [kWh]")
-        axes[0].set_ylim(0, opt_input.battery_capacity * joule_to_kwh)
 
         # plot charging power
         axes[1].bar(
-            [t - opt_input.dt / 2 for t in data["time"]],
-            charging_power,
+            [t - opt_input.dt / 2 for t in time],
+            charging_power[0],
             width=opt_input.dt,
-            color="forestgreen",
-            label="Charging Power",
+            label="Vehicle 1",
+            color=colors[0],
             edgecolor="none",
         )
+        for vehicle in range(1, opt_input.num_vehicles):
+            axes[1].bar(
+                [t - opt_input.dt / 2 for t in time],
+                charging_power[vehicle],
+                bottom=charging_power[vehicle - 1],
+                width=opt_input.dt,
+                label=f"Vehicle {vehicle + 1}",
+                color=colors[(vehicle + 4) % len(colors)],
+                edgecolor="none",
+            )
         axes[1].set_ylabel("Charging Power [kW]")
-        axes[1].set_ylim(
-            0, max([mcp for dc, mcp in zip(opt_input.depot_charge, opt_input.max_charging_power) if dc]) / 1000.0
-        )
 
         # plot energy price
-        axes[2].plot(get_interval_time_series(data["time"]), energy_price_twice, c="maroon", label="Energy Price")
+        axes[2].plot(
+            get_interval_time_series([(i + 1) * dt for i in range(opt_input.num)]),
+            energy_price_twice,
+            c="firebrick",
+            label="Energy Price",
+        )
         axes[2].set_ylabel("Energy Price [$/kWh]")
         axes[2].set_ylim(min(energy_price_twice) * 0.9, max(energy_price_twice) * 1.1)
 
         # plot depot charge intervals
+        """
         dc_dups = [sum(1 for _ in group) for _, group in groupby(data["depot_charge"])]
         dup_intervals = [
             (i * opt_input.dt, j * opt_input.dt)
@@ -135,13 +145,12 @@ def main():
         for t1, t2 in dup_intervals:
             for ax in axes:
                 ax.axvspan(t1, t2, color="forestgreen", alpha=0.2)
+        """
 
         for ax in axes:
             ax.legend()
             ax.set_xlim(0, 86400)
         axes[0].set_title("Optimization Result")
-        solution_file_name = args.data.split("/")[-1].split(".")[0]
-        plt.savefig(f"plots/solutions/{solution_file_name}_solution.png")
         plt.show()
 
 
