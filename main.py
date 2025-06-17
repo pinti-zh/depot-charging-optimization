@@ -1,5 +1,4 @@
 import argparse
-from copy import deepcopy
 from functools import reduce
 from itertools import groupby
 from math import gcd
