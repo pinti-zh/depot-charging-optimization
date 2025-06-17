@@ -64,10 +64,10 @@ class TestOptimizationInput:
             pl.DataFrame(
                 {
                     "time": [5, 10, 15, 20, 25, 30],
-                    "energy_demand": [0.0, 30.0, 0.0, 10.0, 10.0, 0.0],
+                    "energy_demand": [0.0, 10.0, 0.0, 10.0, 10.0, 0.0],
                     "depot_charge": [True, False, True, False, False, True],
                     "battery_capacity": [50.0, 50.0, 50.0, 50.0, 50.0, 50.0],
-                    "max_charging_power": [2.0, 0.0, 2.0, 0.0, 0.0, 2.0],
+                    "max_charging_power": [1.0, 0.0, 2.0, 0.0, 0.0, 2.0],
                 }
             ),
         ]

@@ -1,5 +1,5 @@
 import re
-from typing import Iterable, TypeVar
+from typing import Iterable, Sequence, TypeVar
 
 import numpy as np
 
@@ -12,6 +12,32 @@ def list_start_string(values: Iterable, num: int) -> str:
         return s
     else:
         return s[:-1] + ", ...]"
+
+
+def minimum_joint_chain_range(blocks: list, joints: list) -> int | float:
+    assert len(blocks) == len(joints) + 1
+    if len(blocks) == 1:
+        return blocks[0]
+    sub_chain_solution = minimum_joint_chain_range(blocks[1:], joints[1:])
+    if joints[0] < blocks[0]:
+        return max(blocks[0], blocks[0] - joints[0] + sub_chain_solution)
+    else:
+        return max(blocks[0], sub_chain_solution)
+
+
+def find_continuos_blocks(values: Sequence[T]) -> list[tuple[int, int, T]]:
+    continuous_blocks = []
+    last_change = 0
+    for v1, (i, v2) in zip(values, enumerate(values[1:])):
+        if v1 != v2:
+            continuous_blocks.append((last_change, i + 1, v1))
+            last_change = i + 1
+    continuous_blocks.append((last_change, len(values), values[-1]))
+    if continuous_blocks[0][2] == continuous_blocks[-1][2]:
+        continuous_blocks = continuous_blocks[1:-1] + [
+            (continuous_blocks[-1][0], continuous_blocks[0][1], continuous_blocks[-1][2])
+        ]
+    return continuous_blocks
 
 
 def partial_sums(iterable: Iterable) -> Iterable:
