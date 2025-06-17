@@ -2,6 +2,7 @@ import argparse
 from functools import reduce
 from itertools import groupby
 from math import gcd
+from time import perf_counter
 
 import matplotlib.pyplot as plt
 import polars as pl
@@ -149,9 +150,13 @@ def main():
 
     # optimization
     opt_input = OptimizationInput(expanded_data, energy_price, 0.2e-3)
+    start = perf_counter()
     ok, reasons = opt_input.is_feasible()
+    printr(f"[grey69]feasibility check in {perf_counter() - start:.4f} seconds")
     if not ok:
         printr(f"[gold1]optimization input is not feasible: {reasons}")
+
+    start = perf_counter()
     opt_model = OptimizationModel(opt_input)
     opt_model.set_variables()
     opt_model.set_constraints(ce_function_type=args.ce_function)
@@ -159,11 +164,12 @@ def main():
 
     # solve
     solution = opt_model.solve()
+    optimization_time = perf_counter() - start
 
     if solution is None:
         printr("[orange1]no solution found")
     else:
-        printr(f"[green] found solution with objective value: {solution}")
+        printr(f"[green]found solution in {optimization_time:.4f} seconds with objective value: {solution}")
         # greedy solutions for comparison
         best_max_power = opt_model.get_max_charging_power_used()
         for adjusted_max_power in [None, best_max_power]:
@@ -173,9 +179,9 @@ def main():
             greedy_opt_model.set_objective()
             greedy_solution = greedy_opt_model.solve()
             if adjusted_max_power is None:
-                printr(f"[grey69]             greedy solution (naive): {greedy_solution}")
+                printr(f"[grey69]                              greedy solution (naive): {greedy_solution}")
             else:
-                printr(f"[grey69]greedy solution (max power adjusted): {greedy_solution}")
+                printr(f"[grey69]                 greedy solution (max power adjusted): {greedy_solution}")
 
     if solution is not None and args.plot:
         sns.set_style("darkgrid")
@@ -213,6 +219,7 @@ def main():
 
         # plot depot charge intervals
         plot_shape = get_axes_shape(opt_input.num_vehicles)
+        plot_shape = (max(plot_shape[0], 2), max(plot_shape[0], 2))
         _, axes = plt.subplots(*plot_shape, figsize=(12, 8))
         for vehicle in range(opt_input.num_vehicles):
             ax_i, ax_j = get_axes_indices(vehicle, plot_shape)
