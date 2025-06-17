@@ -1,6 +1,10 @@
 import polars as pl
 
-from optimization.optimization import OptimizationInput, OptimizationModel
+from optimization.optimization import (
+    GreedyOptimizationModel,
+    OptimizationInput,
+    OptimizationModel,
+)
 
 
 class TestOptimizationSingleVehicle:
@@ -79,3 +83,52 @@ class TestOptimizationSingleVehicle:
 
         solution = opt_model.solve()
         assert solution is None
+
+
+class TestOptimizationNaiveGreedySolution:
+    def test_simple(self):
+        data = pl.DataFrame(
+            {
+                "time": [5, 10, 15],
+                "energy_demand": [0.0, 30.0, 0.0],
+                "depot_charge": [True, False, True],
+                "battery_capacity": [50.0, 50.0, 50.0],
+                "max_charging_power": [6.0, 0.0, 6.0],
+            }
+        )
+        energy_price = pl.DataFrame({"time": [5, 10, 15], "energy_price": [1.0, 0.0, 2.0]})
+
+        opt_input = OptimizationInput([data], energy_price, 0.0)
+        assert opt_input.is_feasible()[0]
+        opt_model = GreedyOptimizationModel(opt_input)
+        opt_model.set_variables()
+        opt_model.set_constraints()
+        opt_model.set_objective()
+        solution = opt_model.solve()
+        assert solution.total_cost == 60.0
+
+    def test_complex(self):
+        data = pl.DataFrame(
+            {
+                "time": [5, 10, 15, 20, 25, 30, 35, 40, 45, 50],
+                "energy_demand": [0.0, 20.0, 10.0, 0.0, 10.0, 0.0, 0.0, 20.0, 0.0, 0.0],
+                "depot_charge": [True, False, False, True, False, True, True, False, True, True],
+                "battery_capacity": [50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0],
+                "max_charging_power": [6.0, 0.0, 5.0, 4.0, 5.0, 4.0, 6.0, 0.0, 2.0, 4.0],
+            }
+        )
+        energy_price = pl.DataFrame(
+            {
+                "time": [5, 10, 15, 20, 25, 30, 35, 40, 45, 50],
+                "energy_price": [1.0, 0.0, 2.0, 2.0, 1.0, 3.0, 1.0, 1.0, 5.0, 2.0],
+            }
+        )
+
+        opt_input = OptimizationInput([data], energy_price, 0.0)
+        assert opt_input.is_feasible()[0]
+        opt_model = GreedyOptimizationModel(opt_input)
+        opt_model.set_variables()
+        opt_model.set_constraints()
+        opt_model.set_objective()
+        solution = opt_model.solve()
+        assert solution.total_cost == 170.0
