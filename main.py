@@ -1,4 +1,5 @@
 import argparse
+from copy import deepcopy
 from functools import reduce
 from itertools import groupby
 from math import gcd
@@ -8,7 +9,11 @@ import polars as pl
 import seaborn as sns
 from rich import print as printr
 
-from optimization.optimization import OptimizationInput, OptimizationModel
+from optimization.optimization import (
+    GreedyOptimizationModel,
+    OptimizationInput,
+    OptimizationModel,
+)
 from optimization.utils import expand_values, partial_sums
 
 
@@ -159,7 +164,19 @@ def main():
     if solution is None:
         printr("[orange1]no solution found")
     else:
-        printr(f"[green]found solution with objective value: {solution}")
+        printr(f"[green] found solution with objective value: {solution}")
+        # greedy solutions for comparison
+        best_max_power = opt_model.get_max_charging_power_used()
+        for adjusted_max_power in [None, best_max_power]:
+            greedy_opt_model = GreedyOptimizationModel(opt_input)
+            greedy_opt_model.set_variables()
+            greedy_opt_model.set_constraints(ce_function_type=args.ce_function, adjusted_max_power=adjusted_max_power)
+            greedy_opt_model.set_objective()
+            greedy_solution = greedy_opt_model.solve()
+            if adjusted_max_power is None:
+                printr(f"[grey69]             greedy solution (naive): {greedy_solution}")
+            else:
+                printr(f"[grey69]greedy solution (max power adjusted): {greedy_solution}")
 
     if solution is not None and args.plot:
         sns.set_style("darkgrid")
