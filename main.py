@@ -154,7 +154,10 @@ def main():
     ok, reasons = opt_input.is_feasible()
     printr(f"[grey69]feasibility check in {perf_counter() - start:.4f} seconds")
     if not ok:
-        printr(f"[gold1]optimization input is not feasible: {reasons}")
+        printr("[gold1]optimization input is not feasible:")
+        for description, vehicles in reasons.items():
+            for vehicle in vehicles:
+                printr(f"    [light_goldenrod2]{description} in [light_salmon1]{args.data[vehicle]}")
 
     start = perf_counter()
     opt_model = OptimizationModel(opt_input)
