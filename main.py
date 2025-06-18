@@ -5,6 +5,7 @@ from math import gcd
 from time import perf_counter
 
 import matplotlib.pyplot as plt
+import numpy as np
 import polars as pl
 import seaborn as sns
 from rich import print as printr
@@ -110,6 +111,7 @@ def main():
     parser.add_argument("--data", "-d", type=str, nargs="+", required=True, help="path to data file")
     parser.add_argument("--energy_price", "-ep", type=str, default="data/energy_price.csv", help="energy price file")
     parser.add_argument("--ce_function", "-cef", type=str, choices=["constant", "quadratic", "one"], default="one")
+    parser.add_argument("--alpha", "-a", type=float, default=0.0, help="constant for charging efficiency function")
     parser.add_argument("--plot", "-p", action="store_true", help="plot results")
     args = parser.parse_args()
 
@@ -162,7 +164,7 @@ def main():
     start = perf_counter()
     opt_model = OptimizationModel(opt_input)
     opt_model.set_variables()
-    opt_model.set_constraints(ce_function_type=args.ce_function)
+    opt_model.set_constraints(ce_function_type=args.ce_function, alpha=args.alpha)
     opt_model.set_objective()
 
     # solve
@@ -210,6 +212,7 @@ def main():
                 charging_power[vehicle],
                 color=colors[vehicle % len(colors)],
                 label=f"Charging Power V{vehicle+1}",
+                bottom=np.sum(charging_power[:vehicle], axis=0),
             )
 
         # plot energy price
