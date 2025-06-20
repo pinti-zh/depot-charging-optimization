@@ -111,7 +111,7 @@ def main():
     parser.add_argument("--data", "-d", type=str, nargs="+", required=True, help="path to data file")
     parser.add_argument("--energy_price", "-ep", type=str, default="data/energy_price.csv", help="energy price file")
     parser.add_argument("--ce_function", "-cef", type=str, choices=["constant", "quadratic", "one"], default="one")
-    parser.add_argument("--alpha", "-a", type=float, default=0.0, help="constant for charging efficiency function")
+    parser.add_argument("--alpha", "-a", type=float, default=1.0, help="constant for charging efficiency function")
     parser.add_argument("--plot", "-p", action="store_true", help="plot results")
     args = parser.parse_args()
 
@@ -180,7 +180,9 @@ def main():
         for adjusted_max_power in [None, best_max_power]:
             greedy_opt_model = GreedyOptimizationModel(opt_input)
             greedy_opt_model.set_variables()
-            greedy_opt_model.set_constraints(ce_function_type=args.ce_function, adjusted_max_power=adjusted_max_power)
+            greedy_opt_model.set_constraints(
+                ce_function_type=args.ce_function, alpha=args.alpha, adjusted_max_power=adjusted_max_power
+            )
             greedy_opt_model.set_objective()
             greedy_solution = greedy_opt_model.solve()
             if adjusted_max_power is None:

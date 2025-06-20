@@ -172,6 +172,7 @@ class OptimizationModel:
 
         self.charging_power: list[np.ndarray[gp.Var]] = []
         self.state_of_energy: np.ndarray[gp.Var] = np.empty((opt_input.num_vehicles, opt_input.num + 1), dtype=gp.Var)
+        self.charging_efficiency: list[np.ndarray[gp.Var]] = []
 
         self.charging_indices: Optional[list[np.ndarray[np.int64]]] = None
         self.mcp: Optional[gp.Var] = None
@@ -199,7 +200,19 @@ class OptimizationModel:
                     for i in vehicle_charging_indices
                 ]
             )
+            vehicle_charging_efficiency = np.array(
+                [
+                    self.model.addVar(
+                        name=f"chargingEfficiency_v{vehicle}_{i}",
+                        vtype=GRB.CONTINUOUS,
+                        lb=0,
+                        ub=1,
+                    )
+                    for i in vehicle_charging_indices
+                ]
+            )
             self.charging_power.append(vehicle_charging_power)
+            self.charging_efficiency.append(vehicle_charging_efficiency)
 
         for vehicle, i in product(range(self.opt_input.num_vehicles), range(self.opt_input.num + 1)):
             self.state_of_energy[vehicle, i] = self.model.addVar(
@@ -220,7 +233,7 @@ class OptimizationModel:
 
         self.vars_initialized = True
 
-    def set_constraints(self, ce_function_type: str = "one", alpha: float = 0.0):
+    def set_constraints(self, ce_function_type: str = "one", alpha: float = 1.0):
         if not self.vars_initialized:
             raise ValueError("Variables must be initialized before constraints")
 
@@ -236,13 +249,19 @@ class OptimizationModel:
 
         # charging
         for vehicle in range(self.opt_input.num_vehicles):
-            for i, cp in zip(self.charging_indices[vehicle], self.charging_power[vehicle]):
+            for i, cp, ce in zip(
+                self.charging_indices[vehicle], self.charging_power[vehicle], self.charging_efficiency[vehicle]
+            ):
+                if ce_function_type == "one":
+                    self.model.addConstr(ce == 1.0, f"chargingEfficiency_v{vehicle}_{i}")
+                elif ce_function_type == "constant":
+                    self.model.addConstr(ce == alpha, f"chargingEfficiency_v{vehicle}_{i}")
+                elif ce_function_type == "quadratic":
+                    q_constant = (1 - alpha) / (3 * self.opt_input.max_charging_power[vehicle, i] ** 2)
+                    self.model.addQConstr(ce <= 1 - q_constant * cp * cp, f"chargingEfficiency_v{vehicle}_{i}")
                 self.model.addConstr(
                     self.state_of_energy[vehicle, i + 1]
-                    == self.state_of_energy[vehicle, i]
-                    + charging_efficiency(cp, self.opt_input.max_charging_power[vehicle], ce_function_type, alpha)
-                    * cp
-                    * self.opt_input.dt,
+                    == self.state_of_energy[vehicle, i] + cp * self.opt_input.dt * ce,
                     f"charging_v{vehicle}_{i}",
                 )
 
@@ -297,6 +316,13 @@ class OptimizationModel:
                 charging_power[vehicle, i] = cp.X
         return charging_power
 
+    def get_charging_efficiency(self) -> np.ndarray[np.float64]:
+        charging_efficiency = np.zeros((self.opt_input.num_vehicles, self.opt_input.num))
+        for vehicle in range(self.opt_input.num_vehicles):
+            for i, cp in zip(self.charging_indices[vehicle], self.charging_efficiency[vehicle]):
+                charging_efficiency[vehicle, i] = cp.X
+        return charging_efficiency
+
     def get_state_of_energy(self) -> np.ndarray[np.float64]:
         soe = np.empty((self.opt_input.num_vehicles, self.opt_input.num + 1))
         for vehicle in range(self.opt_input.num_vehicles):
@@ -307,24 +333,12 @@ class OptimizationModel:
         return self.mcp.X
 
 
-def charging_efficiency(cp: float, mcp: float, function_type: str, alpha: float) -> float:
-    match function_type:
-        case "one":
-            return 1.0
-        case "constant":
-            return alpha
-        case "quadratic":
-            return 1 - alpha * (cp / mcp) ** 2
-        case _:
-            raise ValueError(f"Unknown charging efficiency function type: {function_type}")
-
-
 class GreedyOptimizationModel(OptimizationModel):
     def __init__(self, opt_input: OptimizationInput, name: str = "GreedyOptimizationModel"):
         super().__init__(opt_input, name)
 
     def set_constraints(
-        self, ce_function_type: str = "one", alpha: float = 0.0, adjusted_max_power: Optional[float] = None
+        self, ce_function_type: str = "one", alpha: float = 1.0, adjusted_max_power: Optional[float] = None
     ):
         super().set_constraints(ce_function_type=ce_function_type, alpha=alpha)
         if adjusted_max_power is not None:
