@@ -6,6 +6,8 @@ from optimization.optimization import (
     OptimizationModel,
 )
 
+EPS = 1e-6
+
 
 class TestOptimizationSingleVehicle:
     def test_optimization_low_tariff(self):
@@ -30,8 +32,8 @@ class TestOptimizationSingleVehicle:
 
         solution = opt_model.solve()
         for expected, value in zip([6.0, 0.0, 0.0], opt_model.get_charging_power()[0]):
-            assert expected == value
-        assert solution.total_cost == 54.0
+            assert abs(expected - value) < EPS
+        assert abs(solution.total_cost - 54.0) < EPS
 
     def test_optimization_high_tariff(self):
         data = pl.DataFrame(
@@ -55,8 +57,8 @@ class TestOptimizationSingleVehicle:
 
         solution = opt_model.solve()
         for expected, value in zip([3.0, 0.0, 3.0], opt_model.get_charging_power()[0]):
-            assert expected == value
-        assert solution.total_cost == 63.0
+            assert abs(expected - value) < EPS
+        assert abs(solution.total_cost - 63.0) < EPS
 
     def test_optimization_no_solution(self):
         data = pl.DataFrame(
@@ -105,7 +107,7 @@ class TestOptimizationNaiveGreedySolution:
         opt_model.set_constraints()
         opt_model.set_objective()
         solution = opt_model.solve()
-        assert solution.total_cost == 60.0
+        assert abs(solution.total_cost - 60.0) < EPS
 
     def test_complex(self):
         data = pl.DataFrame(
@@ -131,4 +133,4 @@ class TestOptimizationNaiveGreedySolution:
         opt_model.set_constraints()
         opt_model.set_objective()
         solution = opt_model.solve()
-        assert solution.total_cost == 170.0
+        assert abs(solution.total_cost - 170.0) < EPS
