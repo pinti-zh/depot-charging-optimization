@@ -12,6 +12,7 @@ dependencies = [
     "rich",
     "polars",
     "pytest",
+    "dataclasses_json",
 ]
 
 [project.scripts]

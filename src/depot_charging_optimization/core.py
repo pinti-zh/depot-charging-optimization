@@ -1,3 +1,4 @@
+from dataclasses_json import dataclass_json
 from dataclasses import dataclass
 from itertools import product
 from typing import Optional, Tuple
@@ -15,22 +16,23 @@ from depot_charging_optimization.utils import (
     partial_sums,
 )
 
-
+@dataclass_json
 @dataclass
-class OptimizationResult:
-    total_cost: float
-    energy_cost: float
-    power_cost: int = 0
-
-    def __repr__(self):
-        return f"{self.total_cost:.3f}$ ({self.energy_cost:.3f}$ + {self.power_cost:.3f}$)"
-
-    def __str__(self):
-        return self.__repr__()
-
-
 class OptimizationInput:
-    def __init__(self, data: list[pl.DataFrame], energy_price: pl.DataFrame, grid_tariff: float):
+    num: int
+    num_vehicles: int
+    dt: int
+    soe_lb: float
+    soe_ub: float
+    grid_tariff: float
+    battery_capacity: np.ndarray[float]
+    energy_demand: np.ndarray[float]
+    max_charging_power: np.ndarray[float]
+    energy_price: np.ndarray[float]
+    depot_charge: np.ndarray[bool]
+
+    @classmethod
+    def from_dataframes(cls, data: list[pl.DataFrame], energy_price: pl.DataFrame, grid_tariff: float):
         data_columns = ["time", "energy_demand", "depot_charge", "battery_capacity", "max_charging_power"]
         energy_price_columns = ["time", "energy_price"]
 
@@ -41,20 +43,34 @@ class OptimizationInput:
             assert len(df) == len(energy_price) > 0
         assert set(energy_price_columns) <= set(energy_price.columns)
 
-        self.num: int = len(data[0])
-        self.num_vehicles = len(data)
-        self.dt: int = data[0]["time"][0]
-        self.battery_capacity: np.ndarray[np.float64] = np.array([df["battery_capacity"][0] for df in data])
-        self.soe_lb: np.ndarray[np.float64] = self.battery_capacity * 0.2
-        self.soe_ub: np.ndarray[np.float64] = self.battery_capacity * 0.8
-        self.grid_tariff: float = grid_tariff
+        num = len(data[0])
+        num_vehicles = len(data)
+        dt = data[0]["time"][0]
+        battery_capacity = np.array([df["battery_capacity"][0] for df in data])
+        soe_lb = battery_capacity * 0.2
+        soe_ub = battery_capacity * 0.8
+        grid_tariff = grid_tariff
 
-        self.energy_demand: np.ndarray[np.float64] = np.array([df["energy_demand"].to_numpy() for df in data])
-        self.depot_charge: np.ndarray[np.bool] = np.array([df["depot_charge"].to_numpy() for df in data])
-        self.max_charging_power: np.ndarray[np.float64] = np.array(
+        energy_demand = np.array([df["energy_demand"].to_numpy() for df in data])
+        depot_charge = np.array([df["depot_charge"].to_numpy() for df in data])
+        max_charging_power = np.array(
             [df["max_charging_power"].to_numpy().astype(np.float64) for df in data]
         )
-        self.energy_price: np.ndarray[np.float64] = energy_price["energy_price"].to_numpy()
+        energy_price = energy_price["energy_price"].to_numpy()
+        return cls(
+            num,
+            num_vehicles,
+            dt,
+            soe_lb,
+            soe_ub,
+            grid_tariff,
+            battery_capacity,
+            energy_demand,
+            max_charging_power,
+            energy_price,
+            depot_charge,
+        )
+
 
     def __repr__(self) -> str:
         return (
@@ -75,6 +91,19 @@ class OptimizationInput:
 
     def __str__(self) -> str:
         return self.__repr__()
+
+    def to_dict(self) -> dict:
+        data_dict = super().__to_dict__()
+        for key, value in data_dict.items():
+            if isinstance(value, np.ndarray):
+                data_dict[key] = value.tolist()
+        return data_dict
+
+    def from_dict(self, data_dict) -> dict:
+        for key, value in data_dict.items():
+            if isinstance(value, list):
+                data_dict[key] = np.array(value)
+        return super().__from_dict__(data_dict)
 
     def is_feasible(self) -> Tuple[bool, dict]:
         reasons = {
@@ -125,43 +154,35 @@ class OptimizationInput:
             return False, reasons
         return True, reasons
 
-    def is_feasible_slow(self) -> Tuple[bool, dict]:
-        reasons = {
-            "not enough time to charge": [],
-            "not enough battery capacity": [],
-        }
-        for vehicle in range(self.num_vehicles):
-            energy_deltas = []
-            for dc, mcp, ed in zip(
-                self.depot_charge[vehicle], self.max_charging_power[vehicle], self.energy_demand[vehicle]
-            ):
-                if dc:
-                    energy_deltas.append(mcp * self.dt)
-                else:
-                    energy_deltas.append(-ed)
+@dataclass_json
+@dataclass
+class Solution:
+    optimization_input: OptimizationInput
+    total_cost: float
+    energy_cost: float
+    power_cost: float
+    charging_power: np.ndarray[float]
+    state_of_energy: np.ndarray[float]
 
-            if sum(energy_deltas) < 0.0:
-                reasons["not enough time to charge"].append(vehicle)
-                break
+    def __repr__(self):
+        return f"{self.total_cost:.3f}$ ({self.energy_cost:.3f}$ + {self.power_cost:.3f}$)"
 
-            demand_indices = [i for i, dc in enumerate(self.depot_charge[vehicle]) if not dc]
-            for i, start in enumerate(demand_indices):
-                found_reason = False
-                for stop in demand_indices[i:]:
-                    if any(
-                        x < -(self.soe_ub[vehicle] - self.soe_lb[vehicle])
-                        for x in partial_sums(energy_deltas[start: stop + 1])
-                    ):
-                        reasons["not enough battery capacity"].append(vehicle)
-                        found_reason = True
-                        break
-                if found_reason:
-                    break
+    def __str__(self):
+        return self.__repr__()
 
-        if any(map(lambda x: len(x) > 0, reasons.values())):
-            return False, reasons
+    def to_dict(self) -> dict:
+        data_dict = super().__to_dict__()
+        for key, value in data_dict.items():
+            if isinstance(value, np.ndarray):
+                data_dict[key] = value.tolist()
+        return data_dict
 
-        return True, reasons
+    def from_dict(self, data_dict) -> dict:
+        for key, value in data_dict.items():
+            if isinstance(value, list):
+                data_dict[key] = np.array(value)
+        return super().__from_dict__(data_dict)
+
 
 
 class OptimizationModel:
@@ -177,7 +198,7 @@ class OptimizationModel:
         self.charging_indices: Optional[list[np.ndarray[np.int64]]] = None
         self.mcp: Optional[gp.Var] = None
 
-        self.solution: Optional[OptimizationResult] = None
+        self.objective_value: Optional[float] = None
         self.vars_initialized: bool = False
         self.constraints_initialized: bool = False
         self.objective_initialized: bool = False
@@ -291,12 +312,12 @@ class OptimizationModel:
 
         self.objective_initialized = True
 
-    def solve(self) -> Optional[OptimizationResult]:
+    def solve(self) -> Optional[Solution]:
         if not self.objective_initialized:
             raise ValueError("Objective must be initialized before optimization")
         self.model.optimize()
         try:
-            self.solution = self.model.ObjVal
+            self.objective_value = self.model.ObjVal
             power_cost = self.mcp.X * self.opt_input.grid_tariff
             energy_cost = sum(
                 sum(
@@ -307,7 +328,14 @@ class OptimizationModel:
             )
         except AttributeError:
             return None
-        return OptimizationResult(self.solution, energy_cost, power_cost)
+        return Solution(
+            self.opt_input,
+            self.objective_value,
+            energy_cost,
+            power_cost,
+            self.get_charging_power(),
+            self.get_state_of_energy(),
+        )
 
     def get_charging_power(self) -> np.ndarray[np.float64]:
         charging_power = np.zeros((self.opt_input.num_vehicles, self.opt_input.num))
@@ -363,7 +391,7 @@ class GreedyOptimizationModel(OptimizationModel):
             raise ValueError("Objective must be initialized before optimization")
         self.model.optimize()
         try:
-            self.solution = self.model.ObjVal
+            self.objective_value = self.model.ObjVal
             energy_cost = 0.0
             for vehicle in range(self.opt_input.num_vehicles):
                 for i, cp in zip(self.charging_indices[vehicle], self.charging_power[vehicle]):
@@ -371,4 +399,11 @@ class GreedyOptimizationModel(OptimizationModel):
             power_cost = np.max(np.sum(self.get_charging_power(), axis=0)) * self.opt_input.grid_tariff
         except AttributeError:
             return None
-        return OptimizationResult(energy_cost + power_cost, energy_cost, power_cost)
+        return Solution(
+            self.opt_input,
+            self.objective_value,
+            energy_cost,
+            power_cost,
+            self.get_charging_power(),
+            self.get_state_of_energy(),
+        )

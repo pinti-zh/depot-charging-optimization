@@ -148,7 +148,7 @@ def optimize(data_files, energy_price_file, ce_function, alpha):
     )
 
     # optimization
-    opt_input = OptimizationInput(expanded_data, energy_price, 0.2e-3)
+    opt_input = OptimizationInput.from_dataframes(expanded_data, energy_price, 0.2e-3)
     start = perf_counter()
     ok, reasons = opt_input.is_feasible()
     printr(f"[grey69]feasibility check in {perf_counter() - start:.4f} seconds")
