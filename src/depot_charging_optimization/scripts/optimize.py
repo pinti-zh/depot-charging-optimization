@@ -156,7 +156,7 @@ def optimize(data_files, energy_price_file, ce_function, alpha):
         printr("[gold1]optimization input is not feasible:")
         for description, vehicles in reasons.items():
             for vehicle in vehicles:
-                printr(f"    [light_goldenrod2]{description} in [light_salmon1]{args.data[vehicle]}")
+                printr(f"    [light_goldenrod2]{description} in [light_salmon1]{data_files[vehicle]}")
 
     start = perf_counter()
     opt_model = OptimizationModel(opt_input)
