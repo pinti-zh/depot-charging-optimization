@@ -1,4 +1,3 @@
-import argparse
 from functools import reduce
 from itertools import groupby
 from math import gcd
@@ -8,14 +7,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 import seaborn as sns
+import click
 from rich import print as printr
 
-from optimization.optimization import (
+from depot_charging_optimization.core import (
     GreedyOptimizationModel,
     OptimizationInput,
     OptimizationModel,
 )
-from optimization.utils import expand_values, partial_sums
+from depot_charging_optimization.utils import expand_values, partial_sums
 
 
 def get_interval_time_series(time):
@@ -106,20 +106,17 @@ def plot_energy_price(ax, time, energy_price, color="black", label=None, f=1.0):
     ax.legend()
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--data", "-d", type=str, nargs="+", required=True, help="path to data file")
-    parser.add_argument("--energy_price", "-ep", type=str, default="data/energy_price.csv", help="energy price file")
-    parser.add_argument("--ce_function", "-cef", type=str, choices=["constant", "quadratic", "one"], default="one")
-    parser.add_argument("--alpha", "-a", type=float, default=1.0, help="constant for charging efficiency function")
-    parser.add_argument("--plot", "-p", action="store_true", help="plot results")
-    args = parser.parse_args()
-
+@click.command()
+@click.argument("data_files", type=str, nargs=-1)
+@click.option("energy_price_file", "-epf", type=str, default="data/energy_price.csv", help="energy price file")
+@click.option("--ce_function", "-cef", type=click.Choice(["constant", "quadratic", "one"], case_sensitive=False), default="one")
+@click.option("--alpha", "-a", type=float, default=1.0, help="constant for charging efficiency function")
+def optimize(data_files, energy_price_file, ce_function, alpha):
     printr("loading the following files:")
-    for i, file in enumerate(args.data):
+    for i, file in enumerate(data_files):
         printr(f"  {i+1}. [cyan3]{file}[/cyan3]")
-    data = [pl.read_csv(data_file) for data_file in args.data]
-    energy_price = pl.read_csv(args.energy_price)
+    data = [pl.read_csv(data_file) for data_file in data_files]
+    energy_price = pl.read_csv(energy_price_file)
     energy_price = energy_price.with_columns(pl.col("energy_price").truediv(3.6e6))
 
     all_timestamps = []
@@ -164,7 +161,7 @@ def main():
     start = perf_counter()
     opt_model = OptimizationModel(opt_input)
     opt_model.set_variables()
-    opt_model.set_constraints(ce_function_type=args.ce_function, alpha=args.alpha)
+    opt_model.set_constraints(ce_function_type=ce_function, alpha=alpha)
     opt_model.set_objective()
 
     # solve
@@ -181,7 +178,7 @@ def main():
             greedy_opt_model = GreedyOptimizationModel(opt_input)
             greedy_opt_model.set_variables()
             greedy_opt_model.set_constraints(
-                ce_function_type=args.ce_function, alpha=args.alpha, adjusted_max_power=adjusted_max_power
+                ce_function_type=ce_function, alpha=alpha, adjusted_max_power=adjusted_max_power
             )
             greedy_opt_model.set_objective()
             greedy_solution = greedy_opt_model.solve()
@@ -190,7 +187,7 @@ def main():
             else:
                 printr(f"[grey69]                 greedy solution (max power adjusted): {greedy_solution}")
 
-    if solution is not None and args.plot:
+    if solution is not None and False:
         sns.set_style("darkgrid")
         colors = ["navy", "gold", "orchid", "orangered", "mediumseagreen", "saddlebrown", "cornflowerblue"]
         _, axes = plt.subplots(3, figsize=(12, 8))
@@ -254,7 +251,3 @@ def main():
             ax_i, ax_j = get_axes_indices(index, plot_shape)
             axes[ax_i, ax_j].remove()
         plt.show()
-
-
-if __name__ == "__main__":
-    main()

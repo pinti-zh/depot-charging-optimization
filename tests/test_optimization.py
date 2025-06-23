@@ -1,6 +1,6 @@
 import polars as pl
 
-from optimization.optimization import (
+from depot_charging_optimization.core import (
     GreedyOptimizationModel,
     OptimizationInput,
     OptimizationModel,

@@ -7,7 +7,7 @@ import numpy as np
 import polars as pl
 from gurobipy import GRB
 
-from optimization.utils import (
+from depot_charging_optimization.utils import (
     find_continuos_blocks,
     group_vehicles_by_index,
     list_start_string,
@@ -150,7 +150,7 @@ class OptimizationInput:
                 for stop in demand_indices[i:]:
                     if any(
                         x < -(self.soe_ub[vehicle] - self.soe_lb[vehicle])
-                        for x in partial_sums(energy_deltas[start : stop + 1])
+                        for x in partial_sums(energy_deltas[start: stop + 1])
                     ):
                         reasons["not enough battery capacity"].append(vehicle)
                         found_reason = True

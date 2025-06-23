@@ -1,2 +1,27 @@
+[project]
+name = "depot-charging-optimization"
+version = "0.0.1"
+description = "Depot Charging Optimization"
+requires-python = ">=3.11"
+dependencies = [
+    "click",
+    "gurobipy",
+    "numpy",
+    "matplotlib",
+    "seaborn",
+    "rich",
+    "polars",
+    "pytest",
+]
+
+[project.scripts]
+optimize = "depot_charging_optimization.scripts.optimize:optimize"
+clean-data = "depot_charging_optimization.scripts.clean_data:clean_data"
+preprocess-data = "depot_charging_optimization.scripts.preprocess_data:preprocess_data"
+
+[build-system]
+requires = ["flit_core<4"]
+build-backend = "flit_core.buildapi"
+
 [tool.black]
 line-length = 119

@@ -1,8 +1,8 @@
-import argparse
 import os
 from typing import Optional
 
 import polars as pl
+import click
 from rich import print as printr
 
 
@@ -25,16 +25,14 @@ def add_decimal_point_to_int(string):
         return string
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--source", type=str, help="path to source csv file")
-    parser.add_argument("--target", type=str, help="target csv file")
-    parser.add_argument("--sep", type=str, default=";", help="csv file seperator")
-    args = parser.parse_args()
+@click.command()
+@click.argument("source", type=str)
+@click.argument("target", type=str)
+@click.option("--sep", "-s", type=str, default=";", help="csv file seperator")
+def clean_data(source, target, sep):
+    data = pl.read_csv(source, separator=sep, infer_schema=False)
 
-    data = pl.read_csv(args.source, separator=args.sep, infer_schema=False)
-
-    printr(f"loaded [magenta]{args.source}[/magenta]\n  {len(data.columns)} columns and {len(data)} rows")
+    printr(f"loaded [magenta]{source}[/magenta]\n  {len(data.columns)} columns and {len(data)} rows")
     printr("  head", data.head())
 
     none_value_placeholders = ["NA"]
@@ -62,12 +60,8 @@ def main():
             printr(
                 "[gold1]replaced none value placeholders [italic white]and [orange1]replaced floats that had comma decimal point"
             )
-    output_dir = os.path.dirname(args.target)
+    output_dir = os.path.dirname(target)
     os.makedirs(output_dir, exist_ok=True)
-    data.write_csv(args.target)
+    data.write_csv(target)
 
-    printr(f"saved data as [green]{args.target}")
-
-
-if __name__ == "__main__":
-    main()
+    printr(f"saved data as [green]{target}")

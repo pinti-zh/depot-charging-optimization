@@ -1,4 +1,0 @@
-#!/bin/bash
-
-# Loop through all files in the data/processed directory
-python main.py --plot --data data/processed/858500901_MAXI_1.csv data/processed/858551101_MIDI_1.csv data/processed/858581801_MAXI_1.csv data/processed/858696001_MAXI_9.csv data/processed/858539501_MINI_1.csv data/processed/858562601_MIDI_3.csv data/processed/858581801_MAXI_2.csv data/processed/858696001_MIDI_1.csv data/processed/858550601_MAXI_1.csv data/processed/858562701_MAXI_2.csv data/processed/858581801_MAXI_3.csv data/processed/858698301_MIDI_1.csv data/processed/858550601_MAXI_2.csv data/processed/858562701_MAXI_3.csv data/processed/858590101_MIDI_2.csv data/processed/858698401_MIDI_1.csv data/processed/858550601_MAXI_3.csv data/processed/858562701_MAXI_4.csv data/processed/858621201_MIDI_1.csv data/processed/858698401_MIDI_2.csv data/processed/858551101_MAXI_1.csv data/processed/858571501_MINI_1.csv data/processed/858696001_MAXI_8.csv data/processed/858698601_MAXI_3.csv

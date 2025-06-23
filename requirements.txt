@@ -1,7 +1,0 @@
-gurobipy
-numpy
-matplotlib
-seaborn
-rich
-polars
-pytest

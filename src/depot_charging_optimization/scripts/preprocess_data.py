@@ -1,13 +1,25 @@
-import argparse
 import os
+from dataclasses import dataclass
 
 import matplotlib.pyplot as plt
+import click
 import polars as pl
 import seaborn as sns
 from matplotlib.patches import Rectangle
 from rich import print as printr
 
 DAY = 60 * 60 * 24
+
+
+@dataclass
+class ColumnArguments:
+    cycle_id_column: str
+    time_column: str
+    type_column: str
+    demand_column: str
+    capacity_column: str
+    charge_amount_column: str
+    max_charging_power_column: str
 
 
 def process_group(group, args):
@@ -17,7 +29,6 @@ def process_group(group, args):
     assert len(group) >= 2
 
     # assert data at most a full day
-    DAY = 60 * 60 * 24
     assert group[args.time_column].max() - group[args.time_column].min() <= DAY
 
     # assert equal battery capacity for all rows
@@ -54,7 +65,7 @@ def process_group(group, args):
     current_uid = None
     for time, uid, energy_demand, step_type, charge_amount, max_charging_power in zip(
         group[args.time_column],
-        group[args.cycle_id],
+        group[args.cycle_id_column],
         group[args.demand_column],
         group[args.type_column],
         group[args.charge_amount_column],
@@ -90,12 +101,12 @@ def process_group(group, args):
             ed_proportion = ((DAY - times[i - 1]) / dt, (times[i] - DAY) / dt)
             ed_1 = energy_demands[i] * ed_proportion[0]
             ed_2 = energy_demands[i] * ed_proportion[1]
-            energy_demands = energy_demands[:i] + [ed_1, ed_2] + energy_demands[i + 1 :]
+            energy_demands = energy_demands[:i] + [ed_1, ed_2] + energy_demands[i + 1:]
 
             # adjust charge amounts
             ca_1 = charge_amounts[i] * ed_proportion[0]
             ca_2 = charge_amounts[i] * ed_proportion[1]
-            charge_amounts = charge_amounts[:i] + [ca_1, ca_2] + charge_amounts[i + 1 :]
+            charge_amounts = charge_amounts[:i] + [ca_1, ca_2] + charge_amounts[i + 1:]
 
             # adjust max charging powers
             max_charging_powers = max_charging_powers[:i] + [max_charging_powers[i]] + max_charging_powers[i:]
@@ -122,11 +133,11 @@ def process_group(group, args):
     # cut at midnight and swap
     for i in range(len(times) - 1):
         if times[i + 1] < times[i]:
-            times = times[i + 1 :] + times[: i + 1]
-            energy_demands = energy_demands[i + 1 :] + energy_demands[: i + 1]
-            depot_charge = depot_charge[i + 1 :] + depot_charge[: i + 1]
-            charge_amounts = charge_amounts[i + 1 :] + charge_amounts[: i + 1]
-            max_charging_powers = max_charging_powers[i + 1 :] + max_charging_powers[: i + 1]
+            times = times[i + 1:] + times[: i + 1]
+            energy_demands = energy_demands[i + 1:] + energy_demands[: i + 1]
+            depot_charge = depot_charge[i + 1:] + depot_charge[: i + 1]
+            charge_amounts = charge_amounts[i + 1:] + charge_amounts[: i + 1]
+            max_charging_powers = max_charging_powers[i + 1:] + max_charging_powers[: i + 1]
             break
 
     return {
@@ -138,58 +149,6 @@ def process_group(group, args):
         "battery_capacity": [battery_capacity * 3.6e6] * len(times),  # convert from kWh to J
         "uid_switches": uid_switches,
     }
-
-
-def plot_processed_group(times, energy_demands, depot_charge, uid_switches, name="blank", plot_dir=""):
-
-    midpoints = [(t1 + t2) / 2 for t1, t2 in zip([0.0] + times[:-1], times)]
-    width = [t2 - t1 for t1, t2 in zip([0.0] + times[:-1], times)]
-    height = [3600 * ed / (t2 - t1) for ed, t1, t2 in zip(energy_demands, [0.0] + times[:-1], times)]
-
-    sns.set_style("darkgrid")
-    _, ax = plt.subplots(figsize=(12, 8))
-    ax.bar(midpoints, height, width=width, color="firebrick", label="Energy Demand")
-    max_height = max(height)
-    min_height = min(height)
-    buffer = (max_height - min_height) / 10
-    ylim = (min_height - buffer, max_height + buffer)
-    for uid_switch in uid_switches:
-        ax.plot([uid_switch, uid_switch], [ylim[0], ylim[1]], color="black", linestyle="dashed")
-    for t1, t2, dc in zip([0.0] + times, times, depot_charge):
-        if dc:
-            ax.add_patch(
-                Rectangle(
-                    (t1, ylim[0]),
-                    t2 - t1,
-                    ylim[1] - ylim[0],
-                    color="forestgreen",
-                    alpha=0.2,
-                )
-            )
-    # label patch
-    ax.add_patch(
-        Rectangle(
-            (t1, ylim[0]),
-            0,
-            0,
-            color="forestgreen",
-            alpha=0.2,
-            label="Depot Charge",
-        )
-    )
-    ax.set_ylim(ylim)
-    ax.set_xlim(0.0, DAY)
-    ax.set_xlabel("Time [s]")
-    ax.set_ylabel("Power Demand [kW]")
-    plt.legend()
-    if len(uid_switches) == 1:
-        plt.title(f"{name} | 1 cycle")
-    else:
-        plt.title(f"{name} | {len(uid_switches)} cycles")
-    if plot_dir:
-        plt.savefig(f"{plot_dir}/{name}.png")
-        printr(f"    saved plot to [magenta]{plot_dir}/{name}.png")
-    plt.show()
 
 
 def save_processed_group_to_csv(file_name, data_dict):
@@ -209,47 +168,55 @@ def save_processed_group_to_csv(file_name, data_dict):
     printr(f"    saved processed data to [green]{file_name}")
 
 
-def main():
+@click.command()
+@click.argument("source", type=str)
+@click.option("--target", "-t", type=str, default="data/processed")
+@click.option("--group_by", "-g", type=str, default="FahrzeugLaufID")
+@click.option("--cycle_id_column", "-ic", type=str, default="UM_UID")
+@click.option("--time_column", "-tc", type=str, default="zeit")
+@click.option("--type_column", "-tc", type=str, default="Typ")
+@click.option("--demand_column", "-dc", type=str, default="Energie.total")
+@click.option("--capacity_column", "-cc", type=str, default="Batteriekapazitaet")
+@click.option("--charge_amount_column", "-ac", type=str, default="EffektiveLademenge")
+@click.option("--max_charging_power_column", "-mc", type=str, default="Ladegeschwindigkeit")
+def preprocess_data(
+    source,
+    target,
+    group_by,
+    cycle_id_column,
+    time_column,
+    type_column,
+    demand_column,
+    capacity_column,
+    charge_amount_column,
+    max_charging_power_column,
+):
     global DAY
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--source", type=str, help="path to source csv file")
-    parser.add_argument("--target", type=str, default="data/processed", help="target directory")
-    parser.add_argument("--plot_dir", type=str, default="plots/data_visualization", help="directory to save plots")
-    parser.add_argument("--plot", action="store_true", help="create plots for visualization")
-    parser.add_argument("--group_by", type=str, default="FahrzeugLaufID", help="column to group by")
-    parser.add_argument("--cycle_id", type=str, default="UM_UID", help="column containing cycle id")
-    parser.add_argument("--time_column", type=str, default="zeit", help="column containing time")
-    parser.add_argument("--type_column", type=str, default="Typ", help="column containing row type")
-    parser.add_argument("--demand_column", type=str, default="Energie.total", help="column containing energy demand")
-    parser.add_argument(
-        "--capacity_column", type=str, default="Batteriekapazitaet", help="column containing battery capacity"
+    column_arguments = ColumnArguments(
+        cycle_id_column,
+        time_column,
+        type_column,
+        demand_column,
+        capacity_column,
+        charge_amount_column,
+        max_charging_power_column,
     )
-    parser.add_argument(
-        "--charge_amount_column", type=str, default="EffektiveLademenge", help="column containing charge amount"
-    )
-    parser.add_argument(
-        "--max_charging_power_column",
-        type=str,
-        default="Ladegeschwindigkeit",
-        help="column containing max charging power",
-    )
-    args = parser.parse_args()
 
-    data = pl.read_csv(args.source)
+    data = pl.read_csv(source)
 
-    printr(f"loaded [magenta]{args.source}[/magenta]\n  {len(data.columns)} columns and {len(data)} rows")
+    printr(f"loaded [magenta]{source}[/magenta]\n  {len(data.columns)} columns and {len(data)} rows")
     printr("  head", data.head())
 
     num_groups = 0
     num_successes = 0
-    for id, group in data.group_by(args.group_by, maintain_order=True):
+    for id, group in data.group_by(group_by, maintain_order=True):
         num_groups += 1
-        printr(f"processing [cyan]{args.group_by}[/cyan] [dark_cyan]{id[0]}", end="")
-        data_dict = process_group(group, args)
+        printr(f"processing [cyan]{group_by}[/cyan] [dark_cyan]{id[0]}", end="")
+        data_dict = process_group(group, column_arguments)
         try:
             eps = 1e-6
-            assert abs(group[args.demand_column].sum() * 3.6e6 - sum(data_dict["energy_demand"])) < eps
+            assert abs(group[column_arguments.demand_column].sum() * 3.6e6 - sum(data_dict["energy_demand"])) < eps
             assert data_dict["time"][-1] == DAY
             assert len(set(data_dict["time"])) == len(data_dict["time"])
             assert abs(sum(data_dict["energy_demand"]) - sum(data_dict["charge_amount"])) < eps
@@ -259,23 +226,9 @@ def main():
                 assert len(data_dict["time"]) == len(values)
             num_successes += 1
             printr("  [bold green]ok")
-            os.makedirs(args.target, exist_ok=True)
-            save_processed_group_to_csv(f"{args.target}/{id[0]}.csv", data_dict)
-            if args.plot:
-                os.makedirs(args.plot_dir, exist_ok=True)
-                plot_processed_group(
-                    data_dict["time"],
-                    data_dict["energy_demand"],
-                    data_dict["depot_charge"],
-                    data_dict["uid_switches"],
-                    name=id[0],
-                    plot_dir=args.plot_dir,
-                )
+            os.makedirs(target, exist_ok=True)
+            save_processed_group_to_csv(f"{target}/{id[0]}.csv", data_dict)
         except AssertionError:
             printr("  [bold red]not ok [/bold red] | [orange1]skipping")
 
     printr(f"[bold]processed {num_successes}/{num_groups} groups successfully")
-
-
-if __name__ == "__main__":
-    main()
