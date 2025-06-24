@@ -3,11 +3,11 @@ from itertools import groupby
 from math import gcd
 from time import perf_counter
 
+import click
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 import seaborn as sns
-import click
 from rich import print as printr
 
 from depot_charging_optimization.core import (
@@ -109,7 +109,9 @@ def plot_energy_price(ax, time, energy_price, color="black", label=None, f=1.0):
 @click.command()
 @click.argument("data_files", type=str, nargs=-1)
 @click.option("energy_price_file", "-epf", type=str, default="data/energy_price.csv", help="energy price file")
-@click.option("--ce_function", "-cef", type=click.Choice(["constant", "quadratic", "one"], case_sensitive=False), default="one")
+@click.option(
+    "--ce_function", "-cef", type=click.Choice(["constant", "quadratic", "one"], case_sensitive=False), default="one"
+)
 @click.option("--alpha", "-a", type=float, default=1.0, help="constant for charging efficiency function")
 def optimize(data_files, energy_price_file, ce_function, alpha):
     printr("loading the following files:")
