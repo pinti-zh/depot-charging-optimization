@@ -1,4 +1,3 @@
-from dataclasses_json import dataclass_json
 from dataclasses import dataclass
 from itertools import product
 from typing import Optional, Tuple
@@ -6,6 +5,7 @@ from typing import Optional, Tuple
 import gurobipy as gp
 import numpy as np
 import polars as pl
+from dataclasses_json import dataclass_json
 from gurobipy import GRB
 
 from depot_charging_optimization.utils import (
@@ -15,6 +15,7 @@ from depot_charging_optimization.utils import (
     minimum_joint_chain_range,
     partial_sums,
 )
+
 
 @dataclass_json
 @dataclass
@@ -53,9 +54,7 @@ class OptimizationInput:
 
         energy_demand = np.array([df["energy_demand"].to_numpy() for df in data])
         depot_charge = np.array([df["depot_charge"].to_numpy() for df in data])
-        max_charging_power = np.array(
-            [df["max_charging_power"].to_numpy().astype(np.float64) for df in data]
-        )
+        max_charging_power = np.array([df["max_charging_power"].to_numpy().astype(np.float64) for df in data])
         energy_price = energy_price["energy_price"].to_numpy()
         return cls(
             num,
@@ -70,7 +69,6 @@ class OptimizationInput:
             energy_price,
             depot_charge,
         )
-
 
     def __repr__(self) -> str:
         return (
@@ -154,6 +152,7 @@ class OptimizationInput:
             return False, reasons
         return True, reasons
 
+
 @dataclass_json
 @dataclass
 class Solution:
@@ -182,7 +181,6 @@ class Solution:
             if isinstance(value, list):
                 data_dict[key] = np.array(value)
         return super().__from_dict__(data_dict)
-
 
 
 class OptimizationModel:
