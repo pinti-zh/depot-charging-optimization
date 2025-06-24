@@ -277,7 +277,7 @@ class OptimizationModel:
                     self.model.addConstr(ce == alpha, f"chargingEfficiency_v{vehicle}_{i}")
                 elif ce_function_type == "quadratic":
                     q_constant = (1 - alpha) / (3 * self.opt_input.max_charging_power[vehicle, i] ** 2)
-                    self.model.addQConstr(ce <= 1 - q_constant * cp * cp, f"chargingEfficiency_v{vehicle}_{i}")
+                    self.model.addQConstr(ce == 1 - q_constant * cp * cp, f"chargingEfficiency_v{vehicle}_{i}")
                 self.model.addConstr(
                     self.state_of_energy[vehicle, i + 1]
                     == self.state_of_energy[vehicle, i] + cp * self.opt_input.dt * ce,
