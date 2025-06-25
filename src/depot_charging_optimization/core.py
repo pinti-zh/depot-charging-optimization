@@ -26,9 +26,9 @@ class OptimizationInput:
     soe_lb: float
     soe_ub: float
     grid_tariff: float
+    max_charging_power: float
     battery_capacity: np.ndarray[float]
     energy_demand: np.ndarray[float]
-    max_charging_power: np.ndarray[float]
     energy_price: np.ndarray[float]
     depot_charge: np.ndarray[bool]
 
@@ -44,6 +44,13 @@ class OptimizationInput:
             assert len(df) == len(energy_price) > 0
         assert set(energy_price_columns) <= set(energy_price.columns)
 
+        max_charging_power = max(df.filter(pl.col("depot_charge"))["max_charging_power"].max() for df in data)
+        for df in data:
+            assert all(
+                mcp == max_charging_power or mcp == 0
+                for mcp in df.filter(pl.col("depot_charge"))["max_charging_power"]
+            )
+
         num = len(data[0])
         num_vehicles = len(data)
         dt = data[0]["time"][0]
@@ -54,7 +61,6 @@ class OptimizationInput:
 
         energy_demand = np.array([df["energy_demand"].to_numpy() for df in data])
         depot_charge = np.array([df["depot_charge"].to_numpy() for df in data])
-        max_charging_power = np.array([df["max_charging_power"].to_numpy().astype(np.float64) for df in data])
         energy_price = energy_price["energy_price"].to_numpy()
         return cls(
             num,
@@ -63,9 +69,9 @@ class OptimizationInput:
             soe_lb,
             soe_ub,
             grid_tariff,
+            max_charging_power,
             battery_capacity,
             energy_demand,
-            max_charging_power,
             energy_price,
             depot_charge,
         )
@@ -109,7 +115,7 @@ class OptimizationInput:
             "not enough battery capacity": [],
         }
         for vehicle in range(self.num_vehicles):
-            if np.sum(self.max_charging_power[vehicle] * self.depot_charge[vehicle] * self.dt) < np.sum(
+            if np.sum(self.max_charging_power * self.depot_charge[vehicle] * self.dt) < np.sum(
                 self.energy_demand[vehicle]
             ):
                 reasons["not enough time to charge"].append(vehicle)
@@ -201,6 +207,12 @@ class OptimizationModel:
         self.constraints_initialized: bool = False
         self.objective_initialized: bool = False
 
+        self.energy_price_scale_factor: float = 1 / max(opt_input.energy_price)
+        self.scaled_energy_price: np.ndarray[float] = opt_input.energy_price * self.energy_price_scale_factor
+        self.charge_unit: float = opt_input.max_charging_power * opt_input.dt
+        self.storable_charge_units: np.ndarray[float] = (opt_input.soe_ub - opt_input.soe_lb) / self.charge_unit
+        self.scaled_energy_demands: np.ndarray[float] = opt_input.energy_demand / self.charge_unit
+
     def set_variables(self):
 
         # charging mask
@@ -214,7 +226,7 @@ class OptimizationModel:
                         name=f"chargingPower_v{vehicle}_{i}",
                         vtype=GRB.CONTINUOUS,
                         lb=0,
-                        ub=self.opt_input.max_charging_power[vehicle, i],
+                        ub=1,
                     )
                     for i in vehicle_charging_indices
                 ]
@@ -237,8 +249,8 @@ class OptimizationModel:
             self.state_of_energy[vehicle, i] = self.model.addVar(
                 name=f"stateOfEnergy_v{vehicle}_{i}",
                 vtype=GRB.CONTINUOUS,
-                lb=self.opt_input.soe_lb[vehicle],
-                ub=self.opt_input.soe_ub[vehicle],
+                lb=0,
+                ub=self.storable_charge_units[vehicle],
             )
 
         # aux variables
@@ -258,7 +270,7 @@ class OptimizationModel:
 
         # energy demand
         for vehicle in range(self.opt_input.num_vehicles):
-            for i, v in enumerate(zip(self.opt_input.depot_charge[vehicle], self.opt_input.energy_demand[vehicle])):
+            for i, v in enumerate(zip(self.opt_input.depot_charge[vehicle], self.scaled_energy_demands[vehicle])):
                 depot_charge, energy_demand = v
                 if not depot_charge:
                     self.model.addConstr(
@@ -277,12 +289,11 @@ class OptimizationModel:
                     self.model.addConstr(ce == alpha, f"chargingEfficiency_v{vehicle}_{i}")
                 elif ce_function_type == "quadratic":
                     self.model.addConstr(
-                        ce == 1 - (1 - alpha) * cp / (2 * self.opt_input.max_charging_power[vehicle, i]),
+                        ce == 1 - (1 - alpha) * cp / 2,
                         f"chargingEfficiency_v{vehicle}_{i}",
                     )
                 self.model.addConstr(
-                    self.state_of_energy[vehicle, i + 1]
-                    == self.state_of_energy[vehicle, i] + cp * self.opt_input.dt * ce,
+                    self.state_of_energy[vehicle, i + 1] == self.state_of_energy[vehicle, i] + cp * ce,
                     f"charging_v{vehicle}_{i}",
                 )
 
@@ -302,12 +313,12 @@ class OptimizationModel:
         self.model.setObjective(
             gp.quicksum(
                 gp.quicksum(
-                    self.opt_input.energy_price[i] * cp * self.opt_input.dt
+                    self.scaled_energy_price[i] * cp
                     for i, cp in zip(self.charging_indices[vehicle], self.charging_power[vehicle])
                 )
                 for vehicle in range(self.opt_input.num_vehicles)
             )
-            + self.mcp * self.opt_input.grid_tariff,
+            + self.mcp * self.opt_input.grid_tariff * self.energy_price_scale_factor / self.opt_input.dt,
             GRB.MINIMIZE,
         )
 
@@ -319,19 +330,14 @@ class OptimizationModel:
         self.model.optimize()
         try:
             self.objective_value = self.model.ObjVal
-            power_cost = self.mcp.X * self.opt_input.grid_tariff
-            energy_cost = sum(
-                sum(
-                    self.opt_input.energy_price[i] * cp.X * self.opt_input.dt
-                    for i, cp in zip(self.charging_indices[vehicle], self.charging_power[vehicle])
-                )
-                for vehicle in range(self.opt_input.num_vehicles)
-            )
+            charging_power = self.get_charging_power()
+            energy_cost = np.sum(charging_power * self.opt_input.energy_price * self.opt_input.dt)
+            power_cost = np.max(np.sum(charging_power, axis=0)) * self.opt_input.grid_tariff
         except AttributeError:
             return None
         return Solution(
             self.opt_input,
-            self.objective_value,
+            energy_cost + power_cost,
             energy_cost,
             power_cost,
             self.get_charging_power(),
@@ -343,7 +349,7 @@ class OptimizationModel:
         for vehicle in range(self.opt_input.num_vehicles):
             for i, cp in zip(self.charging_indices[vehicle], self.charging_power[vehicle]):
                 charging_power[vehicle, i] = cp.X
-        return charging_power
+        return charging_power * self.charge_unit / self.opt_input.dt
 
     def get_charging_efficiency(self) -> np.ndarray[np.float64]:
         charging_efficiency = np.zeros((self.opt_input.num_vehicles, self.opt_input.num))
@@ -355,7 +361,9 @@ class OptimizationModel:
     def get_state_of_energy(self) -> np.ndarray[np.float64]:
         soe = np.empty((self.opt_input.num_vehicles, self.opt_input.num + 1))
         for vehicle in range(self.opt_input.num_vehicles):
-            soe[vehicle] = np.array([soe.X for soe in self.state_of_energy[vehicle]])
+            soe[vehicle] = np.array(
+                [soe.X * self.charge_unit + self.opt_input.soe_lb[vehicle] for soe in self.state_of_energy[vehicle]]
+            )
         return soe
 
     def get_max_charging_power_used(self) -> float:

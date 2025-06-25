@@ -1,3 +1,7 @@
+import contextlib
+import logging
+import os
+import sys
 from functools import reduce
 from itertools import groupby
 from math import gcd
@@ -8,14 +12,24 @@ import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 import seaborn as sns
-from rich import print as printr
+from rich.logging import RichHandler
 
-from depot_charging_optimization.core import (
-    GreedyOptimizationModel,
-    OptimizationInput,
-    OptimizationModel,
-)
+from depot_charging_optimization.core import OptimizationInput, OptimizationModel
 from depot_charging_optimization.utils import expand_values, partial_sums
+
+
+@contextlib.contextmanager
+def suppress_stdout_stderr():
+    with open(os.devnull, "w") as devnull:
+        old_stdout = sys.stdout
+        old_stderr = sys.stderr
+        sys.stdout = devnull
+        sys.stderr = devnull
+        try:
+            yield
+        finally:
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
 
 
 def get_interval_time_series(time):
@@ -106,6 +120,14 @@ def plot_energy_price(ax, time, energy_price, color="black", label=None, f=1.0):
     ax.legend()
 
 
+# Basic Rich logging setup
+logging.basicConfig(
+    level="INFO", format="%(message)s", datefmt="[%X]", handlers=[RichHandler(markup=True)]
+)  # or DEBUG
+
+logger = logging.getLogger("optimize")
+
+
 @click.command()
 @click.argument("data_files", type=str, nargs=-1)
 @click.option("energy_price_file", "-epf", type=str, default="data/energy_price.csv", help="energy price file")
@@ -114,9 +136,10 @@ def plot_energy_price(ax, time, energy_price, color="black", label=None, f=1.0):
 )
 @click.option("--alpha", "-a", type=float, default=1.0, help="constant for charging efficiency function")
 def optimize(data_files, energy_price_file, ce_function, alpha):
-    printr("loading the following files:")
+    logger.info("Loading the following files:")
     for i, file in enumerate(data_files):
-        printr(f"  {i+1}. [cyan3]{file}[/cyan3]")
+        logger.info(f"  {i+1}. [cyan3]{file}[/cyan3]")
+    logger.info("")
     data = [pl.read_csv(data_file) for data_file in data_files]
     energy_price = pl.read_csv(energy_price_file)
     energy_price = energy_price.with_columns(pl.col("energy_price").truediv(3.6e6))
@@ -150,18 +173,12 @@ def optimize(data_files, energy_price_file, ce_function, alpha):
     )
 
     # optimization
-    opt_input = OptimizationInput.from_dataframes(expanded_data, energy_price, 0.2e-3)
+    opt_input = OptimizationInput.from_dataframes(expanded_data, energy_price, 0.2e-4)
     start = perf_counter()
-    ok, reasons = opt_input.is_feasible()
-    printr(f"[grey69]feasibility check in {perf_counter() - start:.4f} seconds")
-    if not ok:
-        printr("[gold1]optimization input is not feasible:")
-        for description, vehicles in reasons.items():
-            for vehicle in vehicles:
-                printr(f"    [light_goldenrod2]{description} in [light_salmon1]{data_files[vehicle]}")
-
-    start = perf_counter()
-    opt_model = OptimizationModel(opt_input)
+    with suppress_stdout_stderr():
+        opt_model = OptimizationModel(opt_input)
+    opt_model.model.setParam("LogToConsole", 0)
+    opt_model.model.setParam("OutputFlag", 1)
     opt_model.set_variables()
     opt_model.set_constraints(ce_function_type=ce_function, alpha=alpha)
     opt_model.set_objective()
@@ -171,25 +188,11 @@ def optimize(data_files, energy_price_file, ce_function, alpha):
     optimization_time = perf_counter() - start
 
     if solution is None:
-        printr("[orange1]no solution found")
+        logger.error("[orange1]no solution found")
     else:
-        printr(f"[green]found solution in {optimization_time:.4f} seconds with objective value: {solution}")
-        # greedy solutions for comparison
-        best_max_power = opt_model.get_max_charging_power_used()
-        for adjusted_max_power in [None, best_max_power]:
-            greedy_opt_model = GreedyOptimizationModel(opt_input)
-            greedy_opt_model.set_variables()
-            greedy_opt_model.set_constraints(
-                ce_function_type=ce_function, alpha=alpha, adjusted_max_power=adjusted_max_power
-            )
-            greedy_opt_model.set_objective()
-            greedy_solution = greedy_opt_model.solve()
-            if adjusted_max_power is None:
-                printr(f"[grey69]                              greedy solution (naive): {greedy_solution}")
-            else:
-                printr(f"[grey69]                 greedy solution (max power adjusted): {greedy_solution}")
+        logger.info(f"[green]found solution in {optimization_time:.4f} seconds with objective value: {solution}")
 
-    if solution is not None and False:
+    if solution is not None and True:
         sns.set_style("darkgrid")
         colors = ["navy", "gold", "orchid", "orangered", "mediumseagreen", "saddlebrown", "cornflowerblue"]
         _, axes = plt.subplots(3, figsize=(12, 8))
