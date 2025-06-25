@@ -13,7 +13,6 @@ from depot_charging_optimization.utils import (
     group_vehicles_by_index,
     list_start_string,
     minimum_joint_chain_range,
-    partial_sums,
 )
 
 
@@ -86,11 +85,17 @@ class OptimizationInput:
             f"    grid_tariff: {self.grid_tariff}\n"
             f"    energy_price: {list_start_string(self.energy_price, 3)}\n"
             f"    energy_demand:\n"
-            f"      {"\n      ".join([list_start_string(energy_demand_i, 5) for energy_demand_i in self.energy_demand])}\n"
+            f"      {"\n      ".join(
+                [list_start_string(energy_demand_i, 5) for energy_demand_i in self.energy_demand]
+                                )}\n"
             f"    depot_charge:\n"
-            f"      {"\n      ".join([list_start_string(depot_charge_i, 5) for depot_charge_i in self.depot_charge])}\n"
+            f"      {"\n      ".join(
+                [list_start_string(depot_charge_i, 5) for depot_charge_i in self.depot_charge]
+                                )}\n"
             f"    max_charging_power:\n"
-            f"      {"\n      ".join([list_start_string(max_charging_power_i, 5) for max_charging_power_i in self.max_charging_power])}\n"
+            f"      {"\n      ".join(
+                [list_start_string(max_charging_power_i, 5) for max_charging_power_i in self.max_charging_power]
+                                )}\n"
         )
 
     def __str__(self) -> str:
