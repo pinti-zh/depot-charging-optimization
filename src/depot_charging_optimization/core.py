@@ -164,10 +164,11 @@ class Solution:
 
 
 class OptimizationModel:
-    def __init__(self, opt_input: OptimizationInput, name: str = "OptimizationModel"):
+    def __init__(self, opt_input: OptimizationInput, name: str = "OptimizationModel", greedy: bool = False):
         self.opt_input: OptimizationInput = opt_input
         self.name: str = name
         self.model: gp.Model = gp.Model(self.name)
+        self.greedy = greedy
 
         self.charging_power: list[np.ndarray[gp.Var]] = []
         self.state_of_energy: np.ndarray[gp.Var] = np.empty((opt_input.num_vehicles, opt_input.num + 1), dtype=gp.Var)
@@ -284,17 +285,25 @@ class OptimizationModel:
         if not self.constraints_initialized:
             raise ValueError("Constraints must be initialized before objective")
 
-        self.model.setObjective(
-            gp.quicksum(
+        if self.greedy:
+            self.model.setObjective(
                 gp.quicksum(
-                    self.scaled_energy_price[i] * cp
-                    for i, cp in zip(self.charging_indices[vehicle], self.charging_power[vehicle])
-                )
-                for vehicle in range(self.opt_input.num_vehicles)
+                    gp.quicksum(self.state_of_energy[vehicle]) for vehicle in range(self.opt_input.num_vehicles)
+                ),
+                GRB.MAXIMIZE,
             )
-            + self.mcp * self.opt_input.grid_tariff * self.energy_price_scale_factor / self.opt_input.dt,
-            GRB.MINIMIZE,
-        )
+        else:
+            self.model.setObjective(
+                gp.quicksum(
+                    gp.quicksum(
+                        self.scaled_energy_price[i] * cp
+                        for i, cp in zip(self.charging_indices[vehicle], self.charging_power[vehicle])
+                    )
+                    for vehicle in range(self.opt_input.num_vehicles)
+                )
+                + self.mcp * self.opt_input.grid_tariff * self.energy_price_scale_factor / self.opt_input.dt,
+                GRB.MINIMIZE,
+            )
 
         self.objective_initialized = True
 

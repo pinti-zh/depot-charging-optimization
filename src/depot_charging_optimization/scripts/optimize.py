@@ -46,7 +46,11 @@ logger = logging.getLogger("optimize")
 @click.option("--alpha", "-a", type=float, default=1.0, help="constant for charging efficiency function")
 @click.option("--time_limit", "-tl", type=int, default=5, help="solver time limit in seconds")
 @click.option("--solution_file", "-sf", type=str, default="outputs/solutions/solution.json", help="solution file")
-def optimize(data_files, energy_price_file, ce_function, alpha, time_limit, solution_file):
+@click.option("--greedy", "-g", is_flag=True, default=False, help="use a greedy algorithm")
+@click.option("--charging_power_throttle", "-cpt", type=float, default=1, help="throttle for charging power")
+def optimize(
+    data_files, energy_price_file, ce_function, alpha, time_limit, solution_file, greedy, charging_power_throttle
+):
     logger.info("Loading the following files:")
     for i, file in enumerate(data_files):
         logger.info(f"  {i+1}. [cyan3]{file}")
@@ -85,9 +89,10 @@ def optimize(data_files, energy_price_file, ce_function, alpha, time_limit, solu
 
     # optimization
     opt_input = OptimizationInput.from_dataframes(expanded_data, energy_price, 0.2e-4)
+    opt_input.max_charging_power *= charging_power_throttle
     start = perf_counter()
     with suppress_stdout_stderr():
-        opt_model = OptimizationModel(opt_input)
+        opt_model = OptimizationModel(opt_input, greedy=greedy)
     opt_model.model.setParam("LogToConsole", 0)
     opt_model.model.setParam("OutputFlag", 1)
     opt_model.model.setParam("TimeLimit", time_limit)
