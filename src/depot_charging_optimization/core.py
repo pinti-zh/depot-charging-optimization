@@ -337,7 +337,7 @@ class OptimizationModel:
             self.objective_value = self.model.ObjVal
             charging_power = self.get_charging_power()
             energy_cost = np.sum(charging_power * self.opt_input.energy_price * self.opt_input.dt)
-            power_cost = np.max(np.sum(charging_power, axis=0)) * self.opt_input.grid_tariff
+            power_cost = self.get_max_charging_power_used() * self.opt_input.grid_tariff
         except AttributeError:
             return None
         return Solution(
@@ -372,52 +372,4 @@ class OptimizationModel:
         return soe
 
     def get_max_charging_power_used(self) -> float:
-        return self.mcp.X
-
-
-class GreedyOptimizationModel(OptimizationModel):
-    def __init__(self, opt_input: OptimizationInput, name: str = "GreedyOptimizationModel"):
-        super().__init__(opt_input, name)
-
-    def set_constraints(
-        self, ce_function_type: str = "one", alpha: float = 1.0, adjusted_max_power: Optional[float] = None
-    ):
-        super().set_constraints(ce_function_type=ce_function_type, alpha=alpha)
-        if adjusted_max_power is not None:
-            self.model.addConstr(self.mcp <= adjusted_max_power, "adjustedMaxChargingPower")
-
-    def set_objective(self):
-        if not self.constraints_initialized:
-            raise ValueError("Constraints must be initialized before objective")
-
-        self.model.setObjective(
-            gp.quicksum(
-                gp.quicksum(soe for soe in self.state_of_energy[vehicle])
-                for vehicle in range(self.opt_input.num_vehicles)
-            ),
-            GRB.MAXIMIZE,
-        )
-
-        self.objective_initialized = True
-
-    def solve(self):
-        if not self.objective_initialized:
-            raise ValueError("Objective must be initialized before optimization")
-        self.model.optimize()
-        try:
-            self.objective_value = self.model.ObjVal
-            energy_cost = 0.0
-            for vehicle in range(self.opt_input.num_vehicles):
-                for i, cp in zip(self.charging_indices[vehicle], self.charging_power[vehicle]):
-                    energy_cost += self.opt_input.energy_price[i] * cp.X * self.opt_input.dt
-            power_cost = np.max(np.sum(self.get_charging_power(), axis=0)) * self.opt_input.grid_tariff
-        except AttributeError:
-            return None
-        return Solution(
-            self.opt_input,
-            self.objective_value,
-            energy_cost,
-            power_cost,
-            self.get_charging_power(),
-            self.get_state_of_energy(),
-        )
+        return np.max(np.sum(self.get_charging_power(), axis=0))
