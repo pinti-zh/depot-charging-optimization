@@ -171,7 +171,10 @@ class Solution:
     total_cost: float
     energy_cost: float
     power_cost: float
+    gap: float
+    max_charging_power_used: float
     charging_power: np.ndarray[float]
+    charging_efficiency: np.ndarray[float]
     state_of_energy: np.ndarray[float]
 
     def __repr__(self):
@@ -335,6 +338,8 @@ class OptimizationModel:
         self.model.optimize()
         try:
             self.objective_value = self.model.ObjVal
+            obj_bound = self.model.ObjBound
+            gap = abs(self.objective_value - obj_bound) / (abs(self.objective_value) + 1e-10) * 100
             charging_power = self.get_charging_power()
             energy_cost = np.sum(charging_power * self.opt_input.energy_price * self.opt_input.dt)
             power_cost = self.get_max_charging_power_used() * self.opt_input.grid_tariff
@@ -345,7 +350,10 @@ class OptimizationModel:
             energy_cost + power_cost,
             energy_cost,
             power_cost,
+            gap,
+            self.get_max_charging_power_used(),
             self.get_charging_power(),
+            self.get_charging_efficiency(),
             self.get_state_of_energy(),
         )
 
