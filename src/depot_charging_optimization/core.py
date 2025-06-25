@@ -11,7 +11,6 @@ from gurobipy import GRB
 from depot_charging_optimization.utils import (
     find_continuos_blocks,
     group_vehicles_by_index,
-    list_start_string,
     minimum_joint_chain_range,
 )
 
@@ -74,32 +73,6 @@ class OptimizationInput:
             energy_price,
             depot_charge,
         )
-
-    def __repr__(self) -> str:
-        return (
-            f"OptimizationInput\n"
-            f"    num: {self.num}\n"
-            f"    number of vehicles: {self.num_vehicles}\n"
-            f"    dt: {self.dt}\n"
-            f"    battery_capacity: {list_start_string(self.battery_capacity, 5)}\n"
-            f"    grid_tariff: {self.grid_tariff}\n"
-            f"    energy_price: {list_start_string(self.energy_price, 3)}\n"
-            f"    energy_demand:\n"
-            f"      {"\n      ".join(
-                [list_start_string(energy_demand_i, 5) for energy_demand_i in self.energy_demand]
-                                )}\n"
-            f"    depot_charge:\n"
-            f"      {"\n      ".join(
-                [list_start_string(depot_charge_i, 5) for depot_charge_i in self.depot_charge]
-                                )}\n"
-            f"    max_charging_power:\n"
-            f"      {"\n      ".join(
-                [list_start_string(max_charging_power_i, 5) for max_charging_power_i in self.max_charging_power]
-                                )}\n"
-        )
-
-    def __str__(self) -> str:
-        return self.__repr__()
 
     def to_dict(self) -> dict:
         data_dict = super().__to_dict__()
@@ -176,12 +149,6 @@ class Solution:
     charging_power: np.ndarray[float]
     charging_efficiency: np.ndarray[float]
     state_of_energy: np.ndarray[float]
-
-    def __repr__(self):
-        return f"{self.total_cost:.3f}$ ({self.energy_cost:.3f}$ + {self.power_cost:.3f}$)"
-
-    def __str__(self):
-        return self.__repr__()
 
     def to_dict(self) -> dict:
         data_dict = super().__to_dict__()

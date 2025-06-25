@@ -190,11 +190,18 @@ def optimize(data_files, energy_price_file, ce_function, alpha, time_limit):
     optimization_time = perf_counter() - start
 
     if solution is None:
-        logger.error("[orange1]no solution found")
+        logger.error("No solution found")
     else:
-        logger.info(f"[green]found solution in {optimization_time:.4f} seconds with objective value: {solution}")
+        logger.info(f"Found solution in {optimization_time:.4f} seconds")
+        total_cost = f"{solution.total_cost:.3f} $"
+        energy_cost = f"{solution.energy_cost:.3f} $"
+        power_cost = f"{solution.power_cost:.3f} $"
+        max_cost_string_length = max(map(len, [total_cost, energy_cost, power_cost]))
+        logger.info(f"Total cost of solution:   {' ' * (max_cost_string_length - len(total_cost))}{total_cost}")
+        logger.info(f"Energy cost of solution:  {' ' * (max_cost_string_length - len(energy_cost))}{energy_cost}")
+        logger.info(f"Power cost of solution:   {' ' * (max_cost_string_length - len(power_cost))}{power_cost}")
 
-    if solution is not None and True:
+    if solution is not None and False:
         sns.set_style("darkgrid")
         colors = ["navy", "gold", "orchid", "orangered", "mediumseagreen", "saddlebrown", "cornflowerblue"]
         _, axes = plt.subplots(3, figsize=(12, 8))
