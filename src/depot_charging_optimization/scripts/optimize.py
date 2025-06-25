@@ -1,4 +1,5 @@
 import contextlib
+import json
 import logging
 import os
 import sys
@@ -136,10 +137,11 @@ logger = logging.getLogger("optimize")
 )
 @click.option("--alpha", "-a", type=float, default=1.0, help="constant for charging efficiency function")
 @click.option("--time_limit", "-tl", type=int, default=5, help="solver time limit in seconds")
-def optimize(data_files, energy_price_file, ce_function, alpha, time_limit):
+@click.option("--solution_file", "-sf", type=str, default="outputs/solutions/solution.csv", help="solution file")
+def optimize(data_files, energy_price_file, ce_function, alpha, time_limit, solution_file):
     logger.info("Loading the following files:")
     for i, file in enumerate(data_files):
-        logger.info(f"  {i+1}. [cyan3]{file}[/cyan3]")
+        logger.info(f"  {i+1}. [cyan3]{file}")
     logger.info("")
     data = [pl.read_csv(data_file) for data_file in data_files]
     energy_price = pl.read_csv(energy_price_file)
@@ -200,6 +202,12 @@ def optimize(data_files, energy_price_file, ce_function, alpha, time_limit):
         logger.info(f"Total cost of solution:   {' ' * (max_cost_string_length - len(total_cost))}{total_cost}")
         logger.info(f"Energy cost of solution:  {' ' * (max_cost_string_length - len(energy_cost))}{energy_cost}")
         logger.info(f"Power cost of solution:   {' ' * (max_cost_string_length - len(power_cost))}{power_cost}")
+
+        solution_dir = os.path.dirname(solution_file)
+        os.makedirs(solution_dir, exist_ok=True)
+        with open(solution_file, "w") as f:
+            json.dump(solution.to_dict(), f)
+        logger.info(f"Saved solution to [cyan3]{solution_file}")
 
     if solution is not None and False:
         sns.set_style("darkgrid")

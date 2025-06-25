@@ -1,34 +1,34 @@
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from itertools import product
 from typing import Optional, Tuple
 
 import gurobipy as gp
 import numpy as np
 import polars as pl
-from dataclasses_json import dataclass_json
 from gurobipy import GRB
 
 from depot_charging_optimization.utils import (
     find_continuos_blocks,
     group_vehicles_by_index,
     minimum_joint_chain_range,
+    numpy_to_py,
+    py_to_numpy,
 )
 
 
-@dataclass_json
 @dataclass
 class OptimizationInput:
-    num: int
-    num_vehicles: int
-    dt: int
-    soe_lb: float
-    soe_ub: float
-    grid_tariff: float
-    max_charging_power: float
-    battery_capacity: np.ndarray[float]
-    energy_demand: np.ndarray[float]
-    energy_price: np.ndarray[float]
-    depot_charge: np.ndarray[bool]
+    num: np.int64
+    num_vehicles: np.int64
+    dt: np.int64
+    soe_lb: np.ndarray[np.float32]
+    soe_ub: np.ndarray[np.float32]
+    grid_tariff: np.float32
+    max_charging_power: np.float32
+    battery_capacity: np.ndarray[np.float32]
+    energy_demand: np.ndarray[np.float32]
+    energy_price: np.ndarray[np.float32]
+    depot_charge: np.ndarray[np.bool_]
 
     @classmethod
     def from_dataframes(cls, data: list[pl.DataFrame], energy_price: pl.DataFrame, grid_tariff: float):
@@ -52,40 +52,39 @@ class OptimizationInput:
         num = len(data[0])
         num_vehicles = len(data)
         dt = data[0]["time"][0]
-        battery_capacity = np.array([df["battery_capacity"][0] for df in data])
-        soe_lb = battery_capacity * 0.2
-        soe_ub = battery_capacity * 0.8
+        battery_capacity = [df["battery_capacity"][0] for df in data]
+        soe_lb = [bc * 0.2 for bc in battery_capacity]
+        soe_ub = [bc * 0.8 for bc in battery_capacity]
         grid_tariff = grid_tariff
 
-        energy_demand = np.array([df["energy_demand"].to_numpy() for df in data])
-        depot_charge = np.array([df["depot_charge"].to_numpy() for df in data])
-        energy_price = energy_price["energy_price"].to_numpy()
+        energy_demand = [df["energy_demand"].to_list() for df in data]
+        depot_charge = [df["depot_charge"].to_list() for df in data]
+        energy_price = energy_price["energy_price"].to_list()
         return cls(
-            num,
-            num_vehicles,
-            dt,
-            soe_lb,
-            soe_ub,
-            grid_tariff,
-            max_charging_power,
-            battery_capacity,
-            energy_demand,
-            energy_price,
-            depot_charge,
+            np.int64(num),
+            np.int64(num_vehicles),
+            np.int64(dt),
+            np.array(soe_lb, dtype=np.int64),
+            np.array(soe_ub, dtype=np.int64),
+            np.float32(grid_tariff),
+            np.float32(max_charging_power),
+            np.array(battery_capacity, dtype=np.float32),
+            np.array(energy_demand, dtype=np.float32),
+            np.array(energy_price, dtype=np.float32),
+            np.array(depot_charge, dtype=np.bool_),
         )
 
     def to_dict(self) -> dict:
-        data_dict = super().__to_dict__()
+        data_dict = asdict(self)
         for key, value in data_dict.items():
-            if isinstance(value, np.ndarray):
-                data_dict[key] = value.tolist()
+            data_dict[key] = numpy_to_py(value)
         return data_dict
 
-    def from_dict(self, data_dict) -> dict:
+    @classmethod
+    def from_dict(cls, data_dict: dict) -> dict:
         for key, value in data_dict.items():
-            if isinstance(value, list):
-                data_dict[key] = np.array(value)
-        return super().__from_dict__(data_dict)
+            data_dict[key] = py_to_numpy(value)
+        return cls(**data_dict)
 
     def is_feasible(self) -> Tuple[bool, dict]:
         reasons = {
@@ -137,31 +136,31 @@ class OptimizationInput:
         return True, reasons
 
 
-@dataclass_json
 @dataclass
 class Solution:
     optimization_input: OptimizationInput
-    total_cost: float
-    energy_cost: float
-    power_cost: float
-    gap: float
-    max_charging_power_used: float
-    charging_power: np.ndarray[float]
-    charging_efficiency: np.ndarray[float]
-    state_of_energy: np.ndarray[float]
+    total_cost: np.float32
+    energy_cost: np.float32
+    power_cost: np.float32
+    gap: np.float32
+    max_charging_power_used: np.float32
+    charging_power: np.ndarray[np.float32]
+    charging_efficiency: np.ndarray[np.float32]
+    state_of_energy: np.ndarray[np.float32]
 
     def to_dict(self) -> dict:
-        data_dict = super().__to_dict__()
+        data_dict = asdict(self)
         for key, value in data_dict.items():
-            if isinstance(value, np.ndarray):
-                data_dict[key] = value.tolist()
+            data_dict[key] = numpy_to_py(value)
+        data_dict["optimization_input"] = self.optimization_input.to_dict()
         return data_dict
 
-    def from_dict(self, data_dict) -> dict:
+    @classmethod
+    def from_dict(cls, data_dict: dict) -> dict:
         for key, value in data_dict.items():
-            if isinstance(value, list):
-                data_dict[key] = np.array(value)
-        return super().__from_dict__(data_dict)
+            data_dict[key] = py_to_numpy(value)
+        data_dict["optimization_input"] = OptimizationInput.from_dict(data_dict["optimization_input"])
+        return cls(**data_dict)
 
 
 class OptimizationModel:
@@ -314,32 +313,32 @@ class OptimizationModel:
             return None
         return Solution(
             self.opt_input,
-            energy_cost + power_cost,
-            energy_cost,
-            power_cost,
-            gap,
-            self.get_max_charging_power_used(),
+            np.float32(energy_cost + power_cost),
+            np.float32(energy_cost),
+            np.float32(power_cost),
+            np.float32(gap),
+            np.float32(self.get_max_charging_power_used()),
             self.get_charging_power(),
             self.get_charging_efficiency(),
             self.get_state_of_energy(),
         )
 
     def get_charging_power(self) -> np.ndarray[np.float64]:
-        charging_power = np.zeros((self.opt_input.num_vehicles, self.opt_input.num))
+        charging_power = np.zeros((self.opt_input.num_vehicles, self.opt_input.num), dtype=np.float32)
         for vehicle in range(self.opt_input.num_vehicles):
             for i, cp in zip(self.charging_indices[vehicle], self.charging_power[vehicle]):
                 charging_power[vehicle, i] = cp.X
         return charging_power * self.charge_unit / self.opt_input.dt
 
     def get_charging_efficiency(self) -> np.ndarray[np.float64]:
-        charging_efficiency = np.zeros((self.opt_input.num_vehicles, self.opt_input.num))
+        charging_efficiency = np.zeros((self.opt_input.num_vehicles, self.opt_input.num), dtype=np.float32)
         for vehicle in range(self.opt_input.num_vehicles):
             for i, cp in zip(self.charging_indices[vehicle], self.charging_efficiency[vehicle]):
                 charging_efficiency[vehicle, i] = cp.X
         return charging_efficiency
 
     def get_state_of_energy(self) -> np.ndarray[np.float64]:
-        soe = np.empty((self.opt_input.num_vehicles, self.opt_input.num + 1))
+        soe = np.empty((self.opt_input.num_vehicles, self.opt_input.num + 1), dtype=np.float32)
         for vehicle in range(self.opt_input.num_vehicles):
             soe[vehicle] = np.array(
                 [soe.X * self.charge_unit + self.opt_input.soe_lb[vehicle] for soe in self.state_of_energy[vehicle]]

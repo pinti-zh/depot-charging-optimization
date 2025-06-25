@@ -6,6 +6,29 @@ import numpy as np
 T = TypeVar("T")
 
 
+def numpy_to_py(x):
+    if isinstance(x, np.ndarray) or isinstance(x, list):
+        return [numpy_to_py(v) for v in x]
+    elif isinstance(x, (np.generic,)):
+        return x.item()
+    else:
+        return x
+
+
+def py_to_numpy(x):
+    type_map = {
+        int: np.int64,
+        float: np.float32,
+        bool: np.bool_,
+    }
+    if isinstance(x, list) or isinstance(x, np.ndarray):
+        return np.array([py_to_numpy(v) for v in x])
+    elif type(x) in type_map.keys():
+        return type_map[type(x)](x)
+    else:
+        return x
+
+
 def list_start_string(values: Iterable, num: int) -> str:
     s = str(values[:num])
     if len(values) <= num:
