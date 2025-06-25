@@ -137,7 +137,7 @@ logger = logging.getLogger("optimize")
 )
 @click.option("--alpha", "-a", type=float, default=1.0, help="constant for charging efficiency function")
 @click.option("--time_limit", "-tl", type=int, default=5, help="solver time limit in seconds")
-@click.option("--solution_file", "-sf", type=str, default="outputs/solutions/solution.csv", help="solution file")
+@click.option("--solution_file", "-sf", type=str, default="outputs/solutions/solution.json", help="solution file")
 def optimize(data_files, energy_price_file, ce_function, alpha, time_limit, solution_file):
     logger.info("Loading the following files:")
     for i, file in enumerate(data_files):
