@@ -135,7 +135,8 @@ logger = logging.getLogger("optimize")
     "--ce_function", "-cef", type=click.Choice(["constant", "quadratic", "one"], case_sensitive=False), default="one"
 )
 @click.option("--alpha", "-a", type=float, default=1.0, help="constant for charging efficiency function")
-def optimize(data_files, energy_price_file, ce_function, alpha):
+@click.option("--time_limit", "-tl", type=int, default=5, help="solver time limit in seconds")
+def optimize(data_files, energy_price_file, ce_function, alpha, time_limit):
     logger.info("Loading the following files:")
     for i, file in enumerate(data_files):
         logger.info(f"  {i+1}. [cyan3]{file}[/cyan3]")
@@ -179,6 +180,7 @@ def optimize(data_files, energy_price_file, ce_function, alpha):
         opt_model = OptimizationModel(opt_input)
     opt_model.model.setParam("LogToConsole", 0)
     opt_model.model.setParam("OutputFlag", 1)
+    opt_model.model.setParam("TimeLimit", time_limit)
     opt_model.set_variables()
     opt_model.set_constraints(ce_function_type=ce_function, alpha=alpha)
     opt_model.set_objective()
