@@ -1,6 +1,10 @@
 import numpy as np
 
-from depot_charging_optimization.utils import expand_values, group_vehicles_by_index, natural_keys
+from depot_charging_optimization.utils import (
+    expand_values,
+    group_vehicles_by_index,
+    natural_keys,
+)
 
 
 class TestExpandValues:

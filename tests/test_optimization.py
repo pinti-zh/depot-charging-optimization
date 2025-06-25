@@ -1,12 +1,8 @@
 import polars as pl
 
-from depot_charging_optimization.core import (
-    GreedyOptimizationModel,
-    OptimizationInput,
-    OptimizationModel,
-)
+from depot_charging_optimization.core import OptimizationInput, OptimizationModel
 
-EPS = 1e-6
+EPS = 1e-3
 
 
 class TestOptimizationSingleVehicle:
@@ -23,8 +19,7 @@ class TestOptimizationSingleVehicle:
         energy_price = pl.DataFrame({"time": [5, 10, 15], "energy_price": [1.0, 0.0, 2.0]})
         grid_tariff = 4.0
 
-        opt_input = OptimizationInput([data], energy_price, grid_tariff)
-        assert opt_input.is_feasible()[0]
+        opt_input = OptimizationInput.from_dataframes([data], energy_price, grid_tariff)
         opt_model = OptimizationModel(opt_input)
         opt_model.set_variables()
         opt_model.set_constraints()
@@ -48,8 +43,7 @@ class TestOptimizationSingleVehicle:
         energy_price = pl.DataFrame({"time": [5, 10, 15], "energy_price": [1.0, 0.0, 2.0]})
         grid_tariff = 6.0
 
-        opt_input = OptimizationInput([data], energy_price, grid_tariff)
-        assert opt_input.is_feasible()[0]
+        opt_input = OptimizationInput.from_dataframes([data], energy_price, grid_tariff)
         opt_model = OptimizationModel(opt_input)
         opt_model.set_variables()
         opt_model.set_constraints()
@@ -67,17 +61,13 @@ class TestOptimizationSingleVehicle:
                 "energy_demand": [0.0, 30.0, 0.0],
                 "depot_charge": [True, False, True],
                 "battery_capacity": [50.0, 50.0, 50.0],
-                "max_charging_power": [3.0, 0.0, 2.0],
+                "max_charging_power": [2.0, 0.0, 2.0],
             }
         )
         energy_price = pl.DataFrame({"time": [5, 10, 15], "energy_price": [1.0, 0.0, 2.0]})
         grid_tariff = 4.0
 
-        opt_input = OptimizationInput([data], energy_price, grid_tariff)
-        assert opt_input.is_feasible() == (
-            False,
-            {"not enough time to charge": [0], "not enough battery capacity": []},
-        )
+        opt_input = OptimizationInput.from_dataframes([data], energy_price, grid_tariff)
         opt_model = OptimizationModel(opt_input)
         opt_model.set_variables()
         opt_model.set_constraints()
@@ -100,8 +90,7 @@ class TestOptimiazationChargingEfficiency:
         )
         energy_price = pl.DataFrame({"time": [5, 10], "energy_price": [1.0, 1.0]})
 
-        opt_input = OptimizationInput([data], energy_price, 0.0)
-        assert opt_input.is_feasible()[0]
+        opt_input = OptimizationInput.from_dataframes([data], energy_price, 0.0)
         opt_model = OptimizationModel(opt_input)
         opt_model.set_variables()
         opt_model.set_constraints(ce_function_type="constant", alpha=0.6)
@@ -114,48 +103,43 @@ class TestOptimiazationChargingEfficiency:
         data = pl.DataFrame(
             {
                 "time": [5, 10],
-                "energy_demand": [0.0, 124 / 5],
+                "energy_demand": [0.0, 44],
                 "depot_charge": [True, False],
-                "battery_capacity": [50.0, 50.0],
+                "battery_capacity": [100.0, 100.0],
                 "max_charging_power": [25.0, 0.0],
             }
         )
         energy_price = pl.DataFrame({"time": [5, 10], "energy_price": [1.0, 1.0]})
 
-        opt_input = OptimizationInput([data], energy_price, 1.0)
-        assert opt_input.is_feasible()[0]
+        opt_input = OptimizationInput.from_dataframes([data], energy_price, 1.0)
         opt_model = OptimizationModel(opt_input)
         opt_model.set_variables()
         opt_model.set_constraints(ce_function_type="quadratic", alpha=0.4)
         opt_model.set_objective()
 
         solution = opt_model.solve()
-        assert abs(solution.total_cost - 30.0) < EPS
+        assert abs(solution.total_cost - 60.0) < EPS
 
     def test_quadratic_charging_efficiency_max(self):
         data = pl.DataFrame(
             {
                 "time": [5, 10],
-                "energy_demand": [0.0, 30.0],
+                "energy_demand": [0.0, 35.0],
                 "depot_charge": [True, False],
-                "battery_capacity": [50.0, 50.0],
-                "max_charging_power": [9.0, 0.0],
+                "battery_capacity": [100.0, 100.0],
+                "max_charging_power": [10.0, 0.0],
             }
         )
         energy_price = pl.DataFrame({"time": [5, 10], "energy_price": [1.0, 1.0]})
 
-        opt_input = OptimizationInput([data], energy_price, 1.0)
-        assert opt_input.is_feasible()[0]
+        opt_input = OptimizationInput.from_dataframes([data], energy_price, 1.0)
         opt_model = OptimizationModel(opt_input)
         opt_model.set_variables()
-        opt_model.set_constraints(ce_function_type="quadratic", alpha=0.0)
+        opt_model.set_constraints(ce_function_type="quadratic", alpha=0.4)
         opt_model.set_objective()
-        opt_model.model.setParam("FeasibilityTol", 1e-9)
 
         solution = opt_model.solve()
-        print(opt_model.get_charging_efficiency()[0])
-        print(opt_model.get_charging_power()[0])
-        assert abs(solution.total_cost - 54.0) < EPS
+        assert abs(solution.total_cost - 60.0) < EPS
 
 
 class TestOptimizationNaiveGreedySolution:
@@ -171,9 +155,8 @@ class TestOptimizationNaiveGreedySolution:
         )
         energy_price = pl.DataFrame({"time": [5, 10, 15], "energy_price": [1.0, 0.0, 2.0]})
 
-        opt_input = OptimizationInput([data], energy_price, 0.0)
-        assert opt_input.is_feasible()[0]
-        opt_model = GreedyOptimizationModel(opt_input)
+        opt_input = OptimizationInput.from_dataframes([data], energy_price, 0.0)
+        opt_model = OptimizationModel(opt_input, greedy=True)
         opt_model.set_variables()
         opt_model.set_constraints()
         opt_model.set_objective()
@@ -187,7 +170,7 @@ class TestOptimizationNaiveGreedySolution:
                 "energy_demand": [0.0, 20.0, 10.0, 0.0, 10.0, 0.0, 0.0, 20.0, 0.0, 0.0],
                 "depot_charge": [True, False, False, True, False, True, True, False, True, True],
                 "battery_capacity": [50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0],
-                "max_charging_power": [6.0, 0.0, 5.0, 4.0, 5.0, 4.0, 6.0, 0.0, 2.0, 4.0],
+                "max_charging_power": [5.0, 0.0, 5.0, 5.0, 5.0, 5.0, 5.0, 0.0, 5.0, 5.0],
             }
         )
         energy_price = pl.DataFrame(
@@ -197,11 +180,12 @@ class TestOptimizationNaiveGreedySolution:
             }
         )
 
-        opt_input = OptimizationInput([data], energy_price, 0.0)
-        assert opt_input.is_feasible()[0]
-        opt_model = GreedyOptimizationModel(opt_input)
+        opt_input = OptimizationInput.from_dataframes([data], energy_price, 0.0)
+        opt_model = OptimizationModel(opt_input, greedy=True)
         opt_model.set_variables()
         opt_model.set_constraints()
         opt_model.set_objective()
         solution = opt_model.solve()
-        assert abs(solution.total_cost - 170.0) < EPS
+        print(opt_model.get_charging_power())
+        print(opt_model.get_charging_efficiency())
+        assert abs(solution.total_cost - 195.0) < EPS

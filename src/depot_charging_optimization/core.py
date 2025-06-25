@@ -1,6 +1,6 @@
 from dataclasses import asdict, dataclass
 from itertools import product
-from typing import Optional, Tuple
+from typing import Optional
 
 import gurobipy as gp
 import numpy as np
@@ -8,9 +8,7 @@ import polars as pl
 from gurobipy import GRB
 
 from depot_charging_optimization.utils import (
-    find_continuos_blocks,
     group_vehicles_by_index,
-    minimum_joint_chain_range,
     numpy_to_py,
     py_to_numpy,
 )
@@ -85,55 +83,6 @@ class OptimizationInput:
         for key, value in data_dict.items():
             data_dict[key] = py_to_numpy(value)
         return cls(**data_dict)
-
-    def is_feasible(self) -> Tuple[bool, dict]:
-        reasons = {
-            "not enough time to charge": [],
-            "not enough battery capacity": [],
-        }
-        for vehicle in range(self.num_vehicles):
-            if np.sum(self.max_charging_power * self.depot_charge[vehicle] * self.dt) < np.sum(
-                self.energy_demand[vehicle]
-            ):
-                reasons["not enough time to charge"].append(vehicle)
-
-            continuous_blocks = find_continuos_blocks(self.depot_charge[vehicle])
-            chain_values = []
-            for i, j, value in continuous_blocks:
-                if value:
-                    if i < j:
-                        chain_values.append(np.sum(self.max_charging_power[vehicle][i:j]) * self.dt)
-                    else:
-                        chain_values.append(
-                            np.sum(
-                                np.concatenate(
-                                    [self.max_charging_power[vehicle][i:], self.max_charging_power[vehicle][:j]]
-                                )
-                            )
-                            * self.dt
-                        )
-                else:
-                    if i < j:
-                        cum_sum = np.cumsum(self.energy_demand[vehicle][i:j])
-                    else:
-                        cum_sum = np.cumsum(
-                            np.concatenate(self.energy_demand[vehicle][i:], self.energy_demand[vehicle][:j])
-                        )
-                    chain_values.append(np.max(cum_sum) - min(np.min(cum_sum), 0))
-            if continuous_blocks[0][2]:
-                chain_blocks = chain_values[1::2]
-                joints = chain_values[2::2]
-            else:
-                chain_blocks = chain_values[::2]
-                joints = chain_values[1:-1:2]
-
-            min_capacity_needed = minimum_joint_chain_range(chain_blocks, joints)
-            if min_capacity_needed > self.soe_ub[vehicle] - self.soe_lb[vehicle]:
-                reasons["not enough battery capacity"].append(vehicle)
-
-        if any(map(lambda x: len(x) > 0, reasons.values())):
-            return False, reasons
-        return True, reasons
 
 
 @dataclass
