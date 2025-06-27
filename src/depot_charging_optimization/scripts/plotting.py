@@ -154,9 +154,8 @@ def create_app(solution):
     soe_df = pl.DataFrame(soe_dict)
     charging_power_df = pl.DataFrame(charging_power_dict)
 
-    heading = html.Div("Vehicle State of Energy", className="bg-primary text-white text-center p-3 h3 mb-2 ")
     heading = html.Div(
-        "⚡ Vehicle State of Charge",
+        "⚡ Depot Charging Optimization",
         style={
             "fontSize": "30px",
             "fontWeight": "bold",
@@ -165,6 +164,30 @@ def create_app(solution):
             "backgroundColor": "#222",
             "color": "#f0f0f0",
             "borderBottom": "1px solid #444",
+            "fontFamily": "Segoe UI, sans-serif",
+        },
+    )
+    soe_heading = html.Div(
+        "State of Energy",
+        style={
+            "fontSize": "20px",
+            "fontWeight": "bold",
+            "padding": "20px",
+            "textAlign": "center",
+            "backgroundColor": "#222",
+            "color": "#f0f0f0",
+            "fontFamily": "Segoe UI, sans-serif",
+        },
+    )
+    cp_heading = html.Div(
+        "Charging Power",
+        style={
+            "fontSize": "20px",
+            "fontWeight": "bold",
+            "padding": "20px",
+            "textAlign": "center",
+            "backgroundColor": "#222",
+            "color": "#f0f0f0",
             "fontFamily": "Segoe UI, sans-serif",
         },
     )
@@ -188,6 +211,7 @@ def create_app(solution):
         [
             heading,
             dbc.Row(id="top-padding", style={"height": "30px"}),
+            soe_heading,
             dbc.Row(
                 [
                     dbc.Col(checklist, width=2),  # 3/12 columns wide = ~25% of row width
@@ -204,6 +228,7 @@ def create_app(solution):
                 style={"height": "50vh"},
             ),
             dbc.Row(id="middle-padding", style={"height": "30px"}),
+            cp_heading,
             dbc.Row(
                 [
                     dbc.Col(width=2),
