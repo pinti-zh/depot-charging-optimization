@@ -7,11 +7,13 @@ dependencies = [
     "click",
     "gurobipy",
     "numpy",
-    "matplotlib",
-    "seaborn",
+    "plotly",
     "rich",
     "polars",
     "pytest",
+    "dash",
+    "dash-bootstrap-components",
+    "dash-iconify",
 ]
 
 [project.scripts]
