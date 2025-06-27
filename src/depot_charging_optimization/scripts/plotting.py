@@ -143,8 +143,8 @@ def create_app(solution):
     }
     charging_power_dict = {
         "time": np.linspace(
-            solution.optimization_input.dt,
-            solution.optimization_input.num * solution.optimization_input.dt,
+            solution.optimization_input.dt / 2,
+            solution.optimization_input.num * solution.optimization_input.dt - solution.optimization_input.dt / 2,
             solution.optimization_input.num,
         )
     }
@@ -273,7 +273,13 @@ def create_app(solution):
     def update_charging_power(checklist):
         fig = go.Figure(
             data=[
-                go.Bar(name=f"V{i+1}", x=charging_power_df["time"], y=charging_power_df[str(i + 1)], offsetgroup=0)
+                go.Bar(
+                    name=f"V{i+1}",
+                    x=charging_power_df["time"],
+                    y=charging_power_df[str(i + 1)],
+                    offsetgroup=0,
+                    width=solution.optimization_input.dt,
+                )
                 for i in range(solution.optimization_input.num_vehicles)
             ],
         )
