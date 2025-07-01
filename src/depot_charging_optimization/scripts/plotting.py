@@ -2,13 +2,11 @@ import json
 import logging
 import os
 import sys
-from itertools import groupby
 
 import click
 import dash_bootstrap_components as dbc
 import numpy as np
 import plotly.express as px
-import plotly.graph_objects as go
 import polars as pl
 from dash import Dash, Input, Output, dcc, html
 from dash_iconify import DashIconify
@@ -16,7 +14,6 @@ from rich.console import Console
 from rich.logging import RichHandler
 
 from depot_charging_optimization.core import Solution
-from depot_charging_optimization.utils import partial_sums
 
 # Basic Rich logging setup
 rich_handler = RichHandler(console=Console(stderr=True), markup=True)
@@ -42,7 +39,7 @@ sys.stdout = open(os.devnull, "w")
 
 def stack_df_for_area_plot(df: pl.DataFrame) -> pl.DataFrame:
     stacked_dict = {
-        "time" : ([0] + [int(t) for t in df["time"].to_list() for _ in range(2)][:-1]) * (len(df.columns) - 1),
+        "time": ([0] + [int(t) for t in df["time"].to_list() for _ in range(2)][:-1]) * (len(df.columns) - 1),
         "value": [],
         "group": [],
     }
