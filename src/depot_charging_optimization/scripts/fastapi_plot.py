@@ -91,10 +91,10 @@ def cp_figure(vehicles: Optional[list] = None):
     if vehicles is None:
         vehicles = range(solution.optimization_input.num_vehicles)
 
-    fig_cp = go.Figure()
+    fig = go.Figure()
     for vehicle in vehicles:
         color = TRACE_COLORS[vehicle % len(TRACE_COLORS)]
-        fig_cp.add_trace(
+        fig.add_trace(
             go.Bar(
                 x=time,
                 y=list(solution.charging_power[vehicle] / 1000),
@@ -103,9 +103,32 @@ def cp_figure(vehicles: Optional[list] = None):
                 opacity=0.8,
             )
         )
-    fig_cp.update_layout(barmode="stack")
-    update_layout(fig_cp)
-    return fig_cp
+    fig.update_layout(barmode="stack")
+    update_layout(fig)
+    return fig
+
+
+def detail_figure(vehicle: int = -1):
+    fig = go.Figure()
+    if vehicle == -1:
+        update_layout(fig)
+        return fig
+
+    solution = get_solution()
+    time = [i * solution.optimization_input.dt for i in range(solution.optimization_input.num + 1)]
+    color = TRACE_COLORS[vehicle % len(TRACE_COLORS)]
+    fig.add_trace(
+        go.Scatter(
+            x=time,
+            y=list(solution.state_of_energy[vehicle] / (3600 * 1000)),
+            mode="lines",
+            marker=dict(color=color),
+            line=dict(color=color),
+        )
+    )
+
+    update_layout(fig)
+    return fig
 
 
 @app.get("/")
@@ -115,6 +138,7 @@ async def index(request: Request):
     # Initial plot data as JSON
     fig_soe = soe_figure([])
     fig_cp = cp_figure([])
+    fig_detail = detail_figure(-1)
 
     return TEMPLATES.TemplateResponse(
         "dashboard.html",
@@ -122,6 +146,7 @@ async def index(request: Request):
             "request": request,
             "soe_plot_json": fig_soe.to_json(),
             "cp_plot_json": fig_cp.to_json(),
+            "detail_plot_json": fig_detail.to_json(),
             "vehicles": vehicles,
             "colors": TRACE_COLORS,
         },
@@ -151,6 +176,13 @@ async def get_empty_cp_plot():
 async def get_cp_plot(vehicles_str):
     vehicles = [int(v) for v in vehicles_str.split(",")]
     fig = cp_figure(vehicles=vehicles)
+    return JSONResponse(content=fig.to_dict())
+
+
+@app.get("/detail_plot/{vehicle_str}")
+async def get_detail_plot(vehicle_str):
+    vehicle = int(vehicle_str)
+    fig = detail_figure(vehicle=vehicle)
     return JSONResponse(content=fig.to_dict())
 
 
