@@ -19,16 +19,18 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEMPLATES = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 
 TRACE_COLORS = [
-    "#00FFFF",  # Electric Cyan
-    "#39FF14",  # Neon Green
-    "#FF69B4",  # Hot Pink
-    "#00BFFF",  # Deep Sky Blue
-    "#FF00FF",  # Magenta
-    "#FF7F50",  # Coral
-    "#FFD700",  # Gold
-    "#8A2BE2",  # Violet
-    "#00FF7F",  # Spring Green
-    "#4169E1",  # Royal Blue
+    "#58A7C5",  # Darker Soft Sky Blue
+    "#63B88D",  # Darker Light Mint
+    "#E58D87",  # Darker Pale Coral
+    "#A987D6",  # Darker Lavender Mist
+    "#C7A94F",  # Darker Misty Gold
+    "#BA8B86",  # Darker Dusty Rose
+    "#4F9792",  # Darker Muted Teal
+    "#9889D4",  # Darker Cool Lilac
+    "#E4A87E",  # Darker Soft Apricot
+    "#89AEB0",  # Darker Silver Blue
+    "#90B9A9",  # Darker Powder Green
+    "#CDBE97",  # Darker Creamy Sand
 ]
 
 
@@ -98,6 +100,7 @@ def cp_figure(vehicles: Optional[list] = None):
                 y=list(solution.charging_power[vehicle] / 1000),
                 marker_color=color,
                 marker=dict(line=dict(width=0)),
+                opacity=0.8,
             )
         )
     fig_cp.update_layout(barmode="stack")
