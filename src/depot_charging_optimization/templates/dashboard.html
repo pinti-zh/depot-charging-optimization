@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <h1 style="text-align: center; margin-top: 30px;">⚡ Depot Charging Optimization ⚡</h1>
+    <div style="height: 20px;"></div>
+    <div class="container" style="display: flex;">
+        <div class="col-2" id="soe-checklist">
+            {% for vehicle in vehicles %}
+            <label><input type="checkbox" value={{ vehicle }} checked> Vehicle {{ vehicle }}</label><br>
+            {% endfor %}
+        </div>
+        <div class="col-8 plot-card" id="plot-card-1">
+            <div class="plot" id="plot-1"></div>
+        </div>
+        <div class="col-2"></div>
+    </div>
+    <script>
+      // Render initial plot from server JSON
+    window.addEventListener('load', () => {
+        requestAnimationFrame(() => {
+            const container = document.getElementById('plot-card-1');
+            const initialPlotData = {{ plot_json | safe }};
+            Plotly.newPlot('plot-1', initialPlotData.data, initialPlotData.layout);
+        });
+    });
+
+    async function fetchAndUpdateSoePlot(vehicles) {
+        try {
+            const response = await fetch('/plot/' + vehicles);
+            const plotData = await response.json();
+            Plotly.react('plot-1', plotData.data, plotData.layout, {responsive: true});
+        } catch (err) {
+            console.error('Plot update error:', err);
+        }
+    }
+    
+    document.querySelectorAll('#soe-checklist input[type="checkbox"]').forEach(chk => {
+        chk.addEventListener('change', () => {
+            const checkboxes = document.querySelectorAll('#soe-checklist input[type="checkbox"]');
+            const selected = Array.from(checkboxes)
+                                .filter(chk => chk.checked)
+                                .map(chk => chk.value);
+            fetchAndUpdateSoePlot(selected);
+        });
+    });
+
+    </script>
+    <style>
+
+    body {
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        margin: 0;
+        height: 100vh;
+        background: linear-gradient(-45deg, #050535, #041d35, #050535, #1d0435);
+        background-size: 400% 400%;
+        animation: gradientBG 8s ease infinite;
+        color: #fafaca;
+    }
+
+    .plot {
+        width: 100%;
+        height: 100%;
+        box-sizing: border-box; /* include padding/border in width */
+        padding: 0;
+        margin: 0;
+        border: none; /* or a thin border that fits */
+    }
+
+    .plot-card {
+        height: 400px;
+        position: relative;
+        border: 2px solid #111111;
+        border-radius: 8px;              /* Rounded corners (optional) */
+        box-shadow: 0 0 15px 5px rgba(200, 200, 255, 0.4); /* Soft bluish glow */
+        background-color: #111111;
+        padding: 10px;                   /* Space between border and plot */
+    }
+
+    @keyframes gradientBG {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+    </style>
+</body>
+</html>

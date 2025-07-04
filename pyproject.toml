@@ -11,16 +11,16 @@ dependencies = [
     "rich",
     "polars",
     "pytest",
-    "dash",
-    "dash-bootstrap-components",
-    "dash-iconify",
+    "fastapi",
+    "uvicorn",
+    "jinja2",
 ]
 
 [project.scripts]
 optimize = "depot_charging_optimization.scripts.optimize:optimize"
 clean-data = "depot_charging_optimization.scripts.clean_data:clean_data"
 preprocess-data = "depot_charging_optimization.scripts.preprocess_data:preprocess_data"
-plot = "depot_charging_optimization.scripts.plotting:plot_solution"
+plot = "depot_charging_optimization.scripts.fastapi_plot:serve"
 
 [build-system]
 requires = ["setuptools", "wheel"]
