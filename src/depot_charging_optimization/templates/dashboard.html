@@ -6,34 +6,68 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
-    <h1 style="text-align: center; margin-top: 30px;">⚡ Depot Charging Optimization ⚡</h1>
-    <div style="height: 20px;"></div>
-    <div class="container" style="display: flex;">
-        <div class="col-2" id="soe-checklist">
-            {% for vehicle in vehicles %}
-            <label><input type="checkbox" value={{ vehicle }} checked> Vehicle {{ vehicle }}</label><br>
-            {% endfor %}
+    <h1 style="text-align: center; margin-top: 30px;">Depot Charging Optimization</h1>
+    <div id="header-spacer" style="height: 50px;"></div>
+    <div class="container">
+        <div id="soe-header" class="row chart-header-row">
+            <div class="col-2"></div>
+            <h2 class="col-8">State of Energy</h2>
+            <div class="col-2"></div>
         </div>
-        <div class="col-8 plot-card" id="plot-card-1">
-            <div class="plot" id="plot-1"></div>
+        <div class="row" id="soe-row">
+            <div class="col-2" id="soe-checklist" style="margin-top: 10px;">
+                {% for vehicle in vehicles %}
+                <label style="margin-bottom: 10px; color: {{ colors[vehicle % colors|length] }}; font-size: 18px">
+                    <input type="checkbox" value={{ vehicle }} checked> <span style="vertical-align: 2px;">Vehicle {{ vehicle + 1}}</span>
+                </label><br>
+                {% endfor %}
+            </div>
+            <div class="col-8 plot-card" id="soe-plot-card">
+                <div class="plot" id="soe-plot"></div>
+            </div>
+            <div class="col-2"></div>
         </div>
-        <div class="col-2"></div>
+        <div id="cp-header" class="row chart-header-row">
+            <div class="col-2"></div>
+            <h2 class="col-8">Charging Power</h2>
+            <div class="col-2"></div>
+        </div>
+        <div class="row" id="cp-row">
+            <div class="col-2" id="cp-dropdown" style="margin-top: 10px;">
+            </div>
+            <div class="col-8 plot-card" id="cp-plot-card">
+                <div class="plot" id="cp-plot"></div>
+            </div>
+            <div class="col-2"></div>
+        </div>
     </div>
+    <div id="footer-spacer" style="height: 50px;"></div>
     <script>
       // Render initial plot from server JSON
     window.addEventListener('load', () => {
         requestAnimationFrame(() => {
-            const container = document.getElementById('plot-card-1');
-            const initialPlotData = {{ plot_json | safe }};
-            Plotly.newPlot('plot-1', initialPlotData.data, initialPlotData.layout);
+            const initialSOEPlot = {{ soe_plot_json | safe }};
+            const initialCPPlot = {{ cp_plot_json | safe }};
+            Plotly.newPlot('soe-plot', initialSOEPlot.data, initialSOEPlot.layout);
+            Plotly.newPlot('cp-plot', initialCPPlot.data, initialCPPlot.layout);
         });
     });
 
     async function fetchAndUpdateSoePlot(vehicles) {
         try {
-            const response = await fetch('/plot/' + vehicles);
+            const response = await fetch('/soe_plot/' + vehicles);
             const plotData = await response.json();
-            Plotly.react('plot-1', plotData.data, plotData.layout, {responsive: true});
+            Plotly.react('soe-plot', plotData.data, plotData.layout, {responsive: true});
+        } catch (err) {
+            console.error('Plot update error:', err);
+        }
+    }
+
+    async function fetchAndUpdateCPPlot(vehicles) {
+        try {
+            const response = await fetch('/cp_plot/' + vehicles);
+            const plotData = await response.json();
+            Plotly.react('cp-plot', plotData.data, plotData.layout, {responsive: true});
         } catch (err) {
             console.error('Plot update error:', err);
         }
@@ -46,6 +80,7 @@
                                 .filter(chk => chk.checked)
                                 .map(chk => chk.value);
             fetchAndUpdateSoePlot(selected);
+            fetchAndUpdateCPPlot(selected);
         });
     });
 
@@ -59,7 +94,7 @@
         background: linear-gradient(-45deg, #050535, #041d35, #050535, #1d0435);
         background-size: 400% 400%;
         animation: gradientBG 8s ease infinite;
-        color: #fafaca;
+        color:  white;
     }
 
     .plot {
@@ -79,6 +114,43 @@
         box-shadow: 0 0 15px 5px rgba(200, 200, 255, 0.4); /* Soft bluish glow */
         background-color: #111111;
         padding: 10px;                   /* Space between border and plot */
+    }
+
+    .chart-header-row {
+        margin-bottom: 30px;
+        margin-top: 50px;
+    }
+
+    input[type="checkbox"] {
+        /* Remove default styling */
+        appearance: none;
+        -webkit-appearance: none;
+        width: 18px;
+        height: 18px;
+        border: 2px solid #aaa;
+        border-radius: 3px;
+        margin-right: 5px;
+        cursor: pointer;
+        position: relative;
+    }
+
+    /* Style the checked state */
+    input[type="checkbox"]:checked {
+        background-color: #2196F3;
+        border-color: #2196F3;
+    }
+
+    /* Minimal checkmark with ::after */
+    input[type="checkbox"]:checked::after {
+        content: "";
+        position: absolute;
+        left: 5px;
+        top: 2px;
+        width: 5px;
+        height: 10px;
+        border: solid white;
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
     }
 
     @keyframes gradientBG {

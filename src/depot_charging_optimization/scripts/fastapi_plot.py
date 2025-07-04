@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from typing import Optional
 
 import click
 import plotly.graph_objs as go
@@ -16,6 +17,19 @@ from depot_charging_optimization.core import Solution
 app = FastAPI()
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEMPLATES = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
+
+TRACE_COLORS = [
+    "#00FFFF",  # Electric Cyan
+    "#39FF14",  # Neon Green
+    "#FF69B4",  # Hot Pink
+    "#00BFFF",  # Deep Sky Blue
+    "#FF00FF",  # Magenta
+    "#FF7F50",  # Coral
+    "#FFD700",  # Gold
+    "#8A2BE2",  # Violet
+    "#00FF7F",  # Spring Green
+    "#4169E1",  # Royal Blue
+]
 
 
 logging.basicConfig(
@@ -33,62 +47,107 @@ for name in uvicorn_loggers:
     log.propagate = False  # Important: don't duplicate logs
 
 
-@app.get("/")
-async def index(request: Request):
+def get_solution():
     with open(os.getenv("SOLUTION"), "r") as f:
         solution = Solution.from_dict(json.load(f))
-    time = [i * solution.optimization_input.dt for i in range(solution.optimization_input.num + 1)]
+    return solution
 
-    # Initial plot data as JSON
-    fig = go.Figure()
-    for vehicle in range(solution.optimization_input.num_vehicles):
-        fig.add_trace(go.Scatter(x=time, y=list(solution.state_of_energy[vehicle] / (3600 * 1000))))
 
+def update_layout(fig):
     fig.update_layout(
         template="plotly_dark",
         margin=dict(l=10, r=10, t=10, b=10),
         showlegend=False,
     )
+
+
+def soe_figure(vehicles: Optional[list] = None):
+    solution = get_solution()
+    time = [i * solution.optimization_input.dt for i in range(solution.optimization_input.num + 1)]
+    if vehicles is None:
+        vehicles = range(solution.optimization_input.num_vehicles)
+
+    fig = go.Figure()
+    for vehicle in vehicles:
+        color = TRACE_COLORS[vehicle % len(TRACE_COLORS)]
+        fig.add_trace(
+            go.Scatter(
+                x=time,
+                y=list(solution.state_of_energy[vehicle] / (3600 * 1000)),
+                mode="lines",
+                marker=dict(color=color),
+                line=dict(color=color),
+            )
+        )
+    update_layout(fig)
+    return fig
+
+
+def cp_figure(vehicles: Optional[list] = None):
+    solution = get_solution()
+    time = [(i + 1) * solution.optimization_input.dt for i in range(solution.optimization_input.num)]
+    if vehicles is None:
+        vehicles = range(solution.optimization_input.num_vehicles)
+
+    fig_cp = go.Figure()
+    for vehicle in vehicles:
+        color = TRACE_COLORS[vehicle % len(TRACE_COLORS)]
+        fig_cp.add_trace(
+            go.Bar(
+                x=time,
+                y=list(solution.charging_power[vehicle] / 1000),
+                marker_color=color,
+                marker=dict(line=dict(width=0)),
+            )
+        )
+    fig_cp.update_layout(barmode="stack")
+    update_layout(fig_cp)
+    return fig_cp
+
+
+@app.get("/")
+async def index(request: Request):
+    vehicles = list(range(get_solution().optimization_input.num_vehicles))
+
+    # Initial plot data as JSON
+    fig_soe = soe_figure()
+    fig_cp = cp_figure()
 
     return TEMPLATES.TemplateResponse(
         "dashboard.html",
         {
             "request": request,
-            "plot_json": fig.to_json(),
-            "vehicles": list(i + 1 for i in range(solution.optimization_input.num_vehicles)),
+            "soe_plot_json": fig_soe.to_json(),
+            "cp_plot_json": fig_cp.to_json(),
+            "vehicles": vehicles,
+            "colors": TRACE_COLORS,
         },
     )
 
 
-@app.get("/plot")
-async def get_empty_plot():
-    fig = go.Figure()
-    fig.update_layout(
-        template="plotly_dark",
-        margin=dict(l=10, r=10, t=10, b=10),
-        showlegend=False,
-    )
+@app.get("/soe_plot")
+async def get_empty_soe_plot():
+    fig = soe_figure(vehicles=[])
     return JSONResponse(content=fig.to_dict())
 
 
-@app.get("/plot/{vehicles_str}")
-async def get_plot(vehicles_str):
-    vehicles = [int(v) - 1 for v in vehicles_str.split(",")]
+@app.get("/soe_plot/{vehicles_str}")
+async def get_soe_plot(vehicles_str):
+    vehicles = [int(v) for v in vehicles_str.split(",")]
+    fig = soe_figure(vehicles=vehicles)
+    return JSONResponse(content=fig.to_dict())
 
-    with open(os.getenv("SOLUTION"), "r") as f:
-        solution = Solution.from_dict(json.load(f))
-    time = [i * solution.optimization_input.dt for i in range(solution.optimization_input.num + 1)]
 
-    fig = go.Figure()
-    for vehicle in vehicles:
-        fig.add_trace(go.Scatter(x=time, y=list(solution.state_of_energy[vehicle] / (3600 * 1000))))
+@app.get("/cp_plot")
+async def get_empty_cp_plot():
+    fig = cp_figure(vehicles=[])
+    return JSONResponse(content=fig.to_dict())
 
-    fig.update_layout(
-        template="plotly_dark",
-        margin=dict(l=10, r=10, t=10, b=10),
-        showlegend=False,
-    )
 
+@app.get("/cp_plot/{vehicles_str}")
+async def get_cp_plot(vehicles_str):
+    vehicles = [int(v) for v in vehicles_str.split(",")]
+    fig = cp_figure(vehicles=vehicles)
     return JSONResponse(content=fig.to_dict())
 
 
