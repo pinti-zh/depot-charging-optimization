@@ -192,4 +192,4 @@ async def get_detail_plot(vehicle_str):
 def serve(reload, solution_file):
     logger.info(f"Loaded solution from [cyan3]{solution_file}")
     os.environ["SOLUTION"] = solution_file
-    uvicorn.run("depot_charging_optimization.scripts.fastapi_plot:app", host="0.0.0.0", port=8000, reload=reload)
+    uvicorn.run("depot_charging_optimization.scripts.plotting_webapp:app", host="0.0.0.0", port=8000, reload=reload)

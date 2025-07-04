@@ -20,7 +20,7 @@ dependencies = [
 optimize = "depot_charging_optimization.scripts.optimize:optimize"
 clean-data = "depot_charging_optimization.scripts.clean_data:clean_data"
 preprocess-data = "depot_charging_optimization.scripts.preprocess_data:preprocess_data"
-plot = "depot_charging_optimization.scripts.fastapi_plot:serve"
+plot = "depot_charging_optimization.scripts.plotting_webapp:serve"
 
 [build-system]
 requires = ["setuptools", "wheel"]
