@@ -51,6 +51,12 @@
             Plotly.newPlot('soe-plot', initialSOEPlot.data, initialSOEPlot.layout);
             Plotly.newPlot('cp-plot', initialCPPlot.data, initialCPPlot.layout);
         });
+        const checkboxes = document.querySelectorAll('#soe-checklist input[type="checkbox"]');
+        const selected = Array.from(checkboxes)
+                            .filter(chk => chk.checked)
+                            .map(chk => chk.value);
+        fetchAndUpdateSoePlot(selected);
+        fetchAndUpdateCPPlot(selected);
     });
 
     async function fetchAndUpdateSoePlot(vehicles) {

@@ -113,8 +113,8 @@ async def index(request: Request):
     vehicles = list(range(get_solution().optimization_input.num_vehicles))
 
     # Initial plot data as JSON
-    fig_soe = soe_figure()
-    fig_cp = cp_figure()
+    fig_soe = soe_figure([])
+    fig_cp = cp_figure([])
 
     return TEMPLATES.TemplateResponse(
         "dashboard.html",
