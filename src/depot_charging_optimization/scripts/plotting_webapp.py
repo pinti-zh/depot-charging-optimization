@@ -9,7 +9,8 @@ from plotly.subplots import make_subplots
 import uvicorn
 from fastapi import FastAPI
 from fastapi.requests import Request
-from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from rich.logging import RichHandler
 
@@ -18,6 +19,10 @@ from depot_charging_optimization.core import Solution
 app = FastAPI()
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEMPLATES = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
+
+# Mount the static directory
+STATIC = os.path.join(BASE_DIR, "static")
+app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 TRACE_COLORS = [
     "#58A7C5",  # Darker Soft Sky Blue
@@ -230,6 +235,11 @@ async def index(request: Request):
             "colors": TRACE_COLORS,
         },
     )
+
+
+@app.get("/favicon.ico")
+async def favicon():
+    return FileResponse(os.path.join(STATIC, "favicon.ico"))
 
 
 @app.get("/soe_plot")
