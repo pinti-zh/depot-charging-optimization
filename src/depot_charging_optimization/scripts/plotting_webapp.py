@@ -87,7 +87,7 @@ def soe_figure(vehicles: Optional[list] = None):
 
 def cp_figure(vehicles: Optional[list] = None):
     solution = get_solution()
-    time = [(i + 1) * solution.optimization_input.dt for i in range(solution.optimization_input.num)]
+    time = [(i + 1/2) * solution.optimization_input.dt for i in range(solution.optimization_input.num)]
     if vehicles is None:
         vehicles = range(solution.optimization_input.num_vehicles)
 
@@ -98,6 +98,7 @@ def cp_figure(vehicles: Optional[list] = None):
             go.Bar(
                 x=time,
                 y=list(solution.charging_power[vehicle] / 1000),
+                width=[solution.optimization_input.dt for _ in range(solution.optimization_input.num)],
                 marker_color=color,
                 marker=dict(line=dict(width=0)),
                 opacity=0.8,
