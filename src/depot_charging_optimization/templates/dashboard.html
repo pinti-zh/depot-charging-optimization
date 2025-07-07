@@ -6,9 +6,18 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
-    <h1 style="text-align: center; margin-top: 30px;">Depot Charging Optimization</h1>
-    <div id="header-spacer" style="height: 50px;"></div>
     <div class="container">
+    <header>
+        <div class="row" style="margin-top: 30px;">
+            <div class="col-4" style="font-size: 24px;">Depot Charging Optimization</div>
+            <div class="col-6" style="text-align: right;">
+                <a href="#soe-header" class="header-link">State of Energy</a>
+                <a href="#cp-header" class="header-link">Charging Power</a>
+                <a href="#ep-header" class="header-link">Energy Price</a>
+                <a href="#detail-header" class="header-link">Vehicle Detail</a>
+            </div>
+        </div>
+    </header>
         <div id="soe-header" class="row chart-header-row">
             <div class="col-2"></div>
             <h2 class="col-8">State of Energy</h2>
@@ -164,6 +173,19 @@
         background-size: 400% 400%;
         animation: gradientBG 8s ease infinite;
         color:  white;
+    }
+
+    .header-link {
+        color: white;
+        text-decoration: none;
+        margin: 0 12px;
+        font-weight: 500;
+        font-size: 16px;
+        transition: color 0.3s ease;
+    }
+
+    .header-link:hover {
+        color: #2196F3;
     }
 
     .plot {
