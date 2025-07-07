@@ -81,6 +81,10 @@ def soe_figure(vehicles: Optional[list] = None):
                 line=dict(color=color),
             )
         )
+    fig.update_layout(
+        xaxis_title="Time [s]",
+        yaxis_title="State of Energy [kWh]",
+    )
     update_layout(fig)
     return fig
 
@@ -104,7 +108,11 @@ def cp_figure(vehicles: Optional[list] = None):
                 opacity=0.8,
             )
         )
-    fig.update_layout(barmode="stack")
+    fig.update_layout(
+        barmode="stack",
+        xaxis_title="Time [s]",
+        yaxis_title="Charging Power [kW]",
+    )
     update_layout(fig)
     return fig
 
@@ -120,6 +128,11 @@ def energy_price_figure():
             y=list(solution.optimization_input.energy_price * 3.6e6),
             mode="lines",
         )
+    )
+    fig.update_layout(
+        barmode="stack",
+        xaxis_title="Time [s]",
+        yaxis_title="Energy Price [CHF/kWh]",
     )
     update_layout(fig)
     return fig
@@ -187,7 +200,12 @@ def detail_figure(vehicle: int = -1):
                 line_width=0,
                 layer="below",
             ))
-    fig.update_layout(shapes=bands)
+    fig.update_layout(
+        shapes=bands,
+        xaxis_title="Time [s]",
+        yaxis_title="State of Energy [kWh]",
+        yaxis2_title="Charging Power [kW]",
+    )
     update_layout(fig)
     return fig
 
