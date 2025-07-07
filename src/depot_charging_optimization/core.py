@@ -1,10 +1,11 @@
 from dataclasses import asdict, dataclass
 from itertools import product
 from typing import Optional
+from pydantic import BaseModel, field_validator, model_validator
 
 import gurobipy as gp
 import numpy as np
-import polars as pl
+import pandas as pd
 from gurobipy import GRB
 
 from depot_charging_optimization.utils import (
@@ -14,22 +15,76 @@ from depot_charging_optimization.utils import (
 )
 
 
-@dataclass
-class OptimizationInput:
-    num: np.int64
-    num_vehicles: np.int64
-    dt: np.int64
-    soe_lb: np.ndarray[np.float32]
-    soe_ub: np.ndarray[np.float32]
-    grid_tariff: np.float32
-    max_charging_power: np.float32
-    battery_capacity: np.ndarray[np.float32]
-    energy_demand: np.ndarray[np.float32]
-    energy_price: np.ndarray[np.float32]
-    depot_charge: np.ndarray[np.bool_]
+class OptimizationInput(BaseModel):
+    num_vehicles: int
+    time: list[int]
+    energy_price: list[float]
+    grid_tariff: float
+    energy_demand: list[list[float]]
+    soe_lb: list[float]
+    soe_ub: list[float]
+    max_charging_power: float
+    battery_capacity: list[float]
+    depot_charge: list[list[bool]]
+
+    @field_validator("num_vehicles", "max_charging_power")
+    @classmethod
+    def check_positive(cls, value, info):
+        if value <= 0:
+            raise ValueError(f"Field[{info.field_name}] must be positive")
+        return value
+
+    @field_validator("time", "battery_capacity")
+    @classmethod
+    def check_positive_list(cls, value, info):
+        if not all(v > 0 for v in value):
+            raise ValueError(f"Field[{info.field_name}] must be positive")
+        return value
+
+    @field_validator("time")
+    @classmethod
+    def check_ascending(cls, value, info):
+        diff = [v2 - v1 for v1, v2 in zip(value[:-1], value[1:])]
+        if not all(d > 0 for d in diff):
+            raise ValueError(f"Field[{info.field_name}] must be strictly ascending")
+        return value
+
+    @field_validator("soe_lb", "soe_ub")
+    @classmethod
+    def check_between_0_and_1(cls, value, info):
+        if not all(0 <= v <= 1 for v in value):
+            raise ValueError(f"Field[{info.field_name}] must be between 0 and 1")
+        return value
+
+    @model_validator(mode="after")
+    def check_soe_bounds(self):
+        if not all(lb < ub for lb, ub in zip(self.soe_lb, self.soe_ub)):
+            raise ValueError("Field[soe_lb] must be smaller than Field[soe_ub]")
+        return self
+
+    @model_validator(mode="after")
+    def check_list_lengths(self):
+        n = len(self.time)
+        if not len(self.energy_price) == n:
+            raise ValueError(f"Field[energy_price] has length {len(self.energy_price)}, expected {n}")
+        if not all(len(v) == n for v in self.energy_demand):
+            raise ValueError(f"Entry of Field[energy_demand] does not have expected length {n}")
+        if not all(len(v) == n for v in self.depot_charge):
+            raise ValueError(f"Entry of Field[depot_charge] does not have expected length {n}")
+        if not len(self.energy_demand) == self.num_vehicles:
+            raise ValueError(f"Field[energy_demand] has length {len(self.energy_demand)}, expected {self.num_vehicles}")
+        if not len(self.depot_charge) == self.num_vehicles:
+            raise ValueError(f"Field[depot_charge] has length {len(self.depot_charge)}, expected {self.num_vehicles}")
+        if not len(self.battery_capacity) == self.num_vehicles:
+            raise ValueError(f"Field[battery_capacity] has length {len(self.battery_capacity)}, expected {self.num_vehicles}")
+        if not len(self.soe_lb) == self.num_vehicles:
+            raise ValueError(f"Field[soe_lb] has length {len(self.soe_lb)}, expected {self.num_vehicles}")
+        if not len(self.soe_ub) == self.num_vehicles:
+            raise ValueError(f"Field[soe_ub] has length {len(self.soe_ub)}, expected {self.num_vehicles}")
+        return self
 
     @classmethod
-    def from_dataframes(cls, data: list[pl.DataFrame], energy_price: pl.DataFrame, grid_tariff: float):
+    def from_dataframes(cls, data: list[pd.DataFrame], energy_price: pd.DataFrame, grid_tariff: float):
         data_columns = ["time", "energy_demand", "depot_charge", "battery_capacity", "max_charging_power"]
         energy_price_columns = ["time", "energy_price"]
 
