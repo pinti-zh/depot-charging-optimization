@@ -132,7 +132,7 @@ def detail_figure(vehicle: int = -1):
         return fig
 
     solution = get_solution()
-    time = [i * solution.optimization_input.dt for i in range(solution.optimization_input.num + 1)]
+    time = [int(i * solution.optimization_input.dt) for i in range(solution.optimization_input.num + 1)]
     color = TRACE_COLORS[vehicle % len(TRACE_COLORS)]
 
     # state of Energy
@@ -165,11 +165,29 @@ def detail_figure(vehicle: int = -1):
             width=[solution.optimization_input.dt for _ in range(solution.optimization_input.num)],
             marker_color=color,
             marker=dict(line=dict(width=0)),
-            opacity=0.6,
+            opacity=0.4,
         ),
         secondary_y=True,
     )
 
+    # depot charging intervals
+    bands = []
+    for t, dc in zip(time[:-1], solution.optimization_input.depot_charge[vehicle]):
+        if dc:
+            bands.append(dict(
+                type="rect",
+                xref="x",
+                yref="paper",
+                x0=t,
+                x1=t + int(solution.optimization_input.dt),
+                y0=0,
+                y1=1,
+                fillcolor=color,
+                opacity=0.2,
+                line_width=0,
+                layer="below",
+            ))
+    fig.update_layout(shapes=bands)
     update_layout(fig)
     return fig
 
