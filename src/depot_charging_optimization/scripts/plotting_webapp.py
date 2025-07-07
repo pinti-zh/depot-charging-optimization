@@ -5,6 +5,7 @@ from typing import Optional
 
 import click
 import plotly.graph_objs as go
+from plotly.subplots import make_subplots
 import uvicorn
 from fastapi import FastAPI
 from fastapi.requests import Request
@@ -47,7 +48,6 @@ for name in uvicorn_loggers:
     log.handlers = logger.handlers
     log.setLevel(logger.level)
     log.propagate = False  # Important: don't duplicate logs
-
 
 def get_solution():
     with open(os.getenv("SOLUTION"), "r") as f:
@@ -110,7 +110,7 @@ def cp_figure(vehicles: Optional[list] = None):
 
 
 def detail_figure(vehicle: int = -1):
-    fig = go.Figure()
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
     if vehicle == -1:
         update_layout(fig)
         return fig
@@ -118,6 +118,8 @@ def detail_figure(vehicle: int = -1):
     solution = get_solution()
     time = [i * solution.optimization_input.dt for i in range(solution.optimization_input.num + 1)]
     color = TRACE_COLORS[vehicle % len(TRACE_COLORS)]
+
+    # state of Energy
     fig.add_trace(
         go.Scatter(
             x=time,
@@ -126,6 +128,30 @@ def detail_figure(vehicle: int = -1):
             marker=dict(color=color),
             line=dict(color=color),
         )
+    )
+    for bound in [solution.optimization_input.soe_lb[vehicle], solution.optimization_input.soe_ub[vehicle]]:
+        fig.add_trace(
+            go.Scatter(
+                x=time,
+                y=[bound / (3600 * 1000) for _ in time],
+                mode="lines",
+                marker=dict(color=color),
+                line=dict(color=color, dash="dash"),
+            )
+        )
+
+    # charging power
+    cp_time = [(i + 1/2) * solution.optimization_input.dt for i in range(solution.optimization_input.num)]
+    fig.add_trace(
+        go.Bar(
+            x=cp_time,
+            y=list(solution.charging_power[vehicle] / 1000),
+            width=[solution.optimization_input.dt for _ in range(solution.optimization_input.num)],
+            marker_color=color,
+            marker=dict(line=dict(width=0)),
+            opacity=0.6,
+        ),
+        secondary_y=True,
     )
 
     update_layout(fig)
