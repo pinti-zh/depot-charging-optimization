@@ -109,6 +109,22 @@ def cp_figure(vehicles: Optional[list] = None):
     return fig
 
 
+def energy_price_figure():
+    solution = get_solution()
+    time = [i * solution.optimization_input.dt for i in range(solution.optimization_input.num) for _ in range(2)]
+    time = [0] + time[:-1]
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=time,
+            y=list(solution.optimization_input.energy_price * 3.6e6),
+            mode="lines",
+        )
+    )
+    update_layout(fig)
+    return fig
+
+
 def detail_figure(vehicle: int = -1):
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     if vehicle == -1:
@@ -196,6 +212,11 @@ async def get_soe_plot(vehicles_str):
 @app.get("/cp_plot")
 async def get_empty_cp_plot():
     fig = cp_figure(vehicles=[])
+    return JSONResponse(content=fig.to_dict())
+
+@app.get("/energy_price_plot")
+async def get_energy_price_plot():
+    fig = energy_price_figure()
     return JSONResponse(content=fig.to_dict())
 
 

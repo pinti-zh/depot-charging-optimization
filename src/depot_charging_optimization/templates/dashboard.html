@@ -40,6 +40,19 @@
             </div>
             <div class="col-2"></div>
         </div>
+        <div id="ep-header" class="row chart-header-row">
+            <div class="col-2"></div>
+            <h2 class="col-8">Energy Price</h2>
+            <div class="col-2"></div>
+        </div>
+        <div class="row" id="ep-row">
+            <div class="col-2">
+            </div>
+            <div class="col-8 plot-card" id="ep-plot-card">
+                <div class="plot" id="ep-plot"></div>
+            </div>
+            <div class="col-2"></div>
+        </div>
         <div id="detail-header" class="row chart-header-row">
             <div class="col-2"></div>
             <h2 class="col-8">Vehicle Detail</h2>
@@ -77,6 +90,7 @@
                             .map(chk => chk.value);
         fetchAndUpdateSoePlot(selected);
         fetchAndUpdateCPPlot(selected);
+        fetchAndUpdateEPPlot();
         detail_value = document.getElementById('detail-dropdown').value;
         fetchAndUpdateDetailPlot(detail_value);
     });
@@ -106,6 +120,16 @@
             const response = await fetch('/detail_plot/' + vehicle);
             const plotData = await response.json();
             Plotly.react('detail-plot', plotData.data, plotData.layout, {responsive: true});
+        } catch (err) {
+            console.error('Plot update error:', err);
+        }
+    }
+
+    async function fetchAndUpdateEPPlot(vehicle) {
+        try {
+            const response = await fetch('/energy_price_plot');
+            const plotData = await response.json();
+            Plotly.react('ep-plot', plotData.data, plotData.layout, {responsive: true});
         } catch (err) {
             console.error('Plot update error:', err);
         }
