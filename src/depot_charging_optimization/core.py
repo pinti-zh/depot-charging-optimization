@@ -1,12 +1,12 @@
 from dataclasses import asdict, dataclass
 from itertools import product
 from typing import Optional
-from pydantic import BaseModel, field_validator, model_validator
 
 import gurobipy as gp
 import numpy as np
 import pandas as pd
 from gurobipy import GRB
+from pydantic import BaseModel, field_validator, model_validator
 
 from depot_charging_optimization.utils import (
     group_vehicles_by_index,
@@ -72,11 +72,15 @@ class OptimizationInput(BaseModel):
         if not all(len(v) == n for v in self.depot_charge):
             raise ValueError(f"Entry of Field[depot_charge] does not have expected length {n}")
         if not len(self.energy_demand) == self.num_vehicles:
-            raise ValueError(f"Field[energy_demand] has length {len(self.energy_demand)}, expected {self.num_vehicles}")
+            raise ValueError(
+                f"Field[energy_demand] has length {len(self.energy_demand)}, expected {self.num_vehicles}"
+            )
         if not len(self.depot_charge) == self.num_vehicles:
             raise ValueError(f"Field[depot_charge] has length {len(self.depot_charge)}, expected {self.num_vehicles}")
         if not len(self.battery_capacity) == self.num_vehicles:
-            raise ValueError(f"Field[battery_capacity] has length {len(self.battery_capacity)}, expected {self.num_vehicles}")
+            raise ValueError(
+                f"Field[battery_capacity] has length {len(self.battery_capacity)}, expected {self.num_vehicles}"
+            )
         if not len(self.soe_lb) == self.num_vehicles:
             raise ValueError(f"Field[soe_lb] has length {len(self.soe_lb)}, expected {self.num_vehicles}")
         if not len(self.soe_ub) == self.num_vehicles:
