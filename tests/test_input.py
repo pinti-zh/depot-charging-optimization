@@ -125,9 +125,7 @@ class TestCombine:
         )
 
         inputs = [Input.from_dataframe(df) for df in dataframes]
-        print("first combine")
         input_data = Input.combine([inputs[0], inputs[1]])
-        print("second combine")
         input_data = Input.combine([input_data, inputs[2]])
 
         assert input_data.num_timesteps == 7
@@ -147,3 +145,99 @@ class TestCombine:
             [False, True, True, False, False, False, False],
             [True, True, True, True, False, True, False],
         ]
+
+
+class TestEnergyPrice:
+
+    def test_energy_price_single(self):
+        df = pd.DataFrame(
+            {
+                "time": [200, 500, 600, 1000],
+                "energy_demand": [20.0, 30.0, 0.0, 40.0],
+                "depot_charge": [False, False, True, False],
+                "battery_capacity": [100.0, 100.0, 100.0, 100.0],
+                "max_charging_power": [0.0, 10.0, 2.0, 0.0],
+            }
+        )
+
+        input_data = Input.from_dataframe(df)
+
+        energy_time = [300, 600, 1000]
+        energy_price = [1.0, 2.0, 1.0]
+
+        input_data = input_data.add_energy_price(energy_time, energy_price)
+
+        assert input_data.num_timesteps == 5
+        assert input_data.num_vehicles == 1
+        assert input_data.time == [200, 300, 500, 600, 1000]
+        assert input_data.energy_demand == [[20.0, 10.0, 20.0, 0.0, 40.0]]
+        assert input_data.soe_lb == [0.2]
+        assert input_data.soe_ub == [0.8]
+        assert input_data.max_charging_power == 2.0
+        assert input_data.battery_capacity == [100.0]
+        assert input_data.depot_charge == [[False, False, False, True, False]]
+        assert input_data.energy_price == [1.0, 1.0, 2.0, 2.0, 1.0]
+
+    def test_energy_price_multiple(self):
+        dataframes = []
+        dataframes.append(
+            pd.DataFrame(
+                {
+                    "time": [200, 500, 600, 1000],
+                    "energy_demand": [20.0, 30.0, 0.0, 40.0],
+                    "depot_charge": [False, False, True, False],
+                    "battery_capacity": [100.0, 100.0, 100.0, 100.0],
+                    "max_charging_power": [0.0, 10.0, 2.0, 0.0],
+                }
+            )
+        )
+        dataframes.append(
+            pd.DataFrame(
+                {
+                    "time": [100, 400, 600, 1000],
+                    "energy_demand": [10.0, 0.0, 20.0, 40.0],
+                    "depot_charge": [False, True, False, False],
+                    "battery_capacity": [200.0, 200.0, 200.0, 200.0],
+                    "max_charging_power": [0.0, 2.0, 0.0, 0.0],
+                }
+            )
+        )
+        dataframes.append(
+            pd.DataFrame(
+                {
+                    "time": [500, 600, 700, 1000],
+                    "energy_demand": [0.0, 10.0, 0.0, 30.0],
+                    "depot_charge": [True, False, True, False],
+                    "battery_capacity": [100.0, 100.0, 100.0, 100.0],
+                    "max_charging_power": [2.0, 0.0, 2.0, 0.0],
+                }
+            )
+        )
+
+        inputs = [Input.from_dataframe(df) for df in dataframes]
+        input_data = Input.combine([inputs[0], inputs[1]])
+        input_data = Input.combine([input_data, inputs[2]])
+
+        energy_time = [300, 800, 1000]
+        energy_price = [1.0, 2.0, 1.0]
+
+        input_data = input_data.add_energy_price(energy_time, energy_price)
+
+        assert input_data.num_timesteps == 9
+        assert input_data.num_vehicles == 3
+        assert input_data.time == [100, 200, 300, 400, 500, 600, 700, 800, 1000]
+        assert input_data.energy_demand == [
+            [10.0, 10.0, 10.0, 10.0, 10.0, 0.0, 10.0, 10.0, 20.0],
+            [10.0, 0.0, 0.0, 0.0, 10.0, 10.0, 10.0, 10.0, 20.0],
+            [0.0, 0.0, 0.0, 0.0, 0.0, 10.0, 0.0, 10.0, 20.0],
+        ]
+        assert input_data.soe_lb == [0.2, 0.2, 0.2]
+        assert input_data.soe_ub == [0.8, 0.8, 0.8]
+        assert input_data.max_charging_power == 2.0
+        assert input_data.battery_capacity == [100.0, 200.0, 100.0]
+        assert input_data.depot_charge == [
+            [False, False, False, False, False, True, False, False, False],
+            [False, True, True, True, False, False, False, False, False],
+            [True, True, True, True, True, False, True, False, False],
+        ]
+        assert input_data.energy_price == [1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0, 1.0]

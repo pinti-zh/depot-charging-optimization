@@ -166,6 +166,36 @@ class Input(BaseModel):
             depot_charge=depot_charge,
         )
 
+    def add_grid_tariff(self, grid_tariff: float) -> "Input":
+        self.grid_tariff = grid_tariff
+        return self
+
+    def add_energy_price(self, energy_time: list[int], energy_price: list[float]) -> "Input":
+        # check that energy price is not empty
+        if not len(energy_price) > 0:
+            raise ValueError("Energy time must not be empty")
+        # check that energy time and price have equal length
+        if not len(energy_price) == len(energy_time):
+            raise ValueError("Energy time and price must have equal length")
+        # check that energy time is ascending
+        if not all(energy_time[i] <= energy_time[i + 1] for i in range(len(energy_time) - 1)):
+            raise ValueError("Cannot add energy price, time is not ascending")
+        # check that time is positive
+        if not all(t_i > 0 for t_i in energy_time):
+            raise ValueError("Cannot add energy price, time is not positive")
+
+        time = sorted(list(set(self.time + energy_time)))
+        current_energy_price_index = 0
+        extended_energy_price = []
+        for t_i in time:
+            extended_energy_price.append(energy_price[current_energy_price_index])
+            if t_i == energy_time[current_energy_price_index]:
+                current_energy_price_index += 1
+
+        extended_input = self._extend(time)
+        extended_input.energy_price = extended_energy_price
+        return extended_input
+
     def _extend(self, extended_time: list[int]) -> "Input":
         # check that extended_time is a superset
         if not all(t_i in extended_time for t_i in self.time):
