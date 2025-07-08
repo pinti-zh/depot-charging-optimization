@@ -65,6 +65,8 @@ class OptimizationInput(BaseModel):
     @model_validator(mode="after")
     def check_list_lengths(self):
         n = len(self.time)
+        if n <= 0:
+            raise ValueError("Field[time] must not be empty")
         if not len(self.energy_price) == n:
             raise ValueError(f"Field[energy_price] has length {len(self.energy_price)}, expected {n}")
         if not all(len(v) == n for v in self.energy_demand):
