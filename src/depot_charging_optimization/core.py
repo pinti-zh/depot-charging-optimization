@@ -16,6 +16,7 @@ from depot_charging_optimization.utils import (
 
 
 class OptimizationInput(BaseModel):
+    num_timesteps: int = -1
     num_vehicles: int
     time: list[int]
     energy_price: list[float]
@@ -89,61 +90,65 @@ class OptimizationInput(BaseModel):
             raise ValueError(f"Field[soe_ub] has length {len(self.soe_ub)}, expected {self.num_vehicles}")
         return self
 
+    @model_validator(mode="after")
+    def set_num_timesteps(self):
+        self.num_timesteps = len(self.time)
+        return self
+
     @classmethod
-    def from_dataframes(cls, data: list[pd.DataFrame], energy_price: pd.DataFrame, grid_tariff: float):
-        data_columns = ["time", "energy_demand", "depot_charge", "battery_capacity", "max_charging_power"]
-        energy_price_columns = ["time", "energy_price"]
+    def from_dataframes(cls, dataframes: list[pd.DataFrame], energy_price: pd.DataFrame, grid_tariff: float):
+        required_dataframe_columns = [
+            "time",
+            "energy_demand",
+            "depot_charge",
+            "battery_capacity",
+            "max_charging_power",
+        ]
+        required_energy_price_columns = ["time", "energy_price"]
 
-        assert len(data) > 0
-        for df in data:
-            assert set(data_columns) <= set(df.columns)
-            assert all(cap == df["battery_capacity"][0] for cap in df["battery_capacity"])
-            assert len(df) == len(energy_price) > 0
-        assert set(energy_price_columns) <= set(energy_price.columns)
+        # assert all dataframes are non-empty
+        for df in dataframes:
+            if len(df) <= 0:
+                raise ValueError("Dataframe is empty")
 
-        max_charging_power = max(df.filter(pl.col("depot_charge"))["max_charging_power"].max() for df in data)
-        for df in data:
-            assert all(
-                mcp == max_charging_power or mcp == 0
-                for mcp in df.filter(pl.col("depot_charge"))["max_charging_power"]
-            )
+        # assert that all dataframes have the required columns
+        for df in dataframes:
+            for col in required_dataframe_columns:
+                if col not in df.columns:
+                    raise ValueError(f"Column [{col}] not found in dataframe")
 
-        num = len(data[0])
-        num_vehicles = len(data)
-        dt = data[0]["time"][0]
-        battery_capacity = [df["battery_capacity"][0] for df in data]
-        soe_lb = [bc * 0.2 for bc in battery_capacity]
-        soe_ub = [bc * 0.8 for bc in battery_capacity]
-        grid_tariff = grid_tariff
+        for col in required_energy_price_columns:
+            if col not in energy_price.columns:
+                raise ValueError(f"Column [{col}] not found in energy price dataframe")
 
-        energy_demand = [df["energy_demand"].to_list() for df in data]
-        depot_charge = [df["depot_charge"].to_list() for df in data]
-        energy_price = energy_price["energy_price"].to_list()
+        # assert that time matches
+        for times in zip(*([df["time"] for df in dataframes] + [energy_price["time"]])):
+            if not all(times[0] == t for t in times):
+                raise ValueError("Time columns do not match")
+
+        # assert consistent scalar values
+        for df in dataframes:
+            if not all(cap == df["battery_capacity"][0] for cap in df["battery_capacity"]):
+                raise ValueError("Battery capacity columns do not match")
+
+        max_charging_power = max(df[df["depot_charge"]]["max_charging_power"].max() for df in dataframes)
+        for df in dataframes:
+            if not all(mcp == max_charging_power or mcp == 0 for mcp in df[df["depot_charge"]]["max_charging_power"]):
+                raise ValueError("Max charging power columns do not match")
+
+        # create OptimizationInput
         return cls(
-            np.int64(num),
-            np.int64(num_vehicles),
-            np.int64(dt),
-            np.array(soe_lb, dtype=np.int64),
-            np.array(soe_ub, dtype=np.int64),
-            np.float32(grid_tariff),
-            np.float32(max_charging_power),
-            np.array(battery_capacity, dtype=np.float32),
-            np.array(energy_demand, dtype=np.float32),
-            np.array(energy_price, dtype=np.float32),
-            np.array(depot_charge, dtype=np.bool_),
+            num_vehicles=len(dataframes),
+            time=dataframes[0]["time"].to_list(),
+            energy_price=energy_price["energy_price"].to_list(),
+            grid_tariff=grid_tariff,
+            energy_demand=[df["energy_demand"].to_list() for df in dataframes],
+            soe_lb=[0.2] * len(dataframes),
+            soe_ub=[0.8] * len(dataframes),
+            max_charging_power=max_charging_power,
+            battery_capacity=[df["battery_capacity"][0] for df in dataframes],
+            depot_charge=[df["depot_charge"].to_list() for df in dataframes],
         )
-
-    def to_dict(self) -> dict:
-        data_dict = asdict(self)
-        for key, value in data_dict.items():
-            data_dict[key] = numpy_to_py(value)
-        return data_dict
-
-    @classmethod
-    def from_dict(cls, data_dict: dict) -> dict:
-        for key, value in data_dict.items():
-            data_dict[key] = py_to_numpy(value)
-        return cls(**data_dict)
 
 
 @dataclass
