@@ -83,7 +83,7 @@ class Input(BaseModel):
         return self
 
     @classmethod
-    def from_dataframes(cls, df: pd.DataFrame):
+    def from_dataframe(cls, df: pd.DataFrame):
         required_dataframe_columns = [
             "time",
             "energy_demand",
@@ -120,6 +120,101 @@ class Input(BaseModel):
             battery_capacity=[df["battery_capacity"][0]],
             depot_charge=[df["depot_charge"].to_list()],
         )
+
+    @classmethod
+    def combine(cls, inputs: list["Input"]) -> "Input":
+        if not len(inputs) > 0:
+            raise ValueError("Inputs must not be empty")
+
+        if not all(item.time[-1] == inputs[0].time[-1] for item in inputs):
+            raise ValueError("Inputs do not cover same time period")
+
+        if not all(item.max_charging_power == inputs[0].max_charging_power for item in inputs):
+            raise ValueError("Inputs do not have same max_charging_power")
+
+        num_vehicles = sum(item.num_vehicles for item in inputs)
+
+        soe_lb = []
+        soe_ub = []
+        battery_capacity = []
+        for item in inputs:
+            soe_lb += item.soe_lb
+            soe_ub += item.soe_ub
+            battery_capacity += item.battery_capacity
+
+        time = []
+        for item in inputs:
+            time += item.time
+        time = sorted(list(set(time)))
+
+        extended_inputs = [item._extend(time) for item in inputs]
+
+        energy_demand = []
+        depot_charge = []
+        for item in extended_inputs:
+            energy_demand += item.energy_demand
+            depot_charge += item.depot_charge
+
+        return Input(
+            num_vehicles=num_vehicles,
+            time=time,
+            energy_demand=energy_demand,
+            soe_lb=soe_lb,
+            soe_ub=soe_ub,
+            max_charging_power=inputs[0].max_charging_power,
+            battery_capacity=battery_capacity,
+            depot_charge=depot_charge,
+        )
+
+    def _extend(self, extended_time: list[int]) -> "Input":
+        # check that extended_time is a superset
+        if not all(t_i in extended_time for t_i in self.time):
+            raise ValueError("Cannot extend Input to new time period, Input.time is not a subset")
+        # check that extended_time is ascending
+        if not all(extended_time[i] <= extended_time[i + 1] for i in range(len(extended_time) - 1)):
+            raise ValueError("Cannot extend Input to new time period, Input.time is not ascending")
+        # check positivity
+        if not all(t_i > 0 for t_i in extended_time):
+            raise ValueError("Cannot extend Input to new time period, Input.time is not positive")
+
+        energy_demand = [[] for _ in range(self.num_vehicles)]
+        depot_charge = [[] for _ in range(self.num_vehicles)]
+        for t1, t2 in zip([0] + extended_time[:-1], extended_time):
+            index = self._index_of_time_interval(t1, t2)
+            if index == 0:
+                dt = self.time[index]
+            else:
+                dt = self.time[index] - self.time[index - 1]
+            for vehicle in range(self.num_vehicles):
+                ed = self.energy_demand[vehicle][index] * ((t2 - t1) / dt)
+                dc = self.depot_charge[vehicle][index]
+                energy_demand[vehicle].append(ed)
+                depot_charge[vehicle].append(dc)
+
+        return Input(
+            num_vehicles=self.num_vehicles,
+            time=extended_time,
+            energy_demand=energy_demand,
+            soe_lb=self.soe_lb,
+            soe_ub=self.soe_ub,
+            max_charging_power=self.max_charging_power,
+            battery_capacity=self.battery_capacity,
+            depot_charge=depot_charge,
+        )
+
+    def _index_of_time_interval(self, start: int, end: int) -> int:
+        if start >= end or end <= 0:
+            raise ValueError(f"Invalid time interval, ({start}, {end})")
+
+        for i, t_i in enumerate(self.time):
+            if t_i >= end:
+                index = i
+                break
+        else:
+            raise ValueError(f"Time interval ({start}, {end}) not contained in Input.time")
+        if index > 0 and self.time[index - 1] > start:
+            raise ValueError(f"Time interval ({start}, {end}) spans more than one interval")
+        return index
 
 
 class Solution(BaseModel):
