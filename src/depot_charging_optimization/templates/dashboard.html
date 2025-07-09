@@ -32,14 +32,9 @@
       <div class="row" id="soe-row">
         <div class="col-2" id="soe-checklist" style="margin-top: 10px">
           {% for vehicle in vehicles %}
-          <label
-            style="margin-bottom: 10px; color: {{ colors[vehicle % colors|length] }}; font-size: 18px"
-          >
-            <input type="checkbox" value="{{" vehicle }} checked />
-            <span style="vertical-align: 2px"
-              >Vehicle {{ vehicle + 1}}</span
-            > </label
-          ><br />
+          <label style="margin-bottom: 10px; color: {{ colors[vehicle % colors|length] }}; font-size: 18px;">
+            <input type="checkbox" value="{{ vehicle }}" checked />
+            <span style="vertical-align: 2px;">Vehicle {{ vehicle + 1 }}</span> </label><br/>
           {% endfor %}
         </div>
         <div class="col-8 plot-card" id="soe-plot-card">
@@ -80,7 +75,7 @@
         <div class="col-2" id="detail-dropdown-col" style="margin-top: 10px">
           <select id="detail-dropdown">
             {% for vehicle in vehicles %}
-            <option value="{{" vehicle }}>Vehicle {{ vehicle + 1 }}</option>
+            <option value="{{ vehicle }}">Vehicle {{ vehicle + 1 }}</option>
             {% endfor %}
           </select>
         </div>

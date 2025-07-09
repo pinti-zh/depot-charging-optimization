@@ -5,13 +5,13 @@ from typing import Optional
 
 import click
 import plotly.graph_objs as go
-from plotly.subplots import make_subplots
 import uvicorn
 from fastapi import FastAPI
 from fastapi.requests import Request
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse, FileResponse
 from fastapi.templating import Jinja2Templates
+from plotly.subplots import make_subplots
 from rich.logging import RichHandler
 
 from depot_charging_optimization.core import Solution
@@ -54,9 +54,10 @@ for name in uvicorn_loggers:
     log.setLevel(logger.level)
     log.propagate = False  # Important: don't duplicate logs
 
+
 def get_solution():
     with open(os.getenv("SOLUTION"), "r") as f:
-        solution = Solution.from_dict(json.load(f))
+        solution = Solution.model_validate(json.load(f))
     return solution
 
 
@@ -70,9 +71,9 @@ def update_layout(fig):
 
 def soe_figure(vehicles: Optional[list] = None):
     solution = get_solution()
-    time = [i * solution.optimization_input.dt for i in range(solution.optimization_input.num + 1)]
+    time = [0] + solution.input_data.time
     if vehicles is None:
-        vehicles = range(solution.optimization_input.num_vehicles)
+        vehicles = range(solution.input_data.num_vehicles)
 
     fig = go.Figure()
     for vehicle in vehicles:
@@ -80,7 +81,7 @@ def soe_figure(vehicles: Optional[list] = None):
         fig.add_trace(
             go.Scatter(
                 x=time,
-                y=list(solution.state_of_energy[vehicle] / (3600 * 1000)),
+                y=[soe / 3.6e6 for soe in solution.state_of_energy[vehicle]],
                 mode="lines",
                 marker=dict(color=color),
                 line=dict(color=color),
@@ -96,9 +97,14 @@ def soe_figure(vehicles: Optional[list] = None):
 
 def cp_figure(vehicles: Optional[list] = None):
     solution = get_solution()
-    time = [(i + 1/2) * solution.optimization_input.dt for i in range(solution.optimization_input.num)]
+    time = [solution.input_data.time[0] / 2]
+    width = [solution.input_data.time[0]]
+    for t1, t2 in zip(solution.input_data.time[:-1], solution.input_data.time[1:]):
+        width.append(t2 - t1)
+        time.append((t1 + t2) / 2)
+
     if vehicles is None:
-        vehicles = range(solution.optimization_input.num_vehicles)
+        vehicles = range(solution.input_data.num_vehicles)
 
     fig = go.Figure()
     for vehicle in vehicles:
@@ -106,8 +112,8 @@ def cp_figure(vehicles: Optional[list] = None):
         fig.add_trace(
             go.Bar(
                 x=time,
-                y=list(solution.charging_power[vehicle] / 1000),
-                width=[solution.optimization_input.dt for _ in range(solution.optimization_input.num)],
+                y=[cp / 1000 for cp in solution.charging_power[vehicle]],
+                width=width,
                 marker_color=color,
                 marker=dict(line=dict(width=0)),
                 opacity=0.8,
@@ -124,13 +130,14 @@ def cp_figure(vehicles: Optional[list] = None):
 
 def energy_price_figure():
     solution = get_solution()
-    time = [i * solution.optimization_input.dt for i in range(solution.optimization_input.num) for _ in range(2)]
+    time = [t for t in solution.input_data.time for _ in range(2)]
     time = [0] + time[:-1]
+    energy_price_twice = [ep for ep in solution.input_data.energy_price for _ in range(2)]
     fig = go.Figure()
     fig.add_trace(
         go.Scatter(
             x=time,
-            y=list(solution.optimization_input.energy_price * 3.6e6),
+            y=[ep * 3.6e6 for ep in energy_price_twice],
             mode="lines",
         )
     )
@@ -150,24 +157,24 @@ def detail_figure(vehicle: int = -1):
         return fig
 
     solution = get_solution()
-    time = [int(i * solution.optimization_input.dt) for i in range(solution.optimization_input.num + 1)]
+    time = [0] + solution.input_data.time
     color = TRACE_COLORS[vehicle % len(TRACE_COLORS)]
 
     # state of Energy
     fig.add_trace(
         go.Scatter(
             x=time,
-            y=list(solution.state_of_energy[vehicle] / (3600 * 1000)),
+            y=[soe / 3.6e6 for soe in solution.state_of_energy[vehicle]],
             mode="lines",
             marker=dict(color=color),
             line=dict(color=color),
         )
     )
-    for bound in [solution.optimization_input.soe_lb[vehicle], solution.optimization_input.soe_ub[vehicle]]:
+    for bound in [solution.input_data.soe_lb[vehicle], solution.input_data.soe_ub[vehicle]]:
         fig.add_trace(
             go.Scatter(
                 x=time,
-                y=[bound / (3600 * 1000) for _ in time],
+                y=[bound / 3.6e6 for _ in time],
                 mode="lines",
                 marker=dict(color=color),
                 line=dict(color=color, dash="dash"),
@@ -175,12 +182,16 @@ def detail_figure(vehicle: int = -1):
         )
 
     # charging power
-    cp_time = [(i + 1/2) * solution.optimization_input.dt for i in range(solution.optimization_input.num)]
+    cp_time = [solution.input_data.time[0] / 2]
+    width = [solution.input_data.time[0]]
+    for t1, t2 in zip(solution.input_data.time[:-1], solution.input_data.time[1:]):
+        width.append(t2 - t1)
+        cp_time.append((t1 + t2) / 2)
     fig.add_trace(
         go.Bar(
             x=cp_time,
-            y=list(solution.charging_power[vehicle] / 1000),
-            width=[solution.optimization_input.dt for _ in range(solution.optimization_input.num)],
+            y=[cp / 1000 for cp in solution.charging_power[vehicle]],
+            width=width,
             marker_color=color,
             marker=dict(line=dict(width=0)),
             opacity=0.4,
@@ -190,21 +201,23 @@ def detail_figure(vehicle: int = -1):
 
     # depot charging intervals
     bands = []
-    for t, dc in zip(time[:-1], solution.optimization_input.depot_charge[vehicle]):
+    for t1, t2, dc in zip([0] + time, time[:-1], solution.input_data.depot_charge[vehicle]):
         if dc:
-            bands.append(dict(
-                type="rect",
-                xref="x",
-                yref="paper",
-                x0=t,
-                x1=t + int(solution.optimization_input.dt),
-                y0=0,
-                y1=1,
-                fillcolor=color,
-                opacity=0.2,
-                line_width=0,
-                layer="below",
-            ))
+            bands.append(
+                dict(
+                    type="rect",
+                    xref="x",
+                    yref="paper",
+                    x0=t1,
+                    x1=t2,
+                    y0=0,
+                    y1=1,
+                    fillcolor=color,
+                    opacity=0.2,
+                    line_width=0,
+                    layer="below",
+                )
+            )
     fig.update_layout(
         shapes=bands,
         xaxis_title="Time [s]",
@@ -217,7 +230,7 @@ def detail_figure(vehicle: int = -1):
 
 @app.get("/")
 async def index(request: Request):
-    vehicles = list(range(get_solution().optimization_input.num_vehicles))
+    vehicles = list(range(get_solution().input_data.num_vehicles))
 
     # Initial plot data as JSON
     fig_soe = soe_figure([])
@@ -259,6 +272,7 @@ async def get_soe_plot(vehicles_str):
 async def get_empty_cp_plot():
     fig = cp_figure(vehicles=[])
     return JSONResponse(content=fig.to_dict())
+
 
 @app.get("/energy_price_plot")
 async def get_energy_price_plot():
