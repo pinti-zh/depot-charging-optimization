@@ -125,6 +125,11 @@ def preprocess_group(group, column_arguments):
     df["time"] = df["time"].map(lambda x: (x - 1) % (60 * 60 * 24) + 1)
     df = df.sort_values(by="time", ascending=True)
     df = df.drop_duplicates()
+
+    # convert to SI units
+    df["energy_demand"] = df["energy_demand"] * 3.6e6
+    df["battery_capacity"] = df["battery_capacity"] * 3.6e6
+    df["max_charging_power"] = df["max_charging_power"] * 1.0e3
     return df
 
 
