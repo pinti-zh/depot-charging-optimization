@@ -1,13 +1,14 @@
-import polars as pl
+import pandas as pd
 
-from depot_charging_optimization.core import OptimizationInput, OptimizationModel
+from depot_charging_optimization.core import OptimizationModel
+from depot_charging_optimization.data_models import Input
 
 EPS = 1e-3
 
 
 class TestOptimizationSingleVehicle:
     def test_optimization_low_tariff(self):
-        data = pl.DataFrame(
+        df = pd.DataFrame(
             {
                 "time": [5, 10, 15],
                 "energy_demand": [0.0, 30.0, 0.0],
@@ -16,11 +17,16 @@ class TestOptimizationSingleVehicle:
                 "max_charging_power": [6.0, 0.0, 6.0],
             }
         )
-        energy_price = pl.DataFrame({"time": [5, 10, 15], "energy_price": [1.0, 0.0, 2.0]})
+        energy_price = pd.DataFrame({"time": [5, 10, 15], "energy_price": [1.0, 0.0, 2.0]})
         grid_tariff = 4.0
 
-        opt_input = OptimizationInput.from_dataframes([data], energy_price, grid_tariff)
-        opt_model = OptimizationModel(opt_input)
+        input_data = Input.from_dataframe(df)
+        input_data = input_data.add_energy_price(
+            energy_price["time"].to_list(), energy_price["energy_price"].to_list()
+        )
+        input_data = input_data.add_grid_tariff(grid_tariff)
+
+        opt_model = OptimizationModel(input_data)
         opt_model.set_variables()
         opt_model.set_constraints()
         opt_model.set_objective()
@@ -31,7 +37,7 @@ class TestOptimizationSingleVehicle:
         assert abs(solution.total_cost - 54.0) < EPS
 
     def test_optimization_high_tariff(self):
-        data = pl.DataFrame(
+        df = pd.DataFrame(
             {
                 "time": [5, 10, 15],
                 "energy_demand": [0.0, 30.0, 0.0],
@@ -40,11 +46,16 @@ class TestOptimizationSingleVehicle:
                 "max_charging_power": [6.0, 0.0, 6.0],
             }
         )
-        energy_price = pl.DataFrame({"time": [5, 10, 15], "energy_price": [1.0, 0.0, 2.0]})
+        energy_price = pd.DataFrame({"time": [5, 10, 15], "energy_price": [1.0, 0.0, 2.0]})
         grid_tariff = 6.0
 
-        opt_input = OptimizationInput.from_dataframes([data], energy_price, grid_tariff)
-        opt_model = OptimizationModel(opt_input)
+        input_data = Input.from_dataframe(df)
+        input_data = input_data.add_energy_price(
+            energy_price["time"].to_list(), energy_price["energy_price"].to_list()
+        )
+        input_data = input_data.add_grid_tariff(grid_tariff)
+
+        opt_model = OptimizationModel(input_data)
         opt_model.set_variables()
         opt_model.set_constraints()
         opt_model.set_objective()
@@ -55,7 +66,7 @@ class TestOptimizationSingleVehicle:
         assert abs(solution.total_cost - 63.0) < EPS
 
     def test_optimization_no_solution(self):
-        data = pl.DataFrame(
+        df = pd.DataFrame(
             {
                 "time": [5, 10, 15],
                 "energy_demand": [0.0, 30.0, 0.0],
@@ -64,11 +75,16 @@ class TestOptimizationSingleVehicle:
                 "max_charging_power": [2.0, 0.0, 2.0],
             }
         )
-        energy_price = pl.DataFrame({"time": [5, 10, 15], "energy_price": [1.0, 0.0, 2.0]})
+        energy_price = pd.DataFrame({"time": [5, 10, 15], "energy_price": [1.0, 0.0, 2.0]})
         grid_tariff = 4.0
 
-        opt_input = OptimizationInput.from_dataframes([data], energy_price, grid_tariff)
-        opt_model = OptimizationModel(opt_input)
+        input_data = Input.from_dataframe(df)
+        input_data = input_data.add_energy_price(
+            energy_price["time"].to_list(), energy_price["energy_price"].to_list()
+        )
+        input_data = input_data.add_grid_tariff(grid_tariff)
+
+        opt_model = OptimizationModel(input_data)
         opt_model.set_variables()
         opt_model.set_constraints()
         opt_model.set_objective()
@@ -79,7 +95,7 @@ class TestOptimizationSingleVehicle:
 
 class TestOptimiazationChargingEfficiency:
     def test_constant_charging_efficiency(self):
-        data = pl.DataFrame(
+        df = pd.DataFrame(
             {
                 "time": [5, 10],
                 "energy_demand": [0.0, 18.0],
@@ -88,10 +104,16 @@ class TestOptimiazationChargingEfficiency:
                 "max_charging_power": [10.0, 0.0],
             }
         )
-        energy_price = pl.DataFrame({"time": [5, 10], "energy_price": [1.0, 1.0]})
+        energy_price = pd.DataFrame({"time": [5, 10], "energy_price": [1.0, 1.0]})
+        grid_tariff = 0.0
 
-        opt_input = OptimizationInput.from_dataframes([data], energy_price, 0.0)
-        opt_model = OptimizationModel(opt_input)
+        input_data = Input.from_dataframe(df)
+        input_data = input_data.add_energy_price(
+            energy_price["time"].to_list(), energy_price["energy_price"].to_list()
+        )
+        input_data = input_data.add_grid_tariff(grid_tariff)
+
+        opt_model = OptimizationModel(input_data)
         opt_model.set_variables()
         opt_model.set_constraints(ce_function_type="constant", alpha=0.6)
         opt_model.set_objective()
@@ -100,7 +122,7 @@ class TestOptimiazationChargingEfficiency:
         assert abs(solution.total_cost - 30.0) < EPS
 
     def test_quadratic_charging_efficiency(self):
-        data = pl.DataFrame(
+        df = pd.DataFrame(
             {
                 "time": [5, 10],
                 "energy_demand": [0.0, 44],
@@ -109,19 +131,25 @@ class TestOptimiazationChargingEfficiency:
                 "max_charging_power": [25.0, 0.0],
             }
         )
-        energy_price = pl.DataFrame({"time": [5, 10], "energy_price": [1.0, 1.0]})
+        energy_price = pd.DataFrame({"time": [5, 10], "energy_price": [1.0, 1.0]})
+        grid_tariff = 0.0
 
-        opt_input = OptimizationInput.from_dataframes([data], energy_price, 1.0)
-        opt_model = OptimizationModel(opt_input)
+        input_data = Input.from_dataframe(df)
+        input_data = input_data.add_energy_price(
+            energy_price["time"].to_list(), energy_price["energy_price"].to_list()
+        )
+        input_data = input_data.add_grid_tariff(grid_tariff)
+
+        opt_model = OptimizationModel(input_data)
         opt_model.set_variables()
         opt_model.set_constraints(ce_function_type="quadratic", alpha=0.4)
         opt_model.set_objective()
 
         solution = opt_model.solve()
-        assert abs(solution.total_cost - 60.0) < EPS
+        assert abs(solution.total_cost - 50.0) < EPS
 
     def test_quadratic_charging_efficiency_max(self):
-        data = pl.DataFrame(
+        df = pd.DataFrame(
             {
                 "time": [5, 10],
                 "energy_demand": [0.0, 35.0],
@@ -130,33 +158,45 @@ class TestOptimiazationChargingEfficiency:
                 "max_charging_power": [10.0, 0.0],
             }
         )
-        energy_price = pl.DataFrame({"time": [5, 10], "energy_price": [1.0, 1.0]})
+        energy_price = pd.DataFrame({"time": [5, 10], "energy_price": [1.0, 1.0]})
+        grid_tariff = 0.0
 
-        opt_input = OptimizationInput.from_dataframes([data], energy_price, 1.0)
-        opt_model = OptimizationModel(opt_input)
+        input_data = Input.from_dataframe(df)
+        input_data = input_data.add_energy_price(
+            energy_price["time"].to_list(), energy_price["energy_price"].to_list()
+        )
+        input_data = input_data.add_grid_tariff(grid_tariff)
+
+        opt_model = OptimizationModel(input_data)
         opt_model.set_variables()
         opt_model.set_constraints(ce_function_type="quadratic", alpha=0.4)
         opt_model.set_objective()
 
         solution = opt_model.solve()
-        assert abs(solution.total_cost - 60.0) < EPS
+        assert abs(solution.total_cost - 50.0) < EPS
 
 
 class TestOptimizationNaiveGreedySolution:
     def test_simple(self):
-        data = pl.DataFrame(
+        df = pd.DataFrame(
             {
-                "time": [5, 10, 15],
-                "energy_demand": [0.0, 30.0, 0.0],
-                "depot_charge": [True, False, True],
-                "battery_capacity": [50.0, 50.0, 50.0],
-                "max_charging_power": [6.0, 0.0, 6.0],
+                "time": [5, 10, 15, 20],
+                "energy_demand": [0.0, 30.0, 0.0, 0.0],
+                "depot_charge": [True, False, True, True],
+                "battery_capacity": [50.0, 50.0, 50.0, 50.0],
+                "max_charging_power": [6.0, 0.0, 6.0, 6.0],
             }
         )
-        energy_price = pl.DataFrame({"time": [5, 10, 15], "energy_price": [1.0, 0.0, 2.0]})
+        energy_price = pd.DataFrame({"time": [5, 10, 15, 20], "energy_price": [1.0, 0.0, 2.0, 1.0]})
+        grid_tariff = 0.0
 
-        opt_input = OptimizationInput.from_dataframes([data], energy_price, 0.0)
-        opt_model = OptimizationModel(opt_input, greedy=True)
+        input_data = Input.from_dataframe(df)
+        input_data = input_data.add_energy_price(
+            energy_price["time"].to_list(), energy_price["energy_price"].to_list()
+        )
+        input_data = input_data.add_grid_tariff(grid_tariff)
+
+        opt_model = OptimizationModel(input_data, greedy=True)
         opt_model.set_variables()
         opt_model.set_constraints()
         opt_model.set_objective()
@@ -164,7 +204,7 @@ class TestOptimizationNaiveGreedySolution:
         assert abs(solution.total_cost - 60.0) < EPS
 
     def test_complex(self):
-        data = pl.DataFrame(
+        df = pd.DataFrame(
             {
                 "time": [5, 10, 15, 20, 25, 30, 35, 40, 45, 50],
                 "energy_demand": [0.0, 20.0, 10.0, 0.0, 10.0, 0.0, 0.0, 20.0, 0.0, 0.0],
@@ -173,15 +213,21 @@ class TestOptimizationNaiveGreedySolution:
                 "max_charging_power": [5.0, 0.0, 5.0, 5.0, 5.0, 5.0, 5.0, 0.0, 5.0, 5.0],
             }
         )
-        energy_price = pl.DataFrame(
+        energy_price = pd.DataFrame(
             {
                 "time": [5, 10, 15, 20, 25, 30, 35, 40, 45, 50],
                 "energy_price": [1.0, 0.0, 2.0, 2.0, 1.0, 3.0, 1.0, 1.0, 5.0, 2.0],
             }
         )
+        grid_tariff = 0.0
 
-        opt_input = OptimizationInput.from_dataframes([data], energy_price, 0.0)
-        opt_model = OptimizationModel(opt_input, greedy=True)
+        input_data = Input.from_dataframe(df)
+        input_data = input_data.add_energy_price(
+            energy_price["time"].to_list(), energy_price["energy_price"].to_list()
+        )
+        input_data = input_data.add_grid_tariff(grid_tariff)
+
+        opt_model = OptimizationModel(input_data, greedy=True)
         opt_model.set_variables()
         opt_model.set_constraints()
         opt_model.set_objective()
