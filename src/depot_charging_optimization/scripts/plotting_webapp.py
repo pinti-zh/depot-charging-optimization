@@ -201,7 +201,7 @@ def detail_figure(vehicle: int = -1):
 
     # depot charging intervals
     bands = []
-    for t1, t2, dc in zip([0] + time, time[:-1], solution.input_data.depot_charge[vehicle]):
+    for t1, t2, dc in zip(time, time[1:], solution.input_data.depot_charge[vehicle]):
         if dc:
             bands.append(
                 dict(
