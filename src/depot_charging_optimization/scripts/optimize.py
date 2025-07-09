@@ -3,16 +3,14 @@ import json
 import logging
 import os
 import sys
-from functools import reduce
-from math import gcd
 from time import perf_counter
 
 import click
-import polars as pl
+import pandas as pd
 from rich.logging import RichHandler
 
-from depot_charging_optimization.core import OptimizationInput, OptimizationModel
-from depot_charging_optimization.utils import expand_values
+from depot_charging_optimization.core import OptimizationModel
+from depot_charging_optimization.data_models import Input
 
 
 @contextlib.contextmanager
@@ -51,48 +49,27 @@ logger = logging.getLogger("optimize")
 def optimize(
     data_files, energy_price_file, ce_function, alpha, time_limit, solution_file, greedy, charging_power_throttle
 ):
-    logger.info("Loading the following files:")
+    data = []
     for i, file in enumerate(data_files):
-        logger.info(f"  {i+1}. [cyan3]{file}")
+        logger.info(f"{i+1}. Loading [cyan3]{file}")
+        with open(file) as f:
+            data.append(Input.model_validate(json.load(f)))
     logger.info("")
-    data = [pl.read_csv(data_file) for data_file in data_files]
-    energy_price = pl.read_csv(energy_price_file)
-    energy_price = energy_price.with_columns(pl.col("energy_price").truediv(3.6e6))
 
-    all_timestamps = []
-    for df in data:
-        all_timestamps += list(df["time"])
-    all_timestamps += list(energy_price["time"])
-    dt = reduce(gcd, all_timestamps)
+    data_input = Input.combine(data)
 
-    expanded_data = []
-    for df in data:
-        expanded_data.append(
-            pl.DataFrame(
-                {
-                    "time": expand_values(df["time"], df["time"], dt, interpolation="linear"),
-                    "energy_demand": expand_values(df["time"], df["energy_demand"], dt, interpolation="split"),
-                    "depot_charge": expand_values(df["time"], df["depot_charge"], dt),
-                    "charge_amount": expand_values(df["time"], df["charge_amount"], dt, interpolation="split"),
-                    "battery_capacity": expand_values(df["time"], df["battery_capacity"], dt),
-                    "max_charging_power": expand_values(df["time"], df["max_charging_power"], dt),
-                    "cycle": expand_values(df["time"], df["cycle"], dt),
-                }
-            )
-        )
-    energy_price = pl.DataFrame(
-        {
-            "time": expand_values(energy_price["time"], energy_price["time"], dt, interpolation="linear"),
-            "energy_price": expand_values(energy_price["time"], energy_price["energy_price"], dt),
-        }
-    )
+    energy_price = pd.read_csv(energy_price_file)
+    energy_price["energy_price"] /= 3.6e6
+
+    data_input = data_input.add_energy_price(energy_price["time"].to_list(), energy_price["energy_price"].to_list())
+    data_input = data_input.add_grid_tariff(1.2e-4)
+
+    # TODO ADD THROTTLE
 
     # optimization
-    opt_input = OptimizationInput.from_dataframes(expanded_data, energy_price, 0.2e-4)
-    opt_input.max_charging_power *= charging_power_throttle
     start = perf_counter()
     with suppress_stdout_stderr():
-        opt_model = OptimizationModel(opt_input, greedy=greedy)
+        opt_model = OptimizationModel(data_input, greedy=greedy)
     opt_model.model.setParam("LogToConsole", 0)
     opt_model.model.setParam("OutputFlag", 1)
     opt_model.model.setParam("TimeLimit", time_limit)
@@ -119,5 +96,5 @@ def optimize(
         solution_dir = os.path.dirname(solution_file)
         os.makedirs(solution_dir, exist_ok=True)
         with open(solution_file, "w") as f:
-            json.dump(solution.to_dict(), f)
+            f.write(solution.model_dump_json(indent=4))
         logger.info(f"Saved solution to [cyan3]{solution_file}")
