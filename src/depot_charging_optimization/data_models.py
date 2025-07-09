@@ -248,7 +248,7 @@ class Input(BaseModel):
 
 
 class Solution(BaseModel):
-    optimization_input: Input
+    input_data: Input
     total_cost: float
     energy_cost: float
     power_cost: float
@@ -267,8 +267,8 @@ class Solution(BaseModel):
 
     @model_validator(mode="after")
     def check_list_lengths(self):
-        num_vehicles = self.optimization_input.num_vehicles
-        num_timesteps = self.optimization_input.num_timesteps
+        num_vehicles = self.input_data.num_vehicles
+        num_timesteps = self.input_data.num_timesteps
 
         # assert all list contain [num_vehicles] lists
         if not len(self.charging_power) == num_vehicles:
