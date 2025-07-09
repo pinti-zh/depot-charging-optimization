@@ -1,234 +1,182 @@
+import logging
 import os
 from dataclasses import dataclass
 
-import matplotlib.pyplot as plt
 import click
-import polars as pl
-import seaborn as sns
-from matplotlib.patches import Rectangle
+import pandas as pd
+from pydantic import ValidationError
 from rich import print as printr
+from rich.logging import RichHandler
 
-DAY = 60 * 60 * 24
+from depot_charging_optimization.data_models import Input
+
+logging.basicConfig(
+    level="INFO", format="%(message)s", datefmt="[%X]", handlers=[RichHandler(markup=True)]
+)  # or DEBUG
+
+logger = logging.getLogger("optimize")
 
 
 @dataclass
 class ColumnArguments:
-    cycle_id_column: str
     time_column: str
     type_column: str
     demand_column: str
     capacity_column: str
-    charge_amount_column: str
     max_charging_power_column: str
 
 
-def process_group(group, args):
-    global DAY
+def select_relevant_columns(df, columns):
+    # check battery capacity
+    if not all(cap == df[columns.capacity_column].iloc[0] for cap in df[columns.capacity_column]):
+        raise ValueError("Battery capacity columns do not match")
 
-    # assert length is at least 2
-    assert len(group) >= 2
+    # check depot charging power
+    max_charging_power = df[df[columns.type_column] == "LadungDepot"][columns.max_charging_power_column].max()
+    depot_charging_power = df[df[columns.type_column] == "LadungDepot"][columns.max_charging_power_column]
+    if not all(cp == max_charging_power or cp == 0 for cp in depot_charging_power):
+        raise ValueError("Max charging power columns do not match")
 
-    # assert data at most a full day
-    assert group[args.time_column].max() - group[args.time_column].min() <= DAY
-
-    # assert equal battery capacity for all rows
-    assert all(
-        group[args.capacity_column].map_elements(
-            lambda x: x == group[args.capacity_column][0], return_dtype=pl.Boolean
-        )
+    depot_charge = df[columns.type_column] == "LadungDepot"
+    battery_capacity = df[columns.capacity_column].iloc[0]
+    selection = pd.DataFrame(
+        {
+            "time": df[columns.time_column],
+            "energy_demand": df[columns.demand_column],
+            "depot_charge": depot_charge,
+            "battery_capacity": [battery_capacity] * len(df),
+            "max_charging_power": df[columns.max_charging_power_column].where(
+                df[columns.type_column] == "LadungDepot", 0
+            ),
+        }
     )
-    battery_capacity = group[args.capacity_column][0]
+    return selection
 
-    # assert chronological order
-    for t1, t2 in zip(group[args.time_column], group[args.time_column][1:]):
-        assert t1 <= t2
 
-    times = []
-    energy_demands = []
-    depot_charge = []
-    charge_amounts = []
-    max_charging_powers = []
-    uid_switches = []
+def remove_dummies(df):
+    rows_to_drop = []
+    for i in range(len(df) - 1):
+        dt = df["time"].iloc[i + 1] - df["time"].iloc[i]
+        if dt == 1:
+            if df["depot_charge"].iloc[i] and not df["depot_charge"].iloc[i + 1]:
+                df.loc[i, "time"] += 1
+                rows_to_drop.append(i + 1)
+    return df.drop(index=rows_to_drop).reset_index(drop=True)
 
-    try:
-        max_depot_charging_power = max(
+
+def split_intervals_over_midnight(df):
+    day = 60 * 60 * 24
+    last_ts = df["time"].max()
+    if last_ts < day:
+        df = pd.concat(
             [
-                mcp
-                for dc, mcp in zip(group[args.type_column], group[args.max_charging_power_column])
-                if dc == "LadungDepot"
-            ]
+                df,
+                pd.DataFrame(
+                    {
+                        "time": [day],
+                        "energy_demand": [0.0],
+                        "depot_charge": [True],
+                        "battery_capacity": [df["battery_capacity"].iloc[0]],
+                        "max_charging_power": [df["max_charging_power"].where(df["depot_charge"], 0).max()],
+                    }
+                ),
+            ],
+            ignore_index=True,
         )
-    except ValueError:
-        max_depot_charging_power = 150
-
-    # remove unnecessary rows at uid switches
-    current_uid = None
-    for time, uid, energy_demand, step_type, charge_amount, max_charging_power in zip(
-        group[args.time_column],
-        group[args.cycle_id_column],
-        group[args.demand_column],
-        group[args.type_column],
-        group[args.charge_amount_column],
-        group[args.max_charging_power_column],
-    ):
-        if uid != current_uid:
-            current_uid = uid
-            uid_switches.append(time)
-            if len(times):
-                times = times[:-1] + [time]
-            else:
-                times = [time]
-                energy_demands = [0.0]
-                depot_charge = [True]
-                charge_amounts = [charge_amount]
-                max_charging_powers = [max_depot_charging_power]
-        else:
-            times.append(time)
-            energy_demands.append(energy_demand)
-            depot_charge.append(step_type == "LadungDepot")
-            charge_amounts.append(charge_amount)
-            max_charging_powers.append(max_charging_power)
-
-    assert len(times) == len(energy_demands) == len(depot_charge)
-    assert times[0] < DAY
-
-    # fill up rest of day not covered by data and split steps going over midnight
-    for i in range(len(times)):
-        if times[i] > DAY:
-
-            # proportional divison of energy demand
-            dt = times[i] - times[i - 1]
-            ed_proportion = ((DAY - times[i - 1]) / dt, (times[i] - DAY) / dt)
-            ed_1 = energy_demands[i] * ed_proportion[0]
-            ed_2 = energy_demands[i] * ed_proportion[1]
-            energy_demands = energy_demands[:i] + [ed_1, ed_2] + energy_demands[i + 1:]
-
-            # adjust charge amounts
-            ca_1 = charge_amounts[i] * ed_proportion[0]
-            ca_2 = charge_amounts[i] * ed_proportion[1]
-            charge_amounts = charge_amounts[:i] + [ca_1, ca_2] + charge_amounts[i + 1:]
-
-            # adjust max charging powers
-            max_charging_powers = max_charging_powers[:i] + [max_charging_powers[i]] + max_charging_powers[i:]
-
-            # adjust depot charge
-            depot_charge = depot_charge[:i] + [depot_charge[i]] + depot_charge[i:]
-
-            # adjust times
-            times = times[:i] + [DAY] + times[i:]
-            break
-    else:
-        times.append(DAY)
-        energy_demands.append(0.0)
-        depot_charge.append(True)
-        max_charging_powers.append(max_depot_charging_power)
-        left_over_charge = sum(energy_demands) - sum(charge_amounts)
-        charge_amounts.append(left_over_charge)
-
-    # modulo but keeps DAY instead of 0
-    times = list(map(lambda x: (x - 1) % DAY + 1, times))
-    uid_switches = list(map(lambda x: (x - 1) % DAY + 1, uid_switches))
-    uid_switches = sorted(uid_switches)
-
-    # cut at midnight and swap
-    for i in range(len(times) - 1):
-        if times[i + 1] < times[i]:
-            times = times[i + 1:] + times[: i + 1]
-            energy_demands = energy_demands[i + 1:] + energy_demands[: i + 1]
-            depot_charge = depot_charge[i + 1:] + depot_charge[: i + 1]
-            charge_amounts = charge_amounts[i + 1:] + charge_amounts[: i + 1]
-            max_charging_powers = max_charging_powers[i + 1:] + max_charging_powers[: i + 1]
-            break
-
-    return {
-        "time": times,
-        "energy_demand": [ed * 3.6e6 for ed in energy_demands],  # convert from kWh to J
-        "depot_charge": depot_charge,
-        "charge_amount": [ca * 3.6e6 for ca in charge_amounts],  # convert from kWh to J
-        "max_charging_power": [mcp * 1.0e3 for mcp in max_charging_powers],  # convert from kW to W
-        "battery_capacity": [battery_capacity * 3.6e6] * len(times),  # convert from kWh to J
-        "uid_switches": uid_switches,
-    }
+    elif last_ts > day:
+        for i in range(len(df) - 1):
+            if df["time"].iloc[i] < day and df["time"].iloc[i + 1] > day:
+                split_time = [day, df["time"].iloc[i + 1]]
+                split_depot_charge = [df["depot_charge"].iloc[i + 1]] * 2
+                split_battery_capacity = [df["battery_capacity"].iloc[i + 1]] * 2
+                split_max_charging_power = [df["max_charging_power"].iloc[i + 1]] * 2
+                dt1 = day - df["time"].iloc[i]
+                dt2 = df["time"].iloc[i + 1] - day
+                ed1 = df["energy_demand"].iloc[i + 1] * dt1 / (dt1 + dt2)
+                ed2 = df["energy_demand"].iloc[i + 1] * dt2 / (dt1 + dt2)
+                split_energy_demand = [ed1, ed2]
+                df = pd.concat(
+                    [
+                        df.iloc[: i + 1],
+                        pd.DataFrame(
+                            {
+                                "time": split_time,
+                                "energy_demand": split_energy_demand,
+                                "depot_charge": split_depot_charge,
+                                "battery_capacity": split_battery_capacity,
+                                "max_charging_power": split_max_charging_power,
+                            }
+                        ),
+                        df.iloc[i + 1 :],
+                    ],
+                    ignore_index=True,
+                )
+                break
+    return df
 
 
-def save_processed_group_to_csv(file_name, data_dict):
-    cycles = []
-    cycle = 0
-    for time in data_dict["time"]:
-        cycles.append(cycle)
-        if len(data_dict["uid_switches"]) > cycle and time == data_dict["uid_switches"][cycle]:
-            cycle += 1
-    cycles = list(map(lambda x: x % max(cycles), cycles))
-
-    del data_dict["uid_switches"]
-    data_dict["cycle"] = cycles
-
-    df = pl.DataFrame(data_dict)
-    df.write_csv(file_name)
-    printr(f"    saved processed data to [green]{file_name}")
+def preprocess_group(group, column_arguments):
+    df = select_relevant_columns(group, column_arguments)
+    df.loc[0, "depot_charge"] = True
+    mcp = df["max_charging_power"].where(df["depot_charge"], 0).max()
+    df.loc[0, "max_charging_power"] = mcp if mcp > 0 else 150
+    df = remove_dummies(df)
+    df = split_intervals_over_midnight(df)
+    df["time"] = df["time"].map(lambda x: (x - 1) % (60 * 60 * 24) + 1)
+    df = df.sort_values(by="time", ascending=True)
+    df = df.drop_duplicates()
+    return df
 
 
 @click.command()
 @click.argument("source", type=str)
 @click.option("--target", "-t", type=str, default="data/processed")
 @click.option("--group_by", "-g", type=str, default="FahrzeugLaufID")
-@click.option("--cycle_id_column", "-ic", type=str, default="UM_UID")
 @click.option("--time_column", "-tc", type=str, default="zeit")
 @click.option("--type_column", "-tc", type=str, default="Typ")
 @click.option("--demand_column", "-dc", type=str, default="Energie.total")
 @click.option("--capacity_column", "-cc", type=str, default="Batteriekapazitaet")
-@click.option("--charge_amount_column", "-ac", type=str, default="EffektiveLademenge")
 @click.option("--max_charging_power_column", "-mc", type=str, default="Ladegeschwindigkeit")
 def preprocess_data(
     source,
     target,
     group_by,
-    cycle_id_column,
     time_column,
     type_column,
     demand_column,
     capacity_column,
-    charge_amount_column,
     max_charging_power_column,
 ):
-    global DAY
-
     column_arguments = ColumnArguments(
-        cycle_id_column,
         time_column,
         type_column,
         demand_column,
         capacity_column,
-        charge_amount_column,
         max_charging_power_column,
     )
 
-    data = pl.read_csv(source)
+    df = pd.read_csv(source)
 
-    printr(f"loaded [magenta]{source}[/magenta]\n  {len(data.columns)} columns and {len(data)} rows")
-    printr("  head", data.head())
+    logger.info(f"loaded [magenta]{source}[/magenta]\n  {len(df.columns)} columns and {len(df)} rows")
 
     num_groups = 0
     num_successes = 0
-    for id, group in data.group_by(group_by, maintain_order=True):
+    for id, group in df.groupby(group_by, sort=False):
         num_groups += 1
-        printr(f"processing [cyan]{group_by}[/cyan] [dark_cyan]{id[0]}", end="")
-        data_dict = process_group(group, column_arguments)
+        group = group.copy().reset_index(drop=True)  # ensure indexing starts at 0 and is not reference to original
+        logger.info(f"processing [cyan]{group_by}[/cyan] [dark_cyan]{id}")
+        processed = preprocess_group(group, column_arguments)
         try:
-            eps = 1e-6
-            assert abs(group[column_arguments.demand_column].sum() * 3.6e6 - sum(data_dict["energy_demand"])) < eps
-            assert data_dict["time"][-1] == DAY
-            assert len(set(data_dict["time"])) == len(data_dict["time"])
-            assert abs(sum(data_dict["energy_demand"]) - sum(data_dict["charge_amount"])) < eps
-            for key, values in data_dict.items():
-                if key == "uid_switches":
-                    continue
-                assert len(data_dict["time"]) == len(values)
-            num_successes += 1
-            printr("  [bold green]ok")
+            input_data = Input.from_dataframe(processed)
+
             os.makedirs(target, exist_ok=True)
-            save_processed_group_to_csv(f"{target}/{id[0]}.csv", data_dict)
-        except AssertionError:
-            printr("  [bold red]not ok [/bold red] | [orange1]skipping")
+            file_name = os.path.join(target, f"{id}.json")
+            with open(file_name, "w") as f:
+                f.write(input_data.model_dump_json(indent=4))
+            logger.info(f"  [bold green]ok[/bold green]  written data to [cyan]{file_name}")
+            num_successes += 1
+
+        except ValidationError:
+            logger.info("  [bold red]not ok[/bold red]  |  [orange1]skipping")
 
     printr(f"[bold]processed {num_successes}/{num_groups} groups successfully")

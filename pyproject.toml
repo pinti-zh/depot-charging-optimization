@@ -9,7 +9,6 @@ dependencies = [
     "numpy",
     "plotly",
     "rich",
-    "polars",
     "pytest",
     "fastapi",
     "uvicorn",
