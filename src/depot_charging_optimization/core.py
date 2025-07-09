@@ -80,7 +80,7 @@ class OptimizationModel:
 
         self.vars_initialized = True
 
-    def set_constraints(self, ce_function_type: str = "one", alpha: float = 1.0):
+    def set_constraints(self, ce_function_type: str = "one", alpha: float = 1.0, cp_throttle: float = 1.0):
         if not self.vars_initialized:
             raise ValueError("Variables must be initialized before constraints")
 
@@ -143,6 +143,11 @@ class OptimizationModel:
                 >= gp.quicksum(self.charging_power[vehicle][index] for vehicle in range(self.input_data.num_vehicles)),
                 f"maxChargingPower_{index}",
             )
+
+        self.model.addConstr(
+            self.mcp <= cp_throttle * self.input_data.num_vehicles,
+            "maxChargingPowerThrottle",
+        )
 
         self.constraints_initialized = True
 

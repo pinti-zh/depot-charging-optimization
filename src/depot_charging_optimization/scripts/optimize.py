@@ -45,7 +45,7 @@ logger = logging.getLogger("optimize")
 @click.option("--time_limit", "-tl", type=int, default=5, help="solver time limit in seconds")
 @click.option("--solution_file", "-sf", type=str, default="outputs/solutions/solution.json", help="solution file")
 @click.option("--greedy", "-g", is_flag=True, default=False, help="use a greedy algorithm")
-@click.option("--charging_power_throttle", "-cpt", type=float, default=1, help="throttle for charging power")
+@click.option("--charging_power_throttle", "-cpt", type=float, default=1.0, help="throttle for charging power")
 def optimize(
     data_files, energy_price_file, ce_function, alpha, time_limit, solution_file, greedy, charging_power_throttle
 ):
@@ -64,8 +64,6 @@ def optimize(
     data_input = data_input.add_energy_price(energy_price["time"].to_list(), energy_price["energy_price"].to_list())
     data_input = data_input.add_grid_tariff(1.2e-4)
 
-    # TODO ADD THROTTLE
-
     # optimization
     start = perf_counter()
     with suppress_stdout_stderr():
@@ -74,7 +72,7 @@ def optimize(
     opt_model.model.setParam("OutputFlag", 1)
     opt_model.model.setParam("TimeLimit", time_limit)
     opt_model.set_variables()
-    opt_model.set_constraints(ce_function_type=ce_function, alpha=alpha)
+    opt_model.set_constraints(ce_function_type=ce_function, alpha=alpha, cp_throttle=charging_power_throttle)
     opt_model.set_objective()
 
     # solve
