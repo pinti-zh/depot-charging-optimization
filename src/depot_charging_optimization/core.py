@@ -194,7 +194,7 @@ class OptimizationModel:
                 for vehicle in range(self.input_data.num_vehicles)
             )
             power_cost = self.get_max_charging_power_used() * self.opt_input.grid_tariff
-        except ValueError:
+        except AttributeError:
             return None
         return Solution(
             input_data=self.input_data,
