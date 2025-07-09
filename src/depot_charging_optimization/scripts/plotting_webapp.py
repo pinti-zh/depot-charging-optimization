@@ -170,7 +170,10 @@ def detail_figure(vehicle: int = -1):
             line=dict(color=color),
         )
     )
-    for bound in [solution.input_data.soe_lb[vehicle], solution.input_data.soe_ub[vehicle]]:
+    for bound in [
+        solution.input_data.soe_lb[vehicle] * solution.input_data.battery_capacity[vehicle],
+        solution.input_data.soe_ub[vehicle] * solution.input_data.battery_capacity[vehicle],
+    ]:
         fig.add_trace(
             go.Scatter(
                 x=time,
