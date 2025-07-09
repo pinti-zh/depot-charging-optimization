@@ -50,7 +50,7 @@ def clean_data(source, target, sep):
                 df[col] = df[col].replace(none_value_placeholder, None)
         if any(df[col].map(is_comma_float)):
             found_comma_floats = True
-            df[col] = df[col].replace(",", ".")
+            df[col] = df[col].map(lambda x: x.replace(",", "."))
             df[col] = df[col].map(add_decimal_point_to_int)
         if not (found_placeholder or found_comma_floats):
             logger.info(f"  column [cyan]{col}[/cyan] [bold green]ok")
