@@ -1,219 +1,224 @@
 <!DOCTYPE html>
 <html>
-<head>
+  <head>
     <title>Dashboard</title>
     <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
     <link rel="icon" href="/favicon.ico" type="image/x-icon" />
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-    <header>
-        <div class="row" style="margin-top: 30px;">
-            <div class="col-4" style="font-size: 24px;">Depot Charging Optimization</div>
-            <div class="col-6" style="text-align: right;">
-                <a href="#soe-header" class="header-link">State of Energy</a>
-                <a href="#cp-header" class="header-link">Charging Power</a>
-                <a href="#ep-header" class="header-link">Energy Price</a>
-                <a href="#detail-header" class="header-link">Vehicle Detail</a>
-            </div>
+      <header>
+        <div class="row" style="margin-top: 30px">
+          <div class="col-4" style="font-size: 24px">
+            Depot Charging Optimization
+          </div>
+          <div class="col-6" style="text-align: right">
+            <a href="#soe-header" class="header-link">State of Energy</a>
+            <a href="#cp-header" class="header-link">Charging Power</a>
+            <a href="#ep-header" class="header-link">Energy Price</a>
+            <a href="#detail-header" class="header-link">Vehicle Detail</a>
+          </div>
         </div>
-    </header>
-        <div id="soe-header" class="row chart-header-row">
-            <div class="col-2"></div>
-            <h2 class="col-8">State of Energy</h2>
-            <div class="col-2"></div>
+      </header>
+      <div id="soe-header" class="row chart-header-row">
+        <div class="col-2"></div>
+        <h2 class="col-8">State of Energy</h2>
+        <div class="col-2"></div>
+      </div>
+      <div class="row" id="soe-row">
+        <div class="col-2" id="soe-checklist" style="margin-top: 10px">
+          {% for vehicle in vehicles %}
+          <label
+            style="margin-bottom: 10px; color: {{ colors[vehicle % colors|length] }}; font-size: 18px"
+          >
+            <input type="checkbox" value="{{" vehicle }} checked />
+            <span style="vertical-align: 2px"
+              >Vehicle {{ vehicle + 1}}</span
+            > </label
+          ><br />
+          {% endfor %}
         </div>
-        <div class="row" id="soe-row">
-            <div class="col-2" id="soe-checklist" style="margin-top: 10px;">
-                {% for vehicle in vehicles %}
-                <label style="margin-bottom: 10px; color: {{ colors[vehicle % colors|length] }}; font-size: 18px">
-                    <input type="checkbox" value={{ vehicle }} checked> <span style="vertical-align: 2px;">Vehicle {{ vehicle + 1}}</span>
-                </label><br>
-                {% endfor %}
-            </div>
-            <div class="col-8 plot-card" id="soe-plot-card">
-                <div class="plot" id="soe-plot"></div>
-            </div>
-            <div class="col-2"></div>
+        <div class="col-8 plot-card" id="soe-plot-card">
+          <div class="plot" id="soe-plot"></div>
         </div>
-        <div id="cp-header" class="row chart-header-row">
-            <div class="col-2"></div>
-            <h2 class="col-8">Charging Power</h2>
-            <div class="col-2"></div>
+        <div class="col-2"></div>
+      </div>
+      <div id="cp-header" class="row chart-header-row">
+        <div class="col-2"></div>
+        <h2 class="col-8">Charging Power</h2>
+        <div class="col-2"></div>
+      </div>
+      <div class="row" id="cp-row">
+        <div class="col-2"></div>
+        <div class="col-8 plot-card" id="cp-plot-card">
+          <div class="plot" id="cp-plot"></div>
         </div>
-        <div class="row" id="cp-row">
-            <div class="col-2">
-            </div>
-            <div class="col-8 plot-card" id="cp-plot-card">
-                <div class="plot" id="cp-plot"></div>
-            </div>
-            <div class="col-2"></div>
+        <div class="col-2"></div>
+      </div>
+      <div id="ep-header" class="row chart-header-row">
+        <div class="col-2"></div>
+        <h2 class="col-8">Energy Price</h2>
+        <div class="col-2"></div>
+      </div>
+      <div class="row" id="ep-row">
+        <div class="col-2"></div>
+        <div class="col-8 plot-card" id="ep-plot-card">
+          <div class="plot" id="ep-plot"></div>
         </div>
-        <div id="ep-header" class="row chart-header-row">
-            <div class="col-2"></div>
-            <h2 class="col-8">Energy Price</h2>
-            <div class="col-2"></div>
+        <div class="col-2"></div>
+      </div>
+      <div id="detail-header" class="row chart-header-row">
+        <div class="col-2"></div>
+        <h2 class="col-8">Vehicle Detail</h2>
+        <div class="col-2"></div>
+      </div>
+      <div class="row" id="cp-row">
+        <div class="col-2" id="detail-dropdown-col" style="margin-top: 10px">
+          <select id="detail-dropdown">
+            {% for vehicle in vehicles %}
+            <option value="{{" vehicle }}>Vehicle {{ vehicle + 1 }}</option>
+            {% endfor %}
+          </select>
         </div>
-        <div class="row" id="ep-row">
-            <div class="col-2">
-            </div>
-            <div class="col-8 plot-card" id="ep-plot-card">
-                <div class="plot" id="ep-plot"></div>
-            </div>
-            <div class="col-2"></div>
+        <div class="col-8 plot-card" id="cp-plot-card">
+          <div class="plot" id="detail-plot"></div>
         </div>
-        <div id="detail-header" class="row chart-header-row">
-            <div class="col-2"></div>
-            <h2 class="col-8">Vehicle Detail</h2>
-            <div class="col-2"></div>
-        </div>
-        <div class="row" id="cp-row">
-            <div class="col-2" id="detail-dropdown-col" style="margin-top: 10px;">
-                    <select id="detail-dropdown">
-                        {% for vehicle in vehicles %}
-                        <option value={{ vehicle }}>Vehicle {{ vehicle + 1 }} </option>
-                        {% endfor %}
-                    </select>
-            </div>
-            <div class="col-8 plot-card" id="cp-plot-card">
-                <div class="plot" id="detail-plot"></div>
-            </div>
-            <div class="col-2"></div>
-        </div>
+        <div class="col-2"></div>
+      </div>
     </div>
-    <div id="footer-spacer" style="height: 50px;"></div>
+    <div id="footer-spacer" style="height: 50px"></div>
     <script>
-      // Render initial plot from server JSON
-    window.addEventListener('load', () => {
-        requestAnimationFrame(() => {
-            const initialSOEPlot = {{ soe_plot_json | safe }};
-            const initialCPPlot = {{ cp_plot_json | safe }};
-            const initialDetailPlot = {{ detail_plot_json | safe }};
-            Plotly.newPlot('soe-plot', initialSOEPlot.data, initialSOEPlot.layout);
-            Plotly.newPlot('cp-plot', initialCPPlot.data, initialCPPlot.layout);
-            Plotly.newPlot('detail-plot', initialDetailPlot.data, initialDetailPlot.layout);
-        });
-        const checkboxes = document.querySelectorAll('#soe-checklist input[type="checkbox"]');
-        const selected = Array.from(checkboxes)
-                            .filter(chk => chk.checked)
-                            .map(chk => chk.value);
-        fetchAndUpdateSoePlot(selected);
-        fetchAndUpdateCPPlot(selected);
-        fetchAndUpdateEPPlot();
-        detail_value = document.getElementById('detail-dropdown').value;
-        fetchAndUpdateDetailPlot(detail_value);
-    });
+        // Render initial plot from server JSON
+      window.addEventListener('load', () => {
+          requestAnimationFrame(() => {
+              const initialSOEPlot = {{ soe_plot_json | safe }};
+              const initialCPPlot = {{ cp_plot_json | safe }};
+              const initialDetailPlot = {{ detail_plot_json | safe }};
+              Plotly.newPlot('soe-plot', initialSOEPlot.data, initialSOEPlot.layout);
+              Plotly.newPlot('cp-plot', initialCPPlot.data, initialCPPlot.layout);
+              Plotly.newPlot('detail-plot', initialDetailPlot.data, initialDetailPlot.layout);
+          });
+          const checkboxes = document.querySelectorAll('#soe-checklist input[type="checkbox"]');
+          const selected = Array.from(checkboxes)
+                              .filter(chk => chk.checked)
+                              .map(chk => chk.value);
+          fetchAndUpdateSoePlot(selected);
+          fetchAndUpdateCPPlot(selected);
+          fetchAndUpdateEPPlot();
+          detail_value = document.getElementById('detail-dropdown').value;
+          fetchAndUpdateDetailPlot(detail_value);
+      });
 
-    async function fetchAndUpdateSoePlot(vehicles) {
-        try {
-            const response = await fetch('/soe_plot/' + vehicles);
-            const plotData = await response.json();
-            Plotly.react('soe-plot', plotData.data, plotData.layout, {responsive: true});
-        } catch (err) {
-            console.error('Plot update error:', err);
-        }
-    }
+      async function fetchAndUpdateSoePlot(vehicles) {
+          try {
+              const response = await fetch('/soe_plot/' + vehicles);
+              const plotData = await response.json();
+              Plotly.react('soe-plot', plotData.data, plotData.layout, {responsive: true});
+          } catch (err) {
+              console.error('Plot update error:', err);
+          }
+      }
 
-    async function fetchAndUpdateCPPlot(vehicles) {
-        try {
-            const response = await fetch('/cp_plot/' + vehicles);
-            const plotData = await response.json();
-            Plotly.react('cp-plot', plotData.data, plotData.layout, {responsive: true});
-        } catch (err) {
-            console.error('Plot update error:', err);
-        }
-    }
+      async function fetchAndUpdateCPPlot(vehicles) {
+          try {
+              const response = await fetch('/cp_plot/' + vehicles);
+              const plotData = await response.json();
+              Plotly.react('cp-plot', plotData.data, plotData.layout, {responsive: true});
+          } catch (err) {
+              console.error('Plot update error:', err);
+          }
+      }
 
-    async function fetchAndUpdateDetailPlot(vehicle) {
-        try {
-            const response = await fetch('/detail_plot/' + vehicle);
-            const plotData = await response.json();
-            Plotly.react('detail-plot', plotData.data, plotData.layout, {responsive: true});
-        } catch (err) {
-            console.error('Plot update error:', err);
-        }
-    }
+      async function fetchAndUpdateDetailPlot(vehicle) {
+          try {
+              const response = await fetch('/detail_plot/' + vehicle);
+              const plotData = await response.json();
+              Plotly.react('detail-plot', plotData.data, plotData.layout, {responsive: true});
+          } catch (err) {
+              console.error('Plot update error:', err);
+          }
+      }
 
-    async function fetchAndUpdateEPPlot(vehicle) {
-        try {
-            const response = await fetch('/energy_price_plot');
-            const plotData = await response.json();
-            Plotly.react('ep-plot', plotData.data, plotData.layout, {responsive: true});
-        } catch (err) {
-            console.error('Plot update error:', err);
-        }
-    }
-    
-    document.querySelectorAll('#soe-checklist input[type="checkbox"]').forEach(chk => {
-        chk.addEventListener('change', () => {
-            const checkboxes = document.querySelectorAll('#soe-checklist input[type="checkbox"]');
-            const selected = Array.from(checkboxes)
-                                .filter(chk => chk.checked)
-                                .map(chk => chk.value);
-            fetchAndUpdateSoePlot(selected);
-            fetchAndUpdateCPPlot(selected);
-        });
-    });
+      async function fetchAndUpdateEPPlot(vehicle) {
+          try {
+              const response = await fetch('/energy_price_plot');
+              const plotData = await response.json();
+              Plotly.react('ep-plot', plotData.data, plotData.layout, {responsive: true});
+          } catch (err) {
+              console.error('Plot update error:', err);
+          }
+      }
 
-    detail_dropdown = document.getElementById('detail-dropdown');
-    detail_dropdown.addEventListener('change', () => {
-        console.log(detail_dropdown.value)
-        fetchAndUpdateDetailPlot(detail_dropdown.value);
-    });
+      document.querySelectorAll('#soe-checklist input[type="checkbox"]').forEach(chk => {
+          chk.addEventListener('change', () => {
+              const checkboxes = document.querySelectorAll('#soe-checklist input[type="checkbox"]');
+              const selected = Array.from(checkboxes)
+                                  .filter(chk => chk.checked)
+                                  .map(chk => chk.value);
+              fetchAndUpdateSoePlot(selected);
+              fetchAndUpdateCPPlot(selected);
+          });
+      });
 
-
+      detail_dropdown = document.getElementById('detail-dropdown');
+      detail_dropdown.addEventListener('change', () => {
+          console.log(detail_dropdown.value)
+          fetchAndUpdateDetailPlot(detail_dropdown.value);
+      });
     </script>
     <style>
-
-    body {
-        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      body {
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
         margin: 0;
         height: 100vh;
         background: linear-gradient(-45deg, #050535, #041d35, #050535, #1d0435);
         background-size: 400% 400%;
         animation: gradientBG 8s ease infinite;
-        color:  white;
-    }
+        color: white;
+      }
 
-    .header-link {
+      .header-link {
         color: white;
         text-decoration: none;
         margin: 0 12px;
         font-weight: 500;
         font-size: 16px;
         transition: color 0.3s ease;
-    }
+      }
 
-    .header-link:hover {
-        color: #2196F3;
-    }
+      .header-link:hover {
+        color: #2196f3;
+      }
 
-    .plot {
+      .plot {
         width: 100%;
         height: 100%;
         box-sizing: border-box; /* include padding/border in width */
         padding: 0;
         margin: 0;
         border: none; /* or a thin border that fits */
-    }
+      }
 
-    .plot-card {
+      .plot-card {
         height: 400px;
         position: relative;
         border: 2px solid #111111;
-        border-radius: 8px;              /* Rounded corners (optional) */
+        border-radius: 8px; /* Rounded corners (optional) */
         box-shadow: 0 0 15px 5px rgba(200, 200, 255, 0.4); /* Soft bluish glow */
         background-color: #111111;
-        padding: 10px;                   /* Space between border and plot */
-    }
+        padding: 10px; /* Space between border and plot */
+      }
 
-    .chart-header-row {
+      .chart-header-row {
         margin-bottom: 30px;
         margin-top: 50px;
-    }
+      }
 
-    input[type="checkbox"] {
+      input[type="checkbox"] {
         /* Remove default styling */
         appearance: none;
         -webkit-appearance: none;
@@ -224,16 +229,16 @@
         margin-right: 5px;
         cursor: pointer;
         position: relative;
-    }
+      }
 
-    /* Style the checked state */
-    input[type="checkbox"]:checked {
-        background-color: #2196F3;
-        border-color: #2196F3;
-    }
+      /* Style the checked state */
+      input[type="checkbox"]:checked {
+        background-color: #2196f3;
+        border-color: #2196f3;
+      }
 
-    /* Minimal checkmark with ::after */
-    input[type="checkbox"]:checked::after {
+      /* Minimal checkmark with ::after */
+      input[type="checkbox"]:checked::after {
         content: "";
         position: absolute;
         left: 5px;
@@ -243,7 +248,7 @@
         border: solid white;
         border-width: 0 2px 2px 0;
         transform: rotate(45deg);
-    }
+      }
       select {
         background-color: #2b2b2b;
         color: #f0f0f0;
@@ -261,15 +266,19 @@
         background-size: 14px;
         padding-right: 30px; /* space for custom arrow */
         cursor: pointer;
-    }
+      }
 
-  select:f
-
-    @keyframes gradientBG {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
-    }
+      select:f @keyframes gradientBG {
+        0% {
+          background-position: 0% 50%;
+        }
+        50% {
+          background-position: 100% 50%;
+        }
+        100% {
+          background-position: 0% 50%;
+        }
+      }
     </style>
-</body>
+  </body>
 </html>
