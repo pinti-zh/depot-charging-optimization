@@ -9,7 +9,7 @@ import click
 import pandas as pd
 from rich.logging import RichHandler
 
-from depot_charging_optimization.core import OptimizationModel
+from depot_charging_optimization.core import GurobiOptimizer
 from depot_charging_optimization.data_models import Input
 
 
@@ -46,8 +46,17 @@ logger = logging.getLogger("optimize")
 @click.option("--solution_file", "-sf", type=str, default="outputs/solutions/solution.json", help="solution file")
 @click.option("--greedy", "-g", is_flag=True, default=False, help="use a greedy algorithm")
 @click.option("--charging_power_throttle", "-cpt", type=float, default=1.0, help="throttle for charging power")
+@click.option("--use_casadi", "-uc", is_flag=True, default=False, help="use casadi instead of gurobi")
 def optimize(
-    data_files, energy_price_file, ce_function, alpha, time_limit, solution_file, greedy, charging_power_throttle
+    data_files,
+    energy_price_file,
+    ce_function,
+    alpha,
+    time_limit,
+    solution_file,
+    greedy,
+    charging_power_throttle,
+    use_casadi,
 ):
     data = []
     for i, file in enumerate(data_files):
@@ -66,8 +75,10 @@ def optimize(
 
     # optimization
     start = perf_counter()
+    if use_casadi:
+        return
     with suppress_stdout_stderr():
-        opt_model = OptimizationModel(data_input, greedy=greedy)
+        opt_model = GurobiOptimizer(data_input, greedy=greedy)
     opt_model.model.setParam("LogToConsole", 0)
     opt_model.model.setParam("OutputFlag", 1)
     opt_model.model.setParam("TimeLimit", time_limit)

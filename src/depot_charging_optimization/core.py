@@ -1,4 +1,5 @@
-from typing import Optional
+from abc import ABC, abstractmethod
+from typing import Any, Optional
 
 import gurobipy as gp
 from gurobipy import GRB
@@ -6,8 +7,25 @@ from gurobipy import GRB
 from depot_charging_optimization.data_models import Input, Solution
 
 
-class OptimizationModel:
-    def __init__(self, input_data: Input, name: str = "OptimizationModel", greedy: bool = False):
+class Optimizer(ABC):
+    @abstractmethod
+    def set_variables(self, *args: Any) -> None:
+        pass
+
+    @abstractmethod
+    def set_constraints(self, *args: Any) -> None:
+        pass
+
+    @abstractmethod
+    def set_objective(self, *args: Any) -> None:
+        pass
+
+    def solve(self, *args: Any) -> Optional[Solution]:
+        pass
+
+
+class GurobiOptimizer(Optimizer):
+    def __init__(self, input_data: Input, name: str = "GurobiOptimizer", greedy: bool = False):
         self.input_data: Input = input_data
         self.name: str = name
         self.model: gp.Model = gp.Model(self.name)
@@ -47,7 +65,7 @@ class OptimizationModel:
 
         self.opt_input: Input = input_data
 
-    def set_variables(self):
+    def set_variables(self) -> None:
 
         # decision variables
         for vehicle in range(self.input_data.num_vehicles):
@@ -80,7 +98,7 @@ class OptimizationModel:
 
         self.vars_initialized = True
 
-    def set_constraints(self, ce_function_type: str = "one", alpha: float = 1.0, cp_throttle: float = 1.0):
+    def set_constraints(self, ce_function_type: str = "one", alpha: float = 1.0, cp_throttle: float = 1.0) -> None:
         if not self.vars_initialized:
             raise ValueError("Variables must be initialized before constraints")
 
@@ -151,7 +169,7 @@ class OptimizationModel:
 
         self.constraints_initialized = True
 
-    def set_objective(self):
+    def set_objective(self) -> None:
         if not self.constraints_initialized:
             raise ValueError("Constraints must be initialized before objective")
 
