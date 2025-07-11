@@ -15,6 +15,7 @@ dependencies = [
     "uvicorn",
     "pydantic",
     "jinja2",
+    "pandas",
 ]
 
 [project.scripts]
