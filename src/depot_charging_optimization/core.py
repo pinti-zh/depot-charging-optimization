@@ -202,8 +202,11 @@ class GurobiOptimizer(Optimizer):
         self.model.optimize()
         try:
             self.objective_value = self.model.ObjVal
-            obj_bound = self.model.ObjBound
-            gap = abs(self.objective_value - obj_bound) / (abs(self.objective_value) + 1e-10) * 100
+            if self.model.Status != GRB.OPTIMAL:
+                gap = 0
+            else:
+                obj_bound = self.model.ObjBound
+                gap = abs(self.objective_value - obj_bound) / (abs(self.objective_value) + 1e-10)
             charging_power = self.get_charging_power()
             energy_cost = sum(
                 sum(
