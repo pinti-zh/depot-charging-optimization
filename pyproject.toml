@@ -16,6 +16,7 @@ dependencies = [
     "pydantic",
     "jinja2",
     "pandas",
+    "casadi",
 ]
 
 [project.scripts]

@@ -9,7 +9,7 @@ import click
 import pandas as pd
 from rich.logging import RichHandler
 
-from depot_charging_optimization.core import GurobiOptimizer
+from depot_charging_optimization.core import CasadiOptimizer, GurobiOptimizer
 from depot_charging_optimization.data_models import Input
 
 
@@ -76,12 +76,13 @@ def optimize(
     # optimization
     start = perf_counter()
     if use_casadi:
-        return
-    with suppress_stdout_stderr():
-        opt_model = GurobiOptimizer(data_input, greedy=greedy)
-    opt_model.model.setParam("LogToConsole", 0)
-    opt_model.model.setParam("OutputFlag", 1)
-    opt_model.model.setParam("TimeLimit", time_limit)
+        opt_model = CasadiOptimizer(data_input, greedy=greedy)
+    else:
+        with suppress_stdout_stderr():
+            opt_model = GurobiOptimizer(data_input, greedy=greedy)
+            opt_model.model.setParam("LogToConsole", 0)
+            opt_model.model.setParam("OutputFlag", 1)
+            opt_model.model.setParam("TimeLimit", time_limit)
     opt_model.set_variables()
     opt_model.set_constraints(ce_function_type=ce_function, alpha=alpha, cp_throttle=charging_power_throttle)
     opt_model.set_objective()
