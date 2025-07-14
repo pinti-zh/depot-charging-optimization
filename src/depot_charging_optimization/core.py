@@ -318,7 +318,7 @@ class CasadiOptimizer(Optimizer):
                     elif ce_function_type == "quadratic":
                         self.constraints.append(
                             self.charging_efficiency[vehicle * self.input_data.num_timesteps + t_i]
-                            - (1 - (1 - alpha) * self.charging_power[vehicle, t_i] / 2)
+                            - (1 - (1 - alpha) * self.charging_power[vehicle * self.input_data.num_timesteps + t_i] / 2)
                         )
                     else:
                         raise ValueError(f"Unknown ce_function_type: {ce_function_type}")
