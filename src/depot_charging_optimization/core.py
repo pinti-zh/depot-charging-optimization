@@ -281,7 +281,7 @@ class CasadiOptimizer(Optimizer):
         for vehicle in range(self.input_data.num_vehicles):
             for t_i in range(self.input_data.num_timesteps + 1):
                 self.state_of_energy.append(ca.MX.sym(f"stateOfEnergy_v{vehicle}_{t_i}"))
-        
+
         self.max_charging_power: ca.MX.sym = ca.MX.sym("maxChargingPower")
 
         self.lb_cp: list[float] = [0] * self.input_data.num_vehicles * self.input_data.num_timesteps
@@ -312,13 +312,22 @@ class CasadiOptimizer(Optimizer):
             for t_i in range(self.input_data.num_timesteps):
                 if self.input_data.depot_charge[vehicle][t_i]:
                     if ce_function_type == "one":
-                        self.constraints.append(self.charging_efficiency[vehicle * self.input_data.num_timesteps + t_i] - 1.0)
+                        self.constraints.append(
+                            self.charging_efficiency[vehicle * self.input_data.num_timesteps + t_i] - 1.0
+                        )
                     elif ce_function_type == "constant":
-                        self.constraints.append(self.charging_efficiency[vehicle * self.input_data.num_timesteps + t_i] - alpha)
+                        self.constraints.append(
+                            self.charging_efficiency[vehicle * self.input_data.num_timesteps + t_i] - alpha
+                        )
                     elif ce_function_type == "quadratic":
                         self.constraints.append(
                             self.charging_efficiency[vehicle * self.input_data.num_timesteps + t_i]
-                            - (1 - (1 - alpha) * self.charging_power[vehicle * self.input_data.num_timesteps + t_i] / 2)
+                            - (
+                                1
+                                - (1 - alpha)
+                                * self.charging_power[vehicle * self.input_data.num_timesteps + t_i]
+                                / (2 * self.input_data.max_charging_power**2)
+                            )
                         )
                     else:
                         raise ValueError(f"Unknown ce_function_type: {ce_function_type}")
@@ -341,7 +350,10 @@ class CasadiOptimizer(Optimizer):
                 else:
                     self.constraints.append(
                         self.state_of_energy[vehicle * (self.input_data.num_timesteps + 1) + t_i + 1]
-                        - (self.state_of_energy[vehicle * (self.input_data.num_timesteps + 1) + t_i] - self.input_data.energy_demand[vehicle][t_i])
+                        - (
+                            self.state_of_energy[vehicle * (self.input_data.num_timesteps + 1) + t_i]
+                            - self.input_data.energy_demand[vehicle][t_i]
+                        )
                     )
                     self.constraints.append(self.charging_power[vehicle * self.input_data.num_timesteps + t_i])
                     self.constraints.append(self.charging_efficiency[vehicle * self.input_data.num_timesteps + t_i])
@@ -356,14 +368,18 @@ class CasadiOptimizer(Optimizer):
         # energy loop
         for vehicle in range(self.input_data.num_vehicles):
             self.constraints.append(
-                self.state_of_energy[vehicle * (self.input_data.num_timesteps + 1) + self.input_data.num_timesteps] - self.state_of_energy[vehicle * (self.input_data.num_timesteps + 1)]
+                self.state_of_energy[vehicle * (self.input_data.num_timesteps + 1) + self.input_data.num_timesteps]
+                - self.state_of_energy[vehicle * (self.input_data.num_timesteps + 1)]
             )
             self.constraints_lb.append(0)
             self.constraints_ub.append(float("inf"))
 
         # max power used
         for index in range(self.input_data.num_timesteps):
-            column = [self.charging_power[vehicle * self.input_data.num_timesteps + index] for vehicle in range(self.input_data.num_vehicles)]
+            column = [
+                self.charging_power[vehicle * self.input_data.num_timesteps + index]
+                for vehicle in range(self.input_data.num_vehicles)
+            ]
             self.constraints.append(self.max_charging_power - sum(column, ca.MX(0)))
             self.constraints_lb.append(0)
             self.constraints_ub.append(float("inf"))
@@ -371,7 +387,10 @@ class CasadiOptimizer(Optimizer):
     def set_objective(self) -> None:
         energy_cost_vector = []
         for _ in range(self.input_data.num_vehicles):
-            energy_cost_vector += [self.input_data.energy_price[t_i] * self.delta_time[t_i] for t_i in range(self.input_data.num_timesteps)]
+            energy_cost_vector += [
+                self.input_data.energy_price[t_i] * self.delta_time[t_i]
+                for t_i in range(self.input_data.num_timesteps)
+            ]
         energy_cost_vector = [cp * ec for cp, ec in zip(self.charging_power, energy_cost_vector)]
         self.objective = sum(energy_cost_vector, ca.MX(0)) + self.input_data.grid_tariff * self.max_charging_power
 
@@ -423,8 +442,13 @@ class CasadiOptimizer(Optimizer):
 
         energy_cost_vector = []
         for _ in range(self.input_data.num_vehicles):
-            energy_cost_vector += [self.input_data.energy_price[t_i] * self.delta_time[t_i] for t_i in range(self.input_data.num_timesteps)]
-        energy_cost_vector = [cp * ec for cp, ec in zip([item for sublist in charging_power for item in sublist], energy_cost_vector)]
+            energy_cost_vector += [
+                self.input_data.energy_price[t_i] * self.delta_time[t_i]
+                for t_i in range(self.input_data.num_timesteps)
+            ]
+        energy_cost_vector = [
+            cp * ec for cp, ec in zip([item for sublist in charging_power for item in sublist], energy_cost_vector)
+        ]
         energy_cost = sum(energy_cost_vector, ca.MX(0))
         max_charging_power = float(solution["x"][-1])
         power_cost = max_charging_power * self.input_data.grid_tariff
