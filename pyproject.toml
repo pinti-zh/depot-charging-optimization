@@ -28,10 +28,3 @@ plot = "depot_charging_optimization.scripts.plotting_webapp:serve"
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
-
-[tool.black]
-line-length = 119
-
-[tool.ruff]
-line-length= 119
-ignore = ["E203"]
