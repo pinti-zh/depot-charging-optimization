@@ -60,7 +60,6 @@ def optimize(
 ):
     data = []
     for i, file in enumerate(data_files):
-        logger.info(f"{i+1}. Loading [cyan3]{file}")
         with open(file) as f:
             data.append(Input.model_validate(json.load(f)))
     logger.info("")
@@ -76,24 +75,23 @@ def optimize(
     # optimization
     start = perf_counter()
     if use_casadi:
-        opt_model = CasadiOptimizer(data_input, greedy=greedy)
+        optimizer = CasadiOptimizer(data_input, greedy=greedy)
     else:
-        with suppress_stdout_stderr():
-            opt_model = GurobiOptimizer(data_input, greedy=greedy)
-            opt_model.model.setParam("LogToConsole", 0)
-            opt_model.model.setParam("OutputFlag", 1)
-            opt_model.model.setParam("TimeLimit", time_limit)
-    opt_model.set_variables()
-    opt_model.set_constraints(ce_function_type=ce_function, alpha=alpha, cp_throttle=charging_power_throttle)
-    opt_model.set_objective()
+        # with suppress_stdout_stderr():
+        optimizer = GurobiOptimizer(data_input, greedy=greedy)
+        optimizer._model.setParam("LogToConsole", 0)
+        optimizer._model.setParam("OutputFlag", 1)
+        optimizer._model.setParam("TimeLimit", time_limit)
+    optimizer.build(ce_function_type=ce_function, alpha=alpha, cp_throttle=charging_power_throttle)
 
     # solve
-    solution = opt_model.solve()
+    solution = optimizer.solve()
     optimization_time = perf_counter() - start
 
     if solution is None:
         logger.error("No solution found")
     else:
+        logger.info(f"MAX POWER: {solution.max_charging_power_used}")
         logger.info(f"Found solution in {optimization_time:.4f} seconds")
         total_cost = f"{solution.total_cost:.3f} $"
         energy_cost = f"{solution.energy_cost:.3f} $"
