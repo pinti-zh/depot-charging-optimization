@@ -1,8 +1,6 @@
-import contextlib
 import json
 import logging
 import os
-import sys
 from time import perf_counter
 
 import click
@@ -11,21 +9,6 @@ from rich.logging import RichHandler
 
 from depot_charging_optimization.core import CasadiOptimizer, GurobiOptimizer
 from depot_charging_optimization.data_models import Input
-
-
-@contextlib.contextmanager
-def suppress_stdout_stderr():
-    with open(os.devnull, "w") as devnull:
-        old_stdout = sys.stdout
-        old_stderr = sys.stderr
-        sys.stdout = devnull
-        sys.stderr = devnull
-        try:
-            yield
-        finally:
-            sys.stdout = old_stdout
-            sys.stderr = old_stderr
-
 
 # Basic Rich logging setup
 logging.basicConfig(
@@ -77,11 +60,8 @@ def optimize(
     if use_casadi:
         optimizer = CasadiOptimizer(data_input, greedy=greedy)
     else:
-        # with suppress_stdout_stderr():
-        optimizer = GurobiOptimizer(data_input, greedy=greedy)
-        optimizer._model.setParam("LogToConsole", 0)
-        optimizer._model.setParam("OutputFlag", 1)
-        optimizer._model.setParam("TimeLimit", time_limit)
+        optimizer = GurobiOptimizer(data_input, greedy=greedy, time_limit=time_limit)
+
     optimizer.build(ce_function_type=ce_function, alpha=alpha, cp_throttle=charging_power_throttle)
 
     # solve
@@ -91,7 +71,6 @@ def optimize(
     if solution is None:
         logger.error("No solution found")
     else:
-        logger.info(f"MAX POWER: {solution.max_charging_power_used}")
         logger.info(f"Found solution in {optimization_time:.4f} seconds")
         total_cost = f"{solution.total_cost:.3f} $"
         energy_cost = f"{solution.energy_cost:.3f} $"

@@ -1,3 +1,6 @@
+import contextlib
+import os
+import sys
 from abc import ABC, abstractmethod
 from typing import Any, Generic, TypeVar
 
@@ -10,8 +13,22 @@ from depot_charging_optimization.data_models import Input, Solution
 OptVariable = TypeVar("OptVariable", gp.Var, ca.MX.sym)
 
 
+@contextlib.contextmanager
+def suppress_stdout_stderr():
+    with open(os.devnull, "w") as devnull:
+        old_stdout = sys.stdout
+        old_stderr = sys.stderr
+        sys.stdout = devnull
+        sys.stderr = devnull
+        try:
+            yield
+        finally:
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
+
+
 class Optimizer(ABC, Generic[OptVariable]):
-    def __init__(self, input_data: Input, name: str | None = None, greedy: bool = False):
+    def __init__(self, input_data: Input, name: str | None = None, greedy: bool = False, **kwargs):
         self.input_data: Input = input_data
         self.name: str = name or self.__class__.__name__
         self.greedy: bool = greedy
@@ -167,9 +184,13 @@ class Optimizer(ABC, Generic[OptVariable]):
 
 
 class GurobiOptimizer(Optimizer[gp.Var]):
-    def __init__(self, input_data: Input, name: str = "GurobiOptimizer", greedy: bool = False):
+    def __init__(self, input_data: Input, name: str = "GurobiOptimizer", greedy: bool = False, time_limit: int = 5):
         super().__init__(input_data, name=name, greedy=greedy)
-        self._model: gp.Model = gp.Model(self.name)
+        with suppress_stdout_stderr():
+            self._model: gp.Model = gp.Model(self.name)
+            self._model.setParam("LogToConsole", 0)
+            self._model.setParam("OutputFlag", 1)
+            self._model.setParam("TimeLimit", time_limit)
 
     @property
     def charging_power(self) -> list[list[float]]:
