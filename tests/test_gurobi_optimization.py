@@ -1,6 +1,6 @@
 import pandas as pd
 
-from depot_charging_optimization.core import OptimizationModel
+from depot_charging_optimization.core import GurobiOptimizer
 from depot_charging_optimization.data_models import Input
 
 EPS = 1e-3
@@ -26,13 +26,11 @@ class TestOptimizationSingleVehicle:
         )
         input_data = input_data.add_grid_tariff(grid_tariff)
 
-        opt_model = OptimizationModel(input_data)
-        opt_model.set_variables()
-        opt_model.set_constraints()
-        opt_model.set_objective()
+        optimizer = GurobiOptimizer(input_data)
+        optimizer.build()
 
-        solution = opt_model.solve()
-        for expected, value in zip([6.0, 0.0, 0.0], opt_model.get_charging_power()[0]):
+        solution = optimizer.solve()
+        for expected, value in zip([6.0, 0.0, 0.0], solution.charging_power[0]):
             assert abs(expected - value) < EPS
         assert abs(solution.total_cost - 54.0) < EPS
 
@@ -55,13 +53,11 @@ class TestOptimizationSingleVehicle:
         )
         input_data = input_data.add_grid_tariff(grid_tariff)
 
-        opt_model = OptimizationModel(input_data)
-        opt_model.set_variables()
-        opt_model.set_constraints()
-        opt_model.set_objective()
+        optimizer = GurobiOptimizer(input_data)
+        optimizer.build()
 
-        solution = opt_model.solve()
-        for expected, value in zip([3.0, 0.0, 3.0], opt_model.get_charging_power()[0]):
+        solution = optimizer.solve()
+        for expected, value in zip([3.0, 0.0, 3.0], solution.charging_power[0]):
             assert abs(expected - value) < EPS
         assert abs(solution.total_cost - 63.0) < EPS
 
@@ -84,12 +80,10 @@ class TestOptimizationSingleVehicle:
         )
         input_data = input_data.add_grid_tariff(grid_tariff)
 
-        opt_model = OptimizationModel(input_data)
-        opt_model.set_variables()
-        opt_model.set_constraints()
-        opt_model.set_objective()
+        optimizer = GurobiOptimizer(input_data)
+        optimizer.build()
 
-        solution = opt_model.solve()
+        solution = optimizer.solve()
         assert solution is None
 
 
@@ -113,12 +107,10 @@ class TestOptimiazationChargingEfficiency:
         )
         input_data = input_data.add_grid_tariff(grid_tariff)
 
-        opt_model = OptimizationModel(input_data)
-        opt_model.set_variables()
-        opt_model.set_constraints(ce_function_type="constant", alpha=0.6)
-        opt_model.set_objective()
+        optimizer = GurobiOptimizer(input_data)
+        optimizer.build(ce_function_type="constant", alpha=0.6)
 
-        solution = opt_model.solve()
+        solution = optimizer.solve()
         assert abs(solution.total_cost - 30.0) < EPS
 
     def test_quadratic_charging_efficiency(self):
@@ -140,12 +132,10 @@ class TestOptimiazationChargingEfficiency:
         )
         input_data = input_data.add_grid_tariff(grid_tariff)
 
-        opt_model = OptimizationModel(input_data)
-        opt_model.set_variables()
-        opt_model.set_constraints(ce_function_type="quadratic", alpha=0.4)
-        opt_model.set_objective()
+        optimizer = GurobiOptimizer(input_data)
+        optimizer.build(ce_function_type="quadratic", alpha=0.4)
 
-        solution = opt_model.solve()
+        solution = optimizer.solve()
         assert abs(solution.total_cost - 50.0) < EPS
 
     def test_quadratic_charging_efficiency_max(self):
@@ -167,12 +157,10 @@ class TestOptimiazationChargingEfficiency:
         )
         input_data = input_data.add_grid_tariff(grid_tariff)
 
-        opt_model = OptimizationModel(input_data)
-        opt_model.set_variables()
-        opt_model.set_constraints(ce_function_type="quadratic", alpha=0.4)
-        opt_model.set_objective()
+        optimizer = GurobiOptimizer(input_data)
+        optimizer.build(ce_function_type="quadratic", alpha=0.4)
 
-        solution = opt_model.solve()
+        solution = optimizer.solve()
         assert abs(solution.total_cost - 50.0) < EPS
 
 
@@ -196,11 +184,10 @@ class TestOptimizationNaiveGreedySolution:
         )
         input_data = input_data.add_grid_tariff(grid_tariff)
 
-        opt_model = OptimizationModel(input_data, greedy=True)
-        opt_model.set_variables()
-        opt_model.set_constraints()
-        opt_model.set_objective()
-        solution = opt_model.solve()
+        optimizer = GurobiOptimizer(input_data, greedy=True)
+        optimizer.build()
+
+        solution = optimizer.solve()
         assert abs(solution.total_cost - 60.0) < EPS
 
     def test_complex(self):
@@ -227,11 +214,8 @@ class TestOptimizationNaiveGreedySolution:
         )
         input_data = input_data.add_grid_tariff(grid_tariff)
 
-        opt_model = OptimizationModel(input_data, greedy=True)
-        opt_model.set_variables()
-        opt_model.set_constraints()
-        opt_model.set_objective()
-        solution = opt_model.solve()
-        print(opt_model.get_charging_power())
-        print(opt_model.get_charging_efficiency())
+        optimizer = GurobiOptimizer(input_data, greedy=True)
+        optimizer.build()
+
+        solution = optimizer.solve()
         assert abs(solution.total_cost - 195.0) < EPS
