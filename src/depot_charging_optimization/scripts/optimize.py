@@ -42,9 +42,11 @@ def optimize(
     use_casadi,
 ):
     data = []
+    logger.info("Reading files:")
     for i, file in enumerate(data_files):
         with open(file) as f:
             data.append(Input.model_validate(json.load(f)))
+        logger.info(f"  {i + 1}. [cyan]{file}")
     logger.info("")
 
     data_input = Input.combine(data)
