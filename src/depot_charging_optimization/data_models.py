@@ -78,6 +78,14 @@ class Input(BaseModel):
         return self
 
     @model_validator(mode="after")
+    def check_no_energy_demand_in_depot(self):
+        for vehicle_depot_charge, vehicle_energy_demand in zip(self.depot_charge, self.energy_demand):
+            for dc, demand in zip(vehicle_depot_charge, vehicle_energy_demand):
+                if dc and not (demand == 0.0):
+                    raise ValueError("Nonzero energy demand found while depot charging")
+        return self
+
+    @model_validator(mode="after")
     def set_num_timesteps(self):
         self.num_timesteps = len(self.time)
         return self
