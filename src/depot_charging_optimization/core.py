@@ -213,46 +213,37 @@ class GurobiOptimizer(Optimizer[gp.Var]):
         # energy flow
         for vehicle in range(self._num_vehicles):
             for t_i in range(self._num_timesteps):
-                if self.input_data.depot_charge[vehicle][t_i]:
-                    if ce_function_type == "one":
-                        self._model.addConstr(
-                            self._charging_efficiency[vehicle][t_i] == 1.0, f"chargingEfficiency_v{vehicle}_{t_i}"
-                        )
-                    elif ce_function_type == "constant":
-                        self._model.addConstr(
-                            self._charging_efficiency[vehicle][t_i] == alpha, f"chargingEfficiency_v{vehicle}_{t_i}"
-                        )
-                    elif ce_function_type == "quadratic":
-                        self._model.addConstr(
-                            self._charging_efficiency[vehicle][t_i]
-                            == 1 - (1 - alpha) * self._charging_power[vehicle][t_i] / 2,
-                            f"chargingEfficiency_v{vehicle}_{t_i}",
-                        )
-                    else:
-                        raise ValueError(f"Unknown ce_function_type: {ce_function_type}")
-
+                if ce_function_type == "one":
                     self._model.addConstr(
-                        self._state_of_energy[vehicle][t_i + 1]
-                        == self._state_of_energy[vehicle][t_i]
-                        + self._charging_power[vehicle][t_i]
-                        * self._charging_efficiency[vehicle][t_i]
-                        * self._delta_time[t_i]
-                        * (self._factor_soe / self._factor_cp)
+                        self._charging_efficiency[vehicle][t_i] == 1.0, f"chargingEfficiency_v{vehicle}_{t_i}"
+                    )
+                elif ce_function_type == "constant":
+                    self._model.addConstr(
+                        self._charging_efficiency[vehicle][t_i] == alpha, f"chargingEfficiency_v{vehicle}_{t_i}"
+                    )
+                elif ce_function_type == "quadratic":
+                    self._model.addConstr(
+                        self._charging_efficiency[vehicle][t_i]
+                        == 1 - (1 - alpha) * self._charging_power[vehicle][t_i] / 2,
+                        f"chargingEfficiency_v{vehicle}_{t_i}",
                     )
                 else:
-                    self._model.addConstr(
-                        self._state_of_energy[vehicle][t_i + 1]
-                        == self._state_of_energy[vehicle][t_i]
-                        - self.input_data.energy_demand[vehicle][t_i] * self._factor_soe,
-                        f"energyDemand_v{vehicle}_{t_i}",
-                    )
+                    raise ValueError(f"Unknown ce_function_type: {ce_function_type}")
+
+                self._model.addConstr(
+                    self._state_of_energy[vehicle][t_i + 1]
+                    == self._state_of_energy[vehicle][t_i]
+                    + self._charging_power[vehicle][t_i]
+                    * self._charging_efficiency[vehicle][t_i]
+                    * self._delta_time[t_i]
+                    * (self._factor_soe / self._factor_cp)
+                    - self.input_data.energy_demand[vehicle][t_i] * self._factor_soe,
+                    f"energyFlow_v{vehicle}_{t_i}",
+                )
+                if not self.input_data.depot_charge[vehicle][t_i]:
                     self._model.addConstr(
                         self._charging_power[vehicle][t_i] == 0,
                         f"noChargingPower_v{vehicle}_{t_i}",
-                    )
-                    self._model.addConstr(
-                        self._charging_efficiency[vehicle][t_i] == 0,
-                        f"noChargingEfficiency_v{vehicle}_{t_i}",
                     )
 
         # energy loop
@@ -372,49 +363,37 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
         # energy flow
         for vehicle in range(self._num_vehicles):
             for t_i in range(self._num_timesteps):
-                if self.input_data.depot_charge[vehicle][t_i]:
-                    if ce_function_type == "one":
-                        self._constraints.append(self._charging_efficiency[vehicle][t_i] - 1.0)
-                    elif ce_function_type == "constant":
-                        self._constraints.append(self._charging_efficiency[vehicle][t_i] - alpha)
-                    elif ce_function_type == "quadratic":
-                        self._constraints.append(
-                            self._charging_efficiency[vehicle][t_i]
-                            - (1 - ((1 - alpha) / 2) * self._charging_power[vehicle][t_i])
-                        )
-                    else:
-                        raise ValueError(f"Unknown ce_function_type: {ce_function_type}")
-
-                    self._constraints_lb.append(0)
-                    self._constraints_ub.append(0)
-
+                if ce_function_type == "one":
+                    self._constraints.append(self._charging_efficiency[vehicle][t_i] - 1.0)
+                elif ce_function_type == "constant":
+                    self._constraints.append(self._charging_efficiency[vehicle][t_i] - alpha)
+                elif ce_function_type == "quadratic":
                     self._constraints.append(
-                        self._state_of_energy[vehicle][t_i + 1]
-                        - (
-                            self._state_of_energy[vehicle][t_i]
-                            + self._charging_power[vehicle][t_i]
-                            * self._charging_efficiency[vehicle][t_i]
-                            * self._delta_time[t_i]
-                            * (self._factor_soe / self._factor_cp)
-                        )
+                        self._charging_efficiency[vehicle][t_i]
+                        - (1 - ((1 - alpha) / 2) * self._charging_power[vehicle][t_i])
                     )
-                    self._constraints_lb.append(0)
-                    self._constraints_ub.append(0)
                 else:
-                    self._constraints.append(
-                        self._state_of_energy[vehicle][t_i + 1]
-                        - (
-                            self._state_of_energy[vehicle][t_i]
-                            - self.input_data.energy_demand[vehicle][t_i] * self._factor_soe
-                        )
-                    )
-                    self._constraints.append(self._charging_power[vehicle][t_i])
-                    self._constraints.append(self._charging_efficiency[vehicle][t_i])
+                    raise ValueError(f"Unknown ce_function_type: {ce_function_type}")
 
-                    self._constraints_lb.append(0)
-                    self._constraints_ub.append(0)
-                    self._constraints_lb.append(0)
-                    self._constraints_ub.append(0)
+                self._constraints_lb.append(0)
+                self._constraints_ub.append(0)
+
+                self._constraints.append(
+                    self._state_of_energy[vehicle][t_i + 1]
+                    - (
+                        self._state_of_energy[vehicle][t_i]
+                        + self._charging_power[vehicle][t_i]
+                        * self._charging_efficiency[vehicle][t_i]
+                        * self._delta_time[t_i]
+                        * (self._factor_soe / self._factor_cp)
+                        - self.input_data.energy_demand[vehicle][t_i] * self._factor_soe
+                    )
+                )
+                self._constraints_lb.append(0)
+                self._constraints_ub.append(0)
+
+                if not self.input_data.depot_charge[vehicle][t_i]:
+                    self._constraints.append(self._charging_power[vehicle][t_i])
                     self._constraints_lb.append(0)
                     self._constraints_ub.append(0)
 
