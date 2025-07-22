@@ -47,7 +47,7 @@ class Optimizer(ABC, Generic[OptVariable]):
         # Optimization variables
         self._charging_power: list[list[OptVariable]] = []
         self._state_of_energy: list[list[OptVariable]] = []
-        self._charging_efficiency: list[list[OptVariable]] = []
+        self._effective_charging_power: list[list[OptVariable]] = []
         self._mcp: OptVariable | None = None
 
         # Scaling factors
@@ -59,8 +59,12 @@ class Optimizer(ABC, Generic[OptVariable]):
         self._lb_cp: list[list[float]] = [[0.0 for _ in range(self._num_timesteps)] for _ in range(self._num_vehicles)]
         self._ub_cp: list[list[float]] = [[1.0 for _ in range(self._num_timesteps)] for _ in range(self._num_vehicles)]
 
-        self._lb_ce: list[list[float]] = [[0.0 for _ in range(self._num_timesteps)] for _ in range(self._num_vehicles)]
-        self._ub_ce: list[list[float]] = [[1.0 for _ in range(self._num_timesteps)] for _ in range(self._num_vehicles)]
+        self._lb_ecp: list[list[float]] = [
+            [0.0 for _ in range(self._num_timesteps)] for _ in range(self._num_vehicles)
+        ]
+        self._ub_ecp: list[list[float]] = [
+            [1.0 for _ in range(self._num_timesteps)] for _ in range(self._num_vehicles)
+        ]
 
         self._lb_soe: list[list[float]] = [
             [
@@ -97,7 +101,7 @@ class Optimizer(ABC, Generic[OptVariable]):
 
     @property
     @abstractmethod
-    def charging_efficiency(self) -> list[list[float]]:
+    def effective_charging_power(self) -> list[list[float]]:
         pass
 
     @property
@@ -138,7 +142,7 @@ class Optimizer(ABC, Generic[OptVariable]):
             gap=self.gap,
             max_charging_power_used=self.max_charging_power,
             charging_power=self.charging_power,
-            charging_efficiency=self.charging_efficiency,
+            effective_charging_power=self.effective_charging_power,
             state_of_energy=self.state_of_energy,
         )
 
@@ -152,10 +156,12 @@ class Optimizer(ABC, Generic[OptVariable]):
                     for t_i in range(self._num_timesteps)
                 ]
             )
-            self._charging_efficiency.append(
+            self._effective_charging_power.append(
                 [
                     self._set_variable(
-                        f"chargingEfficiency_v{vehicle}_{t_i}", self._lb_ce[vehicle][t_i], self._ub_ce[vehicle][t_i]
+                        f"effectiveChargingPower_v{vehicle}_{t_i}",
+                        self._lb_ecp[vehicle][t_i],
+                        self._ub_ecp[vehicle][t_i],
                     )
                     for t_i in range(self._num_timesteps)
                 ]
@@ -197,8 +203,8 @@ class GurobiOptimizer(Optimizer[gp.Var]):
         return [list(map(lambda v: v.X / self._factor_cp, sublist)) for sublist in self._charging_power]
 
     @property
-    def charging_efficiency(self) -> list[list[float]]:
-        return [list(map(lambda v: v.X, sublist)) for sublist in self._charging_efficiency]
+    def effective_charging_power(self) -> list[list[float]]:
+        return [list(map(lambda v: v.X, sublist)) for sublist in self._effective_charging_power]
 
     @property
     def state_of_energy(self) -> list[list[float]]:
@@ -215,17 +221,20 @@ class GurobiOptimizer(Optimizer[gp.Var]):
             for t_i in range(self._num_timesteps):
                 if ce_function_type == "one":
                     self._model.addConstr(
-                        self._charging_efficiency[vehicle][t_i] == 1.0, f"chargingEfficiency_v{vehicle}_{t_i}"
+                        self._effective_charging_power[vehicle][t_i] == self._charging_power[vehicle][t_i],
+                        f"effectiveChargingPower_v{vehicle}_{t_i}",
                     )
                 elif ce_function_type == "constant":
                     self._model.addConstr(
-                        self._charging_efficiency[vehicle][t_i] == alpha, f"chargingEfficiency_v{vehicle}_{t_i}"
+                        self._effective_charging_power[vehicle][t_i] == alpha * self._charging_power[vehicle][t_i],
+                        f"effectiveChargingPower_v{vehicle}_{t_i}",
                     )
                 elif ce_function_type == "quadratic":
                     self._model.addConstr(
-                        self._charging_efficiency[vehicle][t_i]
-                        == 1 - (1 - alpha) * self._charging_power[vehicle][t_i] / 2,
-                        f"chargingEfficiency_v{vehicle}_{t_i}",
+                        self._effective_charging_power[vehicle][t_i]
+                        == self._charging_power[vehicle][t_i]
+                        - (1 - alpha) * self._charging_power[vehicle][t_i] ** 2 / 2,
+                        f"effectiveChargingPower_v{vehicle}_{t_i}",
                     )
                 else:
                     raise ValueError(f"Unknown ce_function_type: {ce_function_type}")
@@ -233,8 +242,7 @@ class GurobiOptimizer(Optimizer[gp.Var]):
                 self._model.addConstr(
                     self._state_of_energy[vehicle][t_i + 1]
                     == self._state_of_energy[vehicle][t_i]
-                    + self._charging_power[vehicle][t_i]
-                    * self._charging_efficiency[vehicle][t_i]
+                    + self._effective_charging_power[vehicle][t_i]
                     * self._delta_time[t_i]
                     * (self._factor_soe / self._factor_cp)
                     - self.input_data.energy_demand[vehicle][t_i] * self._factor_soe,
@@ -332,7 +340,7 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
         ]
 
     @property
-    def charging_efficiency(self) -> list[list[float]]:
+    def effective_charging_power(self) -> list[list[float]]:
         if self.solution_dict is None:
             raise ValueError("Solution is not computed")
         offset = self._num_vehicles * self._num_timesteps
@@ -364,13 +372,20 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
         for vehicle in range(self._num_vehicles):
             for t_i in range(self._num_timesteps):
                 if ce_function_type == "one":
-                    self._constraints.append(self._charging_efficiency[vehicle][t_i] - 1.0)
+                    self._constraints.append(
+                        self._effective_charging_power[vehicle][t_i] - self._charging_power[vehicle][t_i]
+                    )
                 elif ce_function_type == "constant":
-                    self._constraints.append(self._charging_efficiency[vehicle][t_i] - alpha)
+                    self._constraints.append(
+                        self._effective_charging_power[vehicle][t_i] - alpha * self._charging_power[vehicle][t_i]
+                    )
                 elif ce_function_type == "quadratic":
                     self._constraints.append(
-                        self._charging_efficiency[vehicle][t_i]
-                        - (1 - ((1 - alpha) / 2) * self._charging_power[vehicle][t_i])
+                        self._effective_charging_power[vehicle][t_i]
+                        - (
+                            self._charging_power[vehicle][t_i]
+                            - ((1 - alpha) / 2) * self._charging_power[vehicle][t_i] ** 2
+                        )
                     )
                 else:
                     raise ValueError(f"Unknown ce_function_type: {ce_function_type}")
@@ -382,8 +397,7 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
                     self._state_of_energy[vehicle][t_i + 1]
                     - (
                         self._state_of_energy[vehicle][t_i]
-                        + self._charging_power[vehicle][t_i]
-                        * self._charging_efficiency[vehicle][t_i]
+                        + self._effective_charging_power[vehicle][t_i]
                         * self._delta_time[t_i]
                         * (self._factor_soe / self._factor_cp)
                         - self.input_data.energy_demand[vehicle][t_i] * self._factor_soe
@@ -447,7 +461,7 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
         nlp = {
             "x": ca.vertcat(
                 *flatten_lol(self._charging_power),
-                *flatten_lol(self._charging_efficiency),
+                *flatten_lol(self._effective_charging_power),
                 *flatten_lol(self._state_of_energy),
                 self._mcp,
             ),
@@ -459,8 +473,8 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
         self.solution_dict = solver(
             lbg=ca.vertcat(*self._constraints_lb),
             ubg=ca.vertcat(*self._constraints_ub),
-            lbx=ca.vertcat(*self._lb_cp, *self._lb_ce, *self._lb_soe, 0),
-            ubx=ca.vertcat(*self._ub_cp, *self._ub_ce, *self._ub_soe, float("inf")),
+            lbx=ca.vertcat(*self._lb_cp, *self._lb_ecp, *self._lb_soe, 0),
+            ubx=ca.vertcat(*self._ub_cp, *self._ub_ecp, *self._ub_soe, float("inf")),
         )
 
         if not solver.stats()["success"]:

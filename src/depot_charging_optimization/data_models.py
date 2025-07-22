@@ -263,7 +263,7 @@ class Solution(BaseModel):
     gap: float
     max_charging_power_used: float
     charging_power: list[list[float]]
-    charging_efficiency: list[list[float]]
+    effective_charging_power: list[list[float]]
     state_of_energy: list[list[float]]
 
     @field_validator("gap")
@@ -281,9 +281,9 @@ class Solution(BaseModel):
         # assert all list contain [num_vehicles] lists
         if not len(self.charging_power) == num_vehicles:
             raise ValueError(f"Field[charging_power] has length {len(self.charging_power)}, expected {num_vehicles}")
-        if not len(self.charging_efficiency) == num_vehicles:
+        if not len(self.effective_charging_power) == num_vehicles:
             raise ValueError(
-                f"Field[charging_efficiency] has length {len(self.charging_efficiency)}, expected {num_vehicles}"
+                f"Field[effective_charging_power] has length {len(self.effective_charging_power)}, expected {num_vehicles}"
             )
         if not len(self.state_of_energy) == num_vehicles:
             raise ValueError(f"Field[state_of_energy] has length {len(self.state_of_energy)}, expected {num_vehicles}")
@@ -294,10 +294,10 @@ class Solution(BaseModel):
                 raise ValueError(
                     f"Field[charging_power] contains list of length {len(values)}, expected {num_timesteps}"
                 )
-        for values in self.charging_efficiency:
+        for values in self.effective_charging_power:
             if not len(values) == num_timesteps:
                 raise ValueError(
-                    f"Field[charging_efficiency] contains list of length {len(values)}, expected {num_timesteps}"
+                    f"Field[effective_charging_power] contains list of length {len(values)}, expected {num_timesteps}"
                 )
         for values in self.state_of_energy:
             if not len(values) == num_timesteps + 1:
