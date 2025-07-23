@@ -48,6 +48,7 @@ class Optimizer(ABC, Generic[OptVariable]):
         self._charging_power: list[list[OptVariable]] = []
         self._state_of_energy: list[list[OptVariable]] = []
         self._effective_charging_power: list[list[OptVariable]] = []
+        self._total_charging_power: list[OptVariable] = []
         self._mcp: OptVariable | None = None
 
         # Scaling factors
@@ -56,7 +57,9 @@ class Optimizer(ABC, Generic[OptVariable]):
         self._factor_ep: float = 1.0 / max(self.input_data.energy_price)
 
         # Variable bounds
-        self._lb_cp: list[list[float]] = [[0.0 for _ in range(self._num_timesteps)] for _ in range(self._num_vehicles)]
+        self._lb_cp: list[list[float]] = [
+            [-1.0 for _ in range(self._num_timesteps)] for _ in range(self._num_vehicles)
+        ]
         self._ub_cp: list[list[float]] = [[1.0 for _ in range(self._num_timesteps)] for _ in range(self._num_vehicles)]
 
         self._lb_ecp: list[list[float]] = [
@@ -83,6 +86,9 @@ class Optimizer(ABC, Generic[OptVariable]):
 
         self._lb_mcp: float = 0.0
         self._ub_mcp: float = float(self._num_vehicles)
+
+        self._lb_tcp: list[float] = [0.0 for _ in range(self._num_timesteps)]
+        self._ub_tcp: list[float] = [float(self._num_vehicles) for _ in range(self._num_timesteps)]
 
     def build(self, **kwargs: Any) -> None:
         self._set_all_variables(**kwargs)
@@ -174,6 +180,10 @@ class Optimizer(ABC, Generic[OptVariable]):
                     for t_i in range(self._num_timesteps + 1)
                 ]
             )
+            self._total_charging_power = [
+                self._set_variable(f"totalChargingPower_{t_i}", self._lb_tcp[t_i], self._ub_tcp[t_i])
+                for t_i in range(self._num_timesteps)
+            ]
             self._mcp = self._set_variable("maxChargingPower", self._lb_mcp, self._ub_mcp)
 
     @abstractmethod
@@ -261,12 +271,19 @@ class GurobiOptimizer(Optimizer[gp.Var]):
                 f"energyLoop_v{vehicle}",
             )
 
-        # max power used
-        for index in range(self._num_timesteps):
+        # total charging power
+        for t_i in range(self._num_timesteps):
             self._model.addConstr(
-                self._mcp
-                >= gp.quicksum(self._charging_power[vehicle][index] for vehicle in range(self._num_vehicles)),
-                f"maxChargingPower_{index}",
+                self._total_charging_power[t_i]
+                == gp.quicksum(self._charging_power[vehicle][t_i] for vehicle in range(self._num_vehicles)),
+                f"totalChargingPower_{t_i}",
+            )
+
+        # max power used
+        for t_i in range(self._num_timesteps):
+            self._model.addConstr(
+                self._mcp >= self._total_charging_power[t_i],
+                f"maxChargingPower_{t_i}",
             )
 
         # charging power throttle
@@ -419,10 +436,16 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
             self._constraints_lb.append(0)
             self._constraints_ub.append(float("inf"))
 
-        # max power used
+        # total charging power
         for t_i in range(self._num_timesteps):
             column = [self._charging_power[vehicle][t_i] for vehicle in range(self._num_vehicles)]
-            self._constraints.append(self._mcp - sum(column, ca.MX(0)))
+            self._constraints.append(self._total_charging_power[t_i] - sum(column, ca.MX(0)))
+            self._constraints_lb.append(0)
+            self._constraints_ub.append(0)
+
+        # max power used
+        for t_i in range(self._num_timesteps):
+            self._constraints.append(self._mcp - self._total_charging_power[t_i])
             self._constraints_lb.append(0)
             self._constraints_ub.append(float("inf"))
 
@@ -463,6 +486,7 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
                 *flatten_lol(self._charging_power),
                 *flatten_lol(self._effective_charging_power),
                 *flatten_lol(self._state_of_energy),
+                *self._total_charging_power,
                 self._mcp,
             ),
             "f": self._objective,
@@ -473,8 +497,8 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
         self.solution_dict = solver(
             lbg=ca.vertcat(*self._constraints_lb),
             ubg=ca.vertcat(*self._constraints_ub),
-            lbx=ca.vertcat(*self._lb_cp, *self._lb_ecp, *self._lb_soe, 0),
-            ubx=ca.vertcat(*self._ub_cp, *self._ub_ecp, *self._ub_soe, float("inf")),
+            lbx=ca.vertcat(*self._lb_cp, *self._lb_ecp, *self._lb_soe, *self._lb_tcp, self._lb_mcp),
+            ubx=ca.vertcat(*self._ub_cp, *self._ub_ecp, *self._ub_soe, *self._ub_tcp, self._ub_mcp),
         )
 
         if not solver.stats()["success"]:
