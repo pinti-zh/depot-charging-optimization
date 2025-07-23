@@ -63,7 +63,7 @@ class Optimizer(ABC, Generic[OptVariable]):
         self._ub_cp: list[list[float]] = [[1.0 for _ in range(self._num_timesteps)] for _ in range(self._num_vehicles)]
 
         self._lb_ecp: list[list[float]] = [
-            [0.0 for _ in range(self._num_timesteps)] for _ in range(self._num_vehicles)
+            [-2.0 for _ in range(self._num_timesteps)] for _ in range(self._num_vehicles)
         ]
         self._ub_ecp: list[list[float]] = [
             [1.0 for _ in range(self._num_timesteps)] for _ in range(self._num_vehicles)
