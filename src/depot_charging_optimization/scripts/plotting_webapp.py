@@ -120,7 +120,7 @@ def cp_figure(vehicles: Optional[list] = None):
             )
         )
     fig.update_layout(
-        barmode="stack",
+        barmode="relative",
         xaxis_title="Time [s]",
         yaxis_title="Charging Power [kW]",
     )
