@@ -30,6 +30,9 @@ logger = logging.getLogger("optimize")
 @click.option("--greedy", "-g", is_flag=True, default=False, help="use a greedy algorithm")
 @click.option("--charging_power_throttle", "-cpt", type=float, default=1.0, help="throttle for charging power")
 @click.option("--use_casadi", "-uc", is_flag=True, default=False, help="use casadi instead of gurobi")
+@click.option(
+    "--no_bidirectional_charging", "-nbc", is_flag=True, default=False, help="allow no bidirectional charging"
+)
 def optimize(
     data_files,
     energy_price_file,
@@ -40,6 +43,7 @@ def optimize(
     greedy,
     charging_power_throttle,
     use_casadi,
+    no_bidirectional_charging,
 ):
     data = []
     logger.info("Reading files:")
@@ -58,11 +62,12 @@ def optimize(
     data_input = data_input.add_grid_tariff(1.2e-4)
 
     # optimization
+    bdc = not no_bidirectional_charging
     start = perf_counter()
     if use_casadi:
-        optimizer = CasadiOptimizer(data_input, greedy=greedy)
+        optimizer = CasadiOptimizer(data_input, greedy=greedy, bidirectional_charging=bdc)
     else:
-        optimizer = GurobiOptimizer(data_input, greedy=greedy, time_limit=time_limit)
+        optimizer = GurobiOptimizer(data_input, greedy=greedy, bidirectional_charging=bdc, time_limit=time_limit)
 
     optimizer.build(ce_function_type=ce_function, alpha=alpha, cp_throttle=charging_power_throttle)
 

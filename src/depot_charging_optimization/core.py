@@ -28,7 +28,14 @@ def suppress_stdout_stderr():
 
 
 class Optimizer(ABC, Generic[OptVariable]):
-    def __init__(self, input_data: Input, name: str | None = None, greedy: bool = False, **kwargs):
+    def __init__(
+        self,
+        input_data: Input,
+        name: str | None = None,
+        greedy: bool = False,
+        bidirectional_charging: bool = True,
+        **kwargs,
+    ):
         self.input_data: Input = input_data
         self.name: str = name or self.__class__.__name__
         self.greedy: bool = greedy
@@ -57,9 +64,11 @@ class Optimizer(ABC, Generic[OptVariable]):
         self._factor_ep: float = 1.0 / max(self.input_data.energy_price)
 
         # Variable bounds
-        self._lb_cp: list[list[float]] = [
-            [-1.0 for _ in range(self._num_timesteps)] for _ in range(self._num_vehicles)
-        ]
+        if bidirectional_charging:
+            lb = -1.0
+        else:
+            lb = 0.0
+        self._lb_cp: list[list[float]] = [[lb for _ in range(self._num_timesteps)] for _ in range(self._num_vehicles)]
         self._ub_cp: list[list[float]] = [[1.0 for _ in range(self._num_timesteps)] for _ in range(self._num_vehicles)]
 
         self._lb_ecp: list[list[float]] = [
@@ -200,8 +209,15 @@ class Optimizer(ABC, Generic[OptVariable]):
 
 
 class GurobiOptimizer(Optimizer[gp.Var]):
-    def __init__(self, input_data: Input, name: str = "GurobiOptimizer", greedy: bool = False, time_limit: int = 5):
-        super().__init__(input_data, name=name, greedy=greedy)
+    def __init__(
+        self,
+        input_data: Input,
+        name: str = "GurobiOptimizer",
+        greedy: bool = False,
+        bidirectional_charging: bool = True,
+        time_limit: int = 5,
+    ):
+        super().__init__(input_data, name=name, greedy=greedy, bidirectional_charging=bidirectional_charging)
         with suppress_stdout_stderr():
             self._model: gp.Model = gp.Model(self.name)
             self._model.setParam("LogToConsole", 0)
@@ -329,8 +345,14 @@ class GurobiOptimizer(Optimizer[gp.Var]):
 
 
 class CasadiOptimizer(Optimizer[ca.MX.sym]):
-    def __init__(self, input_data: Input, name: str = "CasadiOptimizer", greedy: bool = False):
-        super().__init__(input_data, name=name, greedy=greedy)
+    def __init__(
+        self,
+        input_data: Input,
+        name: str = "CasadiOptimizer",
+        greedy: bool = False,
+        bidirectional_charging: bool = True,
+    ):
+        super().__init__(input_data, name=name, greedy=greedy, bidirectional_charging=bidirectional_charging)
 
         self._constraints: list[ca.casadi.MX] = []
         self._constraints_lb: list[float] = []
