@@ -304,11 +304,8 @@ class GurobiOptimizer(Optimizer[gp.Var]):
         else:
             self._model.setObjective(
                 gp.quicksum(
-                    gp.quicksum(
-                        self.input_data.energy_price[i] * cp * self._factor_ep * self._delta_time[i]
-                        for i, cp in enumerate(self._charging_power[vehicle])
-                    )
-                    for vehicle in range(self._num_vehicles)
+                    self.input_data.energy_price[t_i] * cp * self._factor_ep * self._delta_time[t_i]
+                    for t_i, cp in enumerate(self._total_charging_power)
                 )
                 + self._mcp * self.input_data.grid_tariff * self._factor_ep,
                 GRB.MINIMIZE,
@@ -467,13 +464,11 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
                 ca.MX(0),
             )
         else:
-            energy_cost_vector = []
-            for _ in range(self._num_vehicles):
-                energy_cost_vector += [
-                    self.input_data.energy_price[t_i] * self._delta_time[t_i] * self._factor_ep
-                    for t_i in range(self._num_timesteps)
-                ]
-            energy_cost_vector = [cp * ec for cp, ec in zip(flatten_lol(self._charging_power), energy_cost_vector)]
+            energy_cost_vector = [
+                self.input_data.energy_price[t_i] * self._delta_time[t_i] * self._factor_ep
+                for t_i in range(self._num_timesteps)
+            ]
+            energy_cost_vector = [cp * ec for cp, ec in zip(self._total_charging_power, energy_cost_vector)]
             self._objective = (
                 sum(energy_cost_vector, ca.MX(0)) + self.input_data.grid_tariff * self._mcp * self._factor_ep
             )
