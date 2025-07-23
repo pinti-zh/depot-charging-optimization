@@ -233,7 +233,18 @@ def detail_figure(vehicle: int = -1):
 
 @app.get("/")
 async def index(request: Request):
-    vehicles = list(range(get_solution().input_data.num_vehicles))
+    solution = get_solution()
+    indices = list(range(solution.input_data.num_vehicles))
+    names = []
+    battery_index = 1
+    bus_index = 1
+    for dc in solution.input_data.depot_charge:
+        if all(dc):
+            names.append(f"Battery {battery_index}")
+            battery_index += 1
+        else:
+            names.append(f"Bus {bus_index}")
+            bus_index += 1
 
     # Initial plot data as JSON
     fig_soe = soe_figure([])
@@ -247,7 +258,8 @@ async def index(request: Request):
             "soe_plot_json": fig_soe.to_json(),
             "cp_plot_json": fig_cp.to_json(),
             "detail_plot_json": fig_detail.to_json(),
-            "vehicles": vehicles,
+            "indices": indices,
+            "names": names,
             "colors": TRACE_COLORS,
         },
     )
