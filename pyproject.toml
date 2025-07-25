@@ -16,7 +16,15 @@ dependencies = [
     "pydantic",
     "jinja2",
     "pandas",
-    "casadi",
+    "casadi==3.7.0",
+]
+
+[project.optional-dependencies]
+notebooks = [
+    "jupyter",
+    "matplotlib",
+    "seaborn",
+    "tqdm",
 ]
 
 [project.scripts]
