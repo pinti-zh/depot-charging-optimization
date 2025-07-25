@@ -33,6 +33,12 @@ clean-data = "depot_charging_optimization.scripts.clean_data:clean_data"
 preprocess-data = "depot_charging_optimization.scripts.preprocess_data:preprocess_data"
 plot = "depot_charging_optimization.scripts.plotting_webapp:serve"
 
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
