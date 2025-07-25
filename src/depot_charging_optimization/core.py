@@ -258,7 +258,7 @@ class GurobiOptimizer(Optimizer[gp.Var]):
                 elif ce_function_type == "quadratic":
                     self._model.addConstr(
                         self._effective_charging_power[vehicle][t_i]
-                        == self._charging_power[vehicle][t_i]
+                        <= self._charging_power[vehicle][t_i]
                         - (1 - alpha) * self._charging_power[vehicle][t_i] ** 2 / 2,
                         f"effectiveChargingPower_v{vehicle}_{t_i}",
                     )
@@ -267,7 +267,7 @@ class GurobiOptimizer(Optimizer[gp.Var]):
 
                 self._model.addConstr(
                     self._state_of_energy[vehicle][t_i + 1]
-                    == self._state_of_energy[vehicle][t_i]
+                    <= self._state_of_energy[vehicle][t_i]
                     + self._effective_charging_power[vehicle][t_i]
                     * self._delta_time[t_i]
                     * (self._factor_soe / self._factor_cp)
@@ -411,10 +411,14 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
                     self._constraints.append(
                         self._effective_charging_power[vehicle][t_i] - self._charging_power[vehicle][t_i]
                     )
+                    self._constraints_lb.append(0)
+                    self._constraints_ub.append(0)
                 elif ce_function_type == "constant":
                     self._constraints.append(
                         self._effective_charging_power[vehicle][t_i] - alpha * self._charging_power[vehicle][t_i]
                     )
+                    self._constraints_lb.append(0)
+                    self._constraints_ub.append(0)
                 elif ce_function_type == "quadratic":
                     self._constraints.append(
                         self._effective_charging_power[vehicle][t_i]
@@ -423,11 +427,10 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
                             - ((1 - alpha) / 2) * self._charging_power[vehicle][t_i] ** 2
                         )
                     )
+                    self._constraints_lb.append(float("-inf"))
+                    self._constraints_ub.append(0)
                 else:
                     raise ValueError(f"Unknown ce_function_type: {ce_function_type}")
-
-                self._constraints_lb.append(0)
-                self._constraints_ub.append(0)
 
                 self._constraints.append(
                     self._state_of_energy[vehicle][t_i + 1]
@@ -439,7 +442,7 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
                         - self.input_data.energy_demand[vehicle][t_i] * self._factor_soe
                     )
                 )
-                self._constraints_lb.append(0)
+                self._constraints_lb.append(float("-inf"))
                 self._constraints_ub.append(0)
 
                 if not self.input_data.depot_charge[vehicle][t_i]:
