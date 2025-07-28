@@ -33,6 +33,7 @@ logger = logging.getLogger("optimize")
 @click.option(
     "--no_bidirectional_charging", "-nbc", is_flag=True, default=False, help="allow no bidirectional charging"
 )
+@click.option("--debug", "-d", is_flag=True, default=False, help="print debug messages")
 def optimize(
     data_files,
     energy_price_file,
@@ -44,7 +45,10 @@ def optimize(
     charging_power_throttle,
     use_casadi,
     no_bidirectional_charging,
+    debug,
 ):
+    if debug:
+        logger.setLevel(logging.DEBUG)
     data = []
     logger.info("Reading files:")
     for i, file in enumerate(data_files):
@@ -78,6 +82,24 @@ def optimize(
     if solution is None:
         logger.error("No solution found")
     else:
+        # slack information
+        max_slack = 0
+        max_slack_location = None
+        for sublist in optimizer.slack["state_of_energy"]:
+            if max(sublist) > max_slack:
+                max_slack = max(sublist)
+                max_slack_location = "State of Energy"
+        for sublist in optimizer.slack["charging_power"]:
+            if max(sublist) > max_slack:
+                max_slack = max(sublist)
+                max_slack_location = "Charging Power"
+        max_slack = max(max_slack, optimizer.slack["max_charging_power"])
+        if optimizer.slack["max_charging_power"] > max_slack:
+            max_slack = optimizer.slack["max_charging_power"]
+            max_slack_location = "Max Charging Power"
+        logger.debug(f"Maximum slack: {max_slack:.3e} (found in [{max_slack_location}] constraints)")
+
+        # solution information
         logger.info(f"Found solution in {optimization_time:.4f} seconds")
         total_cost = f"{solution.total_cost:.3f} $"
         energy_cost = f"{solution.energy_cost:.3f} $"

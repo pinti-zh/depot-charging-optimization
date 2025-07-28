@@ -50,6 +50,8 @@ class Optimizer(ABC, Generic[OptVariable]):
             t2 - t1 for t1, t2 in zip([0] + self.input_data.time[:-1], self.input_data.time)
         ]
         self.gap: float = 0.0
+        self._alpha: float | None = None
+        self._ce_mode: str | None = None
 
         # Optimization variables
         self._charging_power: list[list[OptVariable]] = []
@@ -125,6 +127,53 @@ class Optimizer(ABC, Generic[OptVariable]):
         pass
 
     @property
+    def slack(self) -> dict[str, list[list[float]] | float]:
+        state_of_energy = self.state_of_energy
+        charging_power = self.charging_power
+        effective_charging_power = self.effective_charging_power
+        max_charging_power = self.max_charging_power
+        total_charging_power = self.total_charging_power
+        soe_slack = []
+        cp_slack = []
+        mcp_slack = abs(max_charging_power - max(total_charging_power)) * self._factor_cp
+        for vehicle in range(self._num_vehicles):
+            soe_slack_v = []
+            cp_slack_v = []
+            for t_i in range(self._num_timesteps):
+                # SOE slack
+                soe_1 = state_of_energy[vehicle][t_i + 1]
+                soe_2 = state_of_energy[vehicle][t_i] + effective_charging_power[vehicle][t_i] * self._delta_time[t_i]
+                soe_2 -= self.input_data.energy_demand[vehicle][t_i]
+                soe_slack_v.append(abs((soe_1 - soe_2) / soe_1))
+
+                # CP slack
+                cp_1 = effective_charging_power[vehicle][t_i]
+                if self._ce_mode == "one":
+                    cp_2 = charging_power[vehicle][t_i]
+                elif self._ce_mode == "constant":
+                    cp_2 = charging_power[vehicle][t_i] * self._alpha
+                elif self._ce_mode == "quadratic":
+                    cp_2 = charging_power[vehicle][t_i] - (1 - self._alpha) * charging_power[vehicle][t_i] ** 2 / (
+                        2 * self.input_data.max_charging_power
+                    )
+                else:
+                    cp_2 = cp_1
+                cp_slack_v.append(abs(cp_1 - cp_2) * self._factor_cp)
+
+            # SOE loop slack
+            soe_slack_v.append(
+                abs(state_of_energy[vehicle][0] - state_of_energy[vehicle][self._num_timesteps]) * self._factor_soe
+            )
+            soe_slack.append(soe_slack_v)
+            cp_slack.append(cp_slack_v)
+
+        return {
+            "state_of_energy": soe_slack,
+            "charging_power": cp_slack,
+            "max_charging_power": mcp_slack,
+        }
+
+    @property
     def max_charging_power(self) -> float:
         mcp: float = 0.0
         charging_power: list[list[float]] = self.charging_power
@@ -132,6 +181,14 @@ class Optimizer(ABC, Generic[OptVariable]):
             column = [charging_power[vehicle][t_i] for vehicle in range(self._num_vehicles)]
             mcp = max(mcp, sum(column))
         return mcp
+
+    @property
+    def total_charging_power(self) -> list[float]:
+        charging_power = self.charging_power
+        total_charging_power = []
+        for t_i in range(self._num_timesteps):
+            total_charging_power.append(sum(charging_power[vehicle][t_i] for vehicle in range(self._num_vehicles)))
+        return total_charging_power
 
     @property
     def energy_cost(self) -> float:
@@ -230,7 +287,7 @@ class GurobiOptimizer(Optimizer[gp.Var]):
 
     @property
     def effective_charging_power(self) -> list[list[float]]:
-        return [list(map(lambda v: v.X, sublist)) for sublist in self._effective_charging_power]
+        return [list(map(lambda v: v.X / self._factor_cp, sublist)) for sublist in self._effective_charging_power]
 
     @property
     def state_of_energy(self) -> list[list[float]]:
@@ -242,6 +299,8 @@ class GurobiOptimizer(Optimizer[gp.Var]):
     def _set_all_constraints(
         self, ce_function_type: str = "one", alpha: float = 1.0, cp_throttle: float = 1.0, **kwargs
     ) -> None:
+        self._alpha = alpha
+        self._ce_mode = ce_function_type
         # energy flow
         for vehicle in range(self._num_vehicles):
             for t_i in range(self._num_timesteps):
@@ -382,7 +441,7 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
         offset = self._num_vehicles * self._num_timesteps
         return [
             [
-                float(self.solution_dict["x"][offset + vehicle * self._num_timesteps + t_i])
+                float(self.solution_dict["x"][offset + vehicle * self._num_timesteps + t_i]) / self._factor_cp
                 for t_i in range(self._num_timesteps)
             ]
             for vehicle in range(self._num_vehicles)
@@ -404,6 +463,8 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
     def _set_all_constraints(
         self, ce_function_type: str = "one", alpha: float = 1.0, cp_throttle: float = 1.0, **kwargs
     ) -> None:
+        self._alpha = alpha
+        self._ce_mode = ce_function_type
         # energy flow
         for vehicle in range(self._num_vehicles):
             for t_i in range(self._num_timesteps):
