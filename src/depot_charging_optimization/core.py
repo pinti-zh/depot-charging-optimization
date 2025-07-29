@@ -32,13 +32,11 @@ class Optimizer(ABC, Generic[OptVariable]):
         self,
         input_data: Input,
         name: str | None = None,
-        greedy: bool = False,
         bidirectional_charging: bool = True,
         **kwargs,
     ):
         self.input_data: Input = input_data
         self.name: str = name or self.__class__.__name__
-        self.greedy: bool = greedy
 
         # State
         self._built: bool = False
@@ -270,11 +268,10 @@ class GurobiOptimizer(Optimizer[gp.Var]):
         self,
         input_data: Input,
         name: str = "GurobiOptimizer",
-        greedy: bool = False,
         bidirectional_charging: bool = True,
         time_limit: int = 5,
     ):
-        super().__init__(input_data, name=name, greedy=greedy, bidirectional_charging=bidirectional_charging)
+        super().__init__(input_data, name=name, bidirectional_charging=bidirectional_charging)
         with suppress_stdout_stderr():
             self._model: gp.Model = gp.Model(self.name)
             self._model.setParam("LogToConsole", 0)
@@ -371,20 +368,14 @@ class GurobiOptimizer(Optimizer[gp.Var]):
         assert self.input_data.energy_price is not None, "Energy price not provided"
         assert self.input_data.grid_tariff is not None, "Grid tariff not provided"
 
-        if self.greedy:
-            self._model.setObjective(
-                gp.quicksum(gp.quicksum(self._state_of_energy[vehicle]) for vehicle in range(self._num_vehicles)),
-                GRB.MAXIMIZE,
+        self._model.setObjective(
+            gp.quicksum(
+                self.input_data.energy_price[t_i] * cp * self._factor_ep * self._delta_time[t_i]
+                for t_i, cp in enumerate(self._total_charging_power)
             )
-        else:
-            self._model.setObjective(
-                gp.quicksum(
-                    self.input_data.energy_price[t_i] * cp * self._factor_ep * self._delta_time[t_i]
-                    for t_i, cp in enumerate(self._total_charging_power)
-                )
-                + self._mcp * self.input_data.grid_tariff * self._factor_ep,
-                GRB.MINIMIZE,
-            )
+            + self._mcp * self.input_data.grid_tariff * self._factor_ep,
+            GRB.MINIMIZE,
+        )
 
     def solve(self) -> Solution | None:
         if not self._built:
@@ -408,10 +399,9 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
         self,
         input_data: Input,
         name: str = "CasadiOptimizer",
-        greedy: bool = False,
         bidirectional_charging: bool = True,
     ):
-        super().__init__(input_data, name=name, greedy=greedy, bidirectional_charging=bidirectional_charging)
+        super().__init__(input_data, name=name, bidirectional_charging=bidirectional_charging)
 
         self._constraints: list[ca.casadi.MX] = []
         self._constraints_lb: list[float] = []
@@ -541,23 +531,12 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
         assert self.input_data.energy_price is not None, "Energy price not provided"
         assert self.input_data.grid_tariff is not None, "Grid tariff not provided"
 
-        if self.greedy:
-            self._objective = -sum(
-                (
-                    sum((self._state_of_energy[vehicle][t_i] for t_i in range(self._num_timesteps)), ca.MX(0))
-                    for vehicle in range(self._num_vehicles)
-                ),
-                ca.MX(0),
-            )
-        else:
-            energy_cost_vector = [
-                self.input_data.energy_price[t_i] * self._delta_time[t_i] * self._factor_ep
-                for t_i in range(self._num_timesteps)
-            ]
-            energy_cost_vector = [cp * ec for cp, ec in zip(self._total_charging_power, energy_cost_vector)]
-            self._objective = (
-                sum(energy_cost_vector, ca.MX(0)) + self.input_data.grid_tariff * self._mcp * self._factor_ep
-            )
+        energy_cost_vector = [
+            self.input_data.energy_price[t_i] * self._delta_time[t_i] * self._factor_ep
+            for t_i in range(self._num_timesteps)
+        ]
+        energy_cost_vector = [cp * ec for cp, ec in zip(self._total_charging_power, energy_cost_vector)]
+        self._objective = sum(energy_cost_vector, ca.MX(0)) + self.input_data.grid_tariff * self._mcp * self._factor_ep
 
     def solve(self) -> Solution | None:
         if not self._built:
