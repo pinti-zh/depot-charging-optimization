@@ -9,6 +9,7 @@ from rich.logging import RichHandler
 
 from depot_charging_optimization.core import CasadiOptimizer, GurobiOptimizer
 from depot_charging_optimization.data_models import Input
+from depot_charging_optimization.simulator import GreedySimulator
 
 # Basic Rich logging setup
 logging.basicConfig(
@@ -68,36 +69,41 @@ def optimize(
     # optimization
     bdc = not no_bidirectional_charging
     start = perf_counter()
-    if use_casadi:
-        optimizer = CasadiOptimizer(data_input, greedy=greedy, bidirectional_charging=bdc)
+    if greedy:
+        simulator = GreedySimulator(data_input)
+        solution = simulator.run(ce_function_type=ce_function, alpha=alpha)
     else:
-        optimizer = GurobiOptimizer(data_input, greedy=greedy, bidirectional_charging=bdc, time_limit=time_limit)
+        if use_casadi:
+            optimizer = CasadiOptimizer(data_input, bidirectional_charging=bdc)
+        else:
+            optimizer = GurobiOptimizer(data_input, bidirectional_charging=bdc, time_limit=time_limit)
 
-    optimizer.build(ce_function_type=ce_function, alpha=alpha, cp_throttle=charging_power_throttle)
+        optimizer.build(ce_function_type=ce_function, alpha=alpha, cp_throttle=charging_power_throttle)
 
-    # solve
-    solution = optimizer.solve()
+        # solve
+        solution = optimizer.solve()
     optimization_time = perf_counter() - start
 
     if solution is None:
         logger.error("No solution found")
     else:
         # slack information
-        max_slack = 0
-        max_slack_location = None
-        for sublist in optimizer.slack["state_of_energy"]:
-            if max(sublist) > max_slack:
-                max_slack = max(sublist)
-                max_slack_location = "State of Energy"
-        for sublist in optimizer.slack["charging_power"]:
-            if max(sublist) > max_slack:
-                max_slack = max(sublist)
-                max_slack_location = "Charging Power"
-        max_slack = max(max_slack, optimizer.slack["max_charging_power"])
-        if optimizer.slack["max_charging_power"] > max_slack:
-            max_slack = optimizer.slack["max_charging_power"]
-            max_slack_location = "Max Charging Power"
-        logger.debug(f"Maximum slack: {max_slack:.3e} (found in [{max_slack_location}] constraints)")
+        if not greedy:
+            max_slack = 0
+            max_slack_location = None
+            for sublist in optimizer.slack["state_of_energy"]:
+                if max(sublist) > max_slack:
+                    max_slack = max(sublist)
+                    max_slack_location = "State of Energy"
+            for sublist in optimizer.slack["charging_power"]:
+                if max(sublist) > max_slack:
+                    max_slack = max(sublist)
+                    max_slack_location = "Charging Power"
+            max_slack = max(max_slack, optimizer.slack["max_charging_power"])
+            if optimizer.slack["max_charging_power"] > max_slack:
+                max_slack = optimizer.slack["max_charging_power"]
+                max_slack_location = "Max Charging Power"
+            logger.debug(f"Maximum slack: {max_slack:.3e} (found in [{max_slack_location}] constraints)")
 
         # solution information
         logger.info(f"Found solution in {optimization_time:.4f} seconds")
