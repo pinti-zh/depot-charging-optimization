@@ -293,9 +293,7 @@ class GurobiOptimizer(Optimizer[gp.Var]):
     def _set_variable(self, name: str, lb: float, ub: float) -> gp.Var:
         return self._model.addVar(name=name, vtype=GRB.CONTINUOUS, lb=lb, ub=ub)
 
-    def _set_all_constraints(
-        self, ce_function_type: str = "one", alpha: float = 1.0, cp_throttle: float = 1.0, **kwargs
-    ) -> None:
+    def _set_all_constraints(self, ce_function_type: str = "one", alpha: float = 1.0, **kwargs) -> None:
         self._alpha = alpha
         self._ce_mode = ce_function_type
         # energy flow
@@ -357,12 +355,6 @@ class GurobiOptimizer(Optimizer[gp.Var]):
                 self._mcp >= self._total_charging_power[t_i],
                 f"maxChargingPower_{t_i}",
             )
-
-        # charging power throttle
-        self._model.addConstr(
-            self._mcp <= cp_throttle * self._num_vehicles,
-            "maxChargingPowerThrottle",
-        )
 
     def _set_objective(self, **kwargs) -> None:
         assert self.input_data.energy_price is not None, "Energy price not provided"
@@ -450,9 +442,7 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
             for vehicle in range(self._num_vehicles)
         ]
 
-    def _set_all_constraints(
-        self, ce_function_type: str = "one", alpha: float = 1.0, cp_throttle: float = 1.0, **kwargs
-    ) -> None:
+    def _set_all_constraints(self, ce_function_type: str = "one", alpha: float = 1.0, **kwargs) -> None:
         self._alpha = alpha
         self._ce_mode = ce_function_type
         # energy flow
@@ -521,11 +511,6 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
             self._constraints.append(self._mcp - self._total_charging_power[t_i])
             self._constraints_lb.append(0)
             self._constraints_ub.append(float("inf"))
-
-        # charging power throttle
-        self._constraints.append(cp_throttle * self._num_vehicles - self._mcp)
-        self._constraints_lb.append(0)
-        self._constraints_ub.append(float("inf"))
 
     def _set_objective(self, **kwargs) -> None:
         assert self.input_data.energy_price is not None, "Energy price not provided"

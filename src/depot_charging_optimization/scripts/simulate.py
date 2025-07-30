@@ -1,21 +1,20 @@
 import json
 import logging
 import os
-from time import perf_counter
 
 import click
 import pandas as pd
 from rich.logging import RichHandler
 
-from depot_charging_optimization.core import CasadiOptimizer, GurobiOptimizer
 from depot_charging_optimization.data_models import Input
+from depot_charging_optimization.simulator import GreedySimulator, PeakShavingSimulator
 
 # Basic Rich logging setup
 logging.basicConfig(
     level="INFO", format="%(message)s", datefmt="[%X]", handlers=[RichHandler(markup=True)]
 )  # or DEBUG
 
-logger = logging.getLogger("optimize")
+logger = logging.getLogger("simulate")
 
 
 @click.command()
@@ -24,24 +23,31 @@ logger = logging.getLogger("optimize")
 @click.option(
     "--ce_function", "-cef", type=click.Choice(["constant", "quadratic", "one"], case_sensitive=False), default="one"
 )
-@click.option("--alpha", "-a", type=float, default=1.0, help="constant for charging efficiency function")
-@click.option("--time_limit", "-tl", type=int, default=5, help="solver time limit in seconds")
-@click.option("--solution_file", "-sf", type=str, default="outputs/solutions/solution.json", help="solution file")
-@click.option("--use_casadi", "-uc", is_flag=True, default=False, help="use casadi instead of gurobi")
 @click.option(
-    "--no_bidirectional_charging", "-nbc", is_flag=True, default=False, help="allow no bidirectional charging"
+    "--simulation_algorithm",
+    "-sa",
+    type=click.Choice(["greedy", "peak_shaving"], case_sensitive=False),
+    default="greedy",
 )
+@click.option("--alpha", "-a", type=float, default=1.0, help="constant for charging efficiency function")
+@click.option("--solution_file", "-sf", type=str, default="outputs/solutions/solution.json", help="solution file")
 @click.option("--debug", "-d", is_flag=True, default=False, help="print debug messages")
-def optimize(
+@click.option(
+    "--max_charging_power",
+    "-mcp",
+    type=float,
+    default=1.0,
+    help="maximum charging power for peak shaving (between 0 and 1)",
+)
+def simulate(
     data_files,
     energy_price_file,
     ce_function,
+    simulation_algorithm,
     alpha,
-    time_limit,
     solution_file,
-    use_casadi,
-    no_bidirectional_charging,
     debug,
+    max_charging_power,
 ):
     if debug:
         logger.setLevel(logging.DEBUG)
@@ -61,42 +67,21 @@ def optimize(
     data_input = data_input.add_energy_price(energy_price["time"].to_list(), energy_price["energy_price"].to_list())
     data_input = data_input.add_grid_tariff(1.2e-4)
 
-    # optimization
-    bdc = not no_bidirectional_charging
-    start = perf_counter()
-    if use_casadi:
-        optimizer = CasadiOptimizer(data_input, bidirectional_charging=bdc)
+    # simulation
+    if simulation_algorithm == "greedy":
+        simulator = GreedySimulator(data_input)
+    elif simulation_algorithm == "peak_shaving":
+        simulator = PeakShavingSimulator(data_input, max_charging_power * data_input.max_charging_power)
     else:
-        optimizer = GurobiOptimizer(data_input, bidirectional_charging=bdc, time_limit=time_limit)
+        logger.error(f"Unknown simulator [{simulation_algorithm}]")
 
-    optimizer.build(ce_function_type=ce_function, alpha=alpha)
-
-    # solve
-    solution = optimizer.solve()
-    optimization_time = perf_counter() - start
+    solution = simulator.run(ce_function_type=ce_function, alpha=alpha)
 
     if solution is None:
         logger.error("No solution found")
     else:
-        # slack information
-        max_slack = 0
-        max_slack_location = None
-        for sublist in optimizer.slack["state_of_energy"]:
-            if max(sublist) > max_slack:
-                max_slack = max(sublist)
-                max_slack_location = "State of Energy"
-        for sublist in optimizer.slack["charging_power"]:
-            if max(sublist) > max_slack:
-                max_slack = max(sublist)
-                max_slack_location = "Charging Power"
-        max_slack = max(max_slack, optimizer.slack["max_charging_power"])
-        if optimizer.slack["max_charging_power"] > max_slack:
-            max_slack = optimizer.slack["max_charging_power"]
-            max_slack_location = "Max Charging Power"
-        logger.debug(f"Maximum slack: {max_slack:.3e} (found in [{max_slack_location}] constraints)")
-
         # solution information
-        logger.info(f"Found solution in {optimization_time:.4f} seconds")
+        logger.info("Found solution")
         total_cost = f"{solution.total_cost:.3f} $"
         energy_cost = f"{solution.energy_cost:.3f} $"
         power_cost = f"{solution.power_cost:.3f} $"
