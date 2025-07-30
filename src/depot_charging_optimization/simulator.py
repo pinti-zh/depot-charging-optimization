@@ -87,7 +87,7 @@ class GreedySimulator(Simulator):
             self._state_of_energy.append([0.0 for _ in range(self.input_data.num_timesteps + 1)])
             self._charging_power.append([0.0 for _ in range(self.input_data.num_timesteps)])
             self._effective_charging_power.append([0.0 for _ in range(self.input_data.num_timesteps)])
-            t_start = self._first_depot_departure(self.input_data.depot_charge[vehicle])
+            t_start = first_depot_departure(self.input_data.depot_charge[vehicle])
             self._timestamp_map.append(
                 [(t_i + t_start) % self.input_data.num_timesteps for t_i in range(self.input_data.num_timesteps)]
             )
@@ -100,7 +100,7 @@ class GreedySimulator(Simulator):
             max_soe = 0.8 * self.input_data.battery_capacity[vehicle]
             if self.input_data.depot_charge[vehicle][t_m] and (next_soe < max_soe):
                 desired_power = (max_soe - next_soe) / self._delta_time[t_m]
-                cp, ecp = self._power_and_effective_power(
+                cp, ecp = power_and_effective_power(
                     desired_power, self.input_data.max_charging_power, ce_function_type, alpha
                 )
                 next_soe += ecp * self._delta_time[t_m]
@@ -124,31 +124,33 @@ class GreedySimulator(Simulator):
             state_of_energy=self.state_of_energy,
         )
 
-    def _first_depot_departure(self, depot_charge) -> int:
-        state = False
-        for t_i, dc in enumerate(depot_charge):
-            if state and not dc:
-                return t_i
-            state = dc
-        return 0
 
-    def _power_and_effective_power(
-        self, desired_power: float, max_power: float, ce_function_type: str, alpha: float
-    ) -> (float, float):
-        if ce_function_type == "one":
-            cp = min(desired_power, max_power)
-            return cp, cp
-        elif ce_function_type == "constant":
-            cp = desired_power / alpha
-            cp = min(cp, max_power)
-            return cp, alpha * cp
-        elif ce_function_type == "quadratic":
-            if desired_power >= max_power * (1 - (1 - alpha) / 2):
-                return max_power, max_power * (1 - (1 - alpha) / 2)
-            else:
-                k = (1 - alpha) / (2 * max_power)
-                root_term = math.sqrt(1 - 4 * k * desired_power)
-                cp = -(root_term - 1) / (2 * k)
-                return cp, desired_power
+def first_depot_departure(depot_charge) -> int:
+    state = False
+    for t_i, dc in enumerate(depot_charge):
+        if state and not dc:
+            return t_i
+        state = dc
+    return 0
+
+
+def power_and_effective_power(
+    desired_power: float, max_power: float, ce_function_type: str, alpha: float
+) -> (float, float):
+    if ce_function_type == "one":
+        cp = min(desired_power, max_power)
+        return cp, cp
+    elif ce_function_type == "constant":
+        cp = desired_power / alpha
+        cp = min(cp, max_power)
+        return cp, alpha * cp
+    elif ce_function_type == "quadratic":
+        if desired_power >= max_power * (1 - (1 - alpha) / 2):
+            return max_power, max_power * (1 - (1 - alpha) / 2)
         else:
-            raise ValueError(f"Unknown ce_function_type: {ce_function_type}")
+            k = (1 - alpha) / (2 * max_power)
+            root_term = math.sqrt(1 - 4 * k * desired_power)
+            cp = -(root_term - 1) / (2 * k)
+            return cp, desired_power
+    else:
+        raise ValueError(f"Unknown ce_function_type: {ce_function_type}")
