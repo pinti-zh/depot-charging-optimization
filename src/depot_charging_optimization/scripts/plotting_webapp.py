@@ -106,6 +106,7 @@ def cp_figure(vehicles: Optional[list] = None):
     if vehicles is None:
         vehicles = range(solution.input_data.num_vehicles)
 
+    total_charging_power = [0.0 for _ in range(len(solution.charging_power[0]))]
     fig = go.Figure()
     for vehicle in vehicles:
         color = TRACE_COLORS[vehicle % len(TRACE_COLORS)]
@@ -119,6 +120,20 @@ def cp_figure(vehicles: Optional[list] = None):
                 opacity=0.8,
             )
         )
+        for i, cp in enumerate(solution.charging_power[vehicle]):
+            total_charging_power[i] += cp
+    interval_time = [t for t in solution.input_data.time for _ in range(2)]
+    interval_time = [0] + interval_time[:-1]
+    interval_total_charging_power = [cp for cp in total_charging_power for _ in range(2)]
+    fig.add_trace(
+        go.Scatter(
+            x=interval_time,
+            y=[cp / 1000 for cp in interval_total_charging_power],
+            mode="lines",
+            marker=dict(color="white"),
+            line=dict(color="white"),
+        )
+    )
     fig.update_layout(
         barmode="relative",
         xaxis_title="Time [s]",
