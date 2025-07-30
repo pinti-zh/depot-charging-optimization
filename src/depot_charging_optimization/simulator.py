@@ -81,7 +81,6 @@ class GreedySimulator(Simulator):
     def __init__(self, input_data: Input):
         super().__init__(input_data)
         self._timestamp_map: list[list[int]] = []
-        self._found_solution = False
 
     def _setup(self, **kwargs) -> None:
         for vehicle in range(self.input_data.num_vehicles):
