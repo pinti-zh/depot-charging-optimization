@@ -66,12 +66,12 @@ class Optimizer(ABC, Generic[OptVariable]):
         self._factor_ep: float = 1.0 / max(self.input_data.energy_price)
 
         # Variable bounds
-        if bidirectional_charging:
-            lb = -1.0
-        else:
-            lb = 0.0
+        assert self.input_data.is_battery is not None
+        vehicle_lower_bounds = [
+            -1.0 if (is_battery or bidirectional_charging) else 0.0 for is_battery in self.input_data.is_battery
+        ]
         self._lb_cp: list[list[float]] = [
-            [lb for _ in range(self._num_timesteps)] for _ in range(self._num_vehicles)
+            [lb for _ in range(self._num_timesteps)] for lb in vehicle_lower_bounds
         ]
         self._ub_cp: list[list[float]] = [
             [1.0 for _ in range(self._num_timesteps)] for _ in range(self._num_vehicles)

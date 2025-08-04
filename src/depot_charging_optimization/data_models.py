@@ -1,5 +1,3 @@
-from typing import Optional
-
 import pandas as pd
 from pydantic import BaseModel, field_validator, model_validator
 
@@ -14,8 +12,9 @@ class Input(BaseModel):
     max_charging_power: float
     battery_capacity: list[float]
     depot_charge: list[list[bool]]
-    energy_price: Optional[list[float]] = None
-    grid_tariff: Optional[float] = None
+    energy_price: list[float] | None = None
+    grid_tariff: float | None = None
+    is_battery: list[bool] | None = None
 
     @field_validator("num_vehicles", "max_charging_power")
     @classmethod
@@ -102,6 +101,12 @@ class Input(BaseModel):
         self.num_timesteps = len(self.time)
         return self
 
+    @model_validator(mode="after")
+    def set_is_battery(self):
+        if self.is_battery is None:
+            self.is_battery = [False] * self.num_vehicles
+        return self
+
     @classmethod
     def from_dataframe(cls, df: pd.DataFrame):
         required_dataframe_columns = [
@@ -180,6 +185,11 @@ class Input(BaseModel):
             energy_demand += item.energy_demand
             depot_charge += item.depot_charge
 
+        is_battery: list[bool] = []
+        for item in inputs:
+            assert item.is_battery is not None
+            is_battery += item.is_battery
+
         return Input(
             num_vehicles=num_vehicles,
             time=time,
@@ -189,6 +199,7 @@ class Input(BaseModel):
             max_charging_power=inputs[0].max_charging_power,
             battery_capacity=battery_capacity,
             depot_charge=depot_charge,
+            is_battery=is_battery,
         )
 
     def add_grid_tariff(self, grid_tariff: float) -> "Input":
@@ -268,6 +279,7 @@ class Input(BaseModel):
             max_charging_power=self.max_charging_power,
             battery_capacity=self.battery_capacity,
             depot_charge=depot_charge,
+            is_battery=self.is_battery,
         )
 
     def _index_of_time_interval(self, start: int, end: int) -> int:
