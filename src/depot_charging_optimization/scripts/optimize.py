@@ -28,9 +28,7 @@ logger = logging.getLogger("optimize")
 @click.option("--time_limit", "-tl", type=int, default=5, help="solver time limit in seconds")
 @click.option("--solution_file", "-sf", type=str, default="outputs/solutions/solution.json", help="solution file")
 @click.option("--use_casadi", "-uc", is_flag=True, default=False, help="use casadi instead of gurobi")
-@click.option(
-    "--no_bidirectional_charging", "-nbc", is_flag=True, default=False, help="allow no bidirectional charging"
-)
+@click.option("--bidirectional_charging", "-bc", is_flag=True, default=False, help="allow no bidirectional charging")
 @click.option("--debug", "-d", is_flag=True, default=False, help="print debug messages")
 def optimize(
     data_files,
@@ -40,7 +38,7 @@ def optimize(
     time_limit,
     solution_file,
     use_casadi,
-    no_bidirectional_charging,
+    bidirectional_charging,
     debug,
 ):
     if debug:
@@ -59,16 +57,15 @@ def optimize(
     energy_price["energy_price"] /= 3.6e6
 
     data_input = data_input.add_energy_price(energy_price["time"].to_list(), energy_price["energy_price"].to_list())
-    # data_input = data_input.add_grid_tariff(1.2e-4)
-    data_input = data_input.add_grid_tariff((17.0 / 30) * 1e-3)
+    data_input = data_input.add_grid_tariff(1.2e-4)
+    # data_input = data_input.add_grid_tariff((17.0 / 30) * 1e-3)
 
     # optimization
-    bdc = not no_bidirectional_charging
     start = perf_counter()
     if use_casadi:
-        optimizer = CasadiOptimizer(data_input, bidirectional_charging=bdc)
+        optimizer = CasadiOptimizer(data_input, bidirectional_charging=bidirectional_charging)
     else:
-        optimizer = GurobiOptimizer(data_input, bidirectional_charging=bdc, time_limit=time_limit)
+        optimizer = GurobiOptimizer(data_input, bidirectional_charging=bidirectional_charging, time_limit=time_limit)
 
     optimizer.build(ce_function_type=ce_function, alpha=alpha)
 
