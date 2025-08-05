@@ -62,6 +62,20 @@ def get_solution():
     return solution
 
 
+def get_names(solution):
+    names = []
+    battery_index = 1
+    bus_index = 1
+    for dc in solution.input_data.depot_charge:
+        if all(dc):
+            names.append(f"Battery {battery_index}")
+            battery_index += 1
+        else:
+            names.append(f"Bus {bus_index}")
+            bus_index += 1
+    return names
+
+
 def convert_seconds_to_time(seconds):
     start = datetime(2025, 1, 1)  # this date is arbitrary
     x_times = [(start + timedelta(seconds=s)).isoformat() for s in seconds]
@@ -91,6 +105,7 @@ def update_layout(fig, yaxis_title=""):
 
 def soe_figure(vehicles: list | None = None):
     solution = get_solution()
+    names = get_names(solution)
     time = [0] + solution.input_data.time
     if vehicles is None:
         vehicles = range(solution.input_data.num_vehicles)
@@ -105,6 +120,7 @@ def soe_figure(vehicles: list | None = None):
                 mode="lines",
                 marker=dict(color=color),
                 line=dict(color=color),
+                name=names[vehicle],
             )
         )
     update_layout(fig, yaxis_title="State of Energy [kWh]")
@@ -113,6 +129,7 @@ def soe_figure(vehicles: list | None = None):
 
 def cp_figure(vehicles: Optional[list] = None):
     solution = get_solution()
+    names = get_names(solution)
     time = [solution.input_data.time[0] / 2]
     width = [solution.input_data.time[0]]
     for t1, t2 in zip(solution.input_data.time[:-1], solution.input_data.time[1:]):
@@ -134,6 +151,7 @@ def cp_figure(vehicles: Optional[list] = None):
                 marker_color=color,
                 marker=dict(line=dict(width=0)),
                 opacity=0.8,
+                name=names[vehicle],
             )
         )
         for i, cp in enumerate(solution.charging_power[vehicle]):
@@ -148,6 +166,7 @@ def cp_figure(vehicles: Optional[list] = None):
             mode="lines",
             marker=dict(color="white"),
             line=dict(color="white"),
+            name="total",
         )
     )
     fig.update_layout(
@@ -262,16 +281,7 @@ def detail_figure(vehicle: int = -1):
 async def index(request: Request):
     solution = get_solution()
     indices = list(range(solution.input_data.num_vehicles))
-    names = []
-    battery_index = 1
-    bus_index = 1
-    for dc in solution.input_data.depot_charge:
-        if all(dc):
-            names.append(f"Battery {battery_index}")
-            battery_index += 1
-        else:
-            names.append(f"Bus {bus_index}")
-            bus_index += 1
+    names = get_names(solution)
 
     # Initial plot data as JSON
     fig_soe = soe_figure([])

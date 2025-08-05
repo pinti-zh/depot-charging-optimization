@@ -26,7 +26,16 @@
       </header>
       <div id="soe-header" class="row chart-header-row">
         <div class="col-2"></div>
-        <h2 class="col-8">State of Energy</h2>
+        <h2 class="col-7">State of Energy</h2>
+        <div class="col-1">
+            <button id="downloadBtn" aria-label="Download PNG" onclick="exportSoePlot()">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+            </button>
+        </div>
         <div class="col-2"></div>
       </div>
       <div class="row" id="soe-row">
@@ -44,7 +53,16 @@
       </div>
       <div id="cp-header" class="row chart-header-row">
         <div class="col-2"></div>
-        <h2 class="col-8">Charging Power</h2>
+        <h2 class="col-7">Charging Power</h2>
+        <div class="col-1">
+            <button id="downloadBtn" aria-label="Download PNG" onclick="exportCpPlot()">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+            </button>
+        </div>
         <div class="col-2"></div>
       </div>
       <div class="row" id="cp-row">
@@ -56,7 +74,16 @@
       </div>
       <div id="ep-header" class="row chart-header-row">
         <div class="col-2"></div>
-        <h2 class="col-8">Energy Price</h2>
+        <h2 class="col-7">Energy Price</h2>
+        <div class="col-1">
+            <button id="downloadBtn" aria-label="Download PNG" onclick="exportEpPlot()">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+            </button>
+        </div>
         <div class="col-2"></div>
       </div>
       <div class="row" id="ep-row">
@@ -68,7 +95,16 @@
       </div>
       <div id="detail-header" class="row chart-header-row">
         <div class="col-2"></div>
-        <h2 class="col-8">Vehicle Detail</h2>
+        <h2 class="col-7">Vehicle Detail</h2>
+        <div class="col-1">
+            <button id="downloadBtn" aria-label="Download PNG" onclick="exportDetailPlot()">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+            </button>
+        </div>
         <div class="col-2"></div>
       </div>
       <div class="row" id="cp-row">
@@ -87,192 +123,370 @@
     </div>
     <div id="footer-spacer" style="height: 50px"></div>
     <script>
+        const seabornDarkgridStyle = {
+            template: 'none',  // Don't inherit from plotly templates
+            paper_bgcolor: '#EAEAF2',
+            plot_bgcolor: '#EAEAF2',
+
+            font: {
+                family: 'Arial, sans-serif',
+                color: '#333',
+                size: 14
+            },
+
+            xaxis: {
+                showgrid: true,
+                gridcolor: '#CFCFCF',
+                gridwidth: 1,
+                zeroline: false,
+                linecolor: '#333',
+                ticks: 'outside',
+                tickcolor: '#333',
+                tickwidth: 1,
+                title: { font: { size: 16 } }
+            },
+
+            yaxis: {
+                showgrid: true,
+                gridcolor: '#CFCFCF',
+                gridwidth: 1,
+                zeroline: false,
+                linecolor: '#333',
+                ticks: 'outside',
+                tickcolor: '#333',
+                tickwidth: 1,
+                title: { font: { size: 16 } }
+            },
+
+            margin: {
+                t: 80,
+                b: 80,
+                l: 80,
+                r: 40
+            },
+
+            title: {
+                font: { size: 20 },
+                x: 0.5,
+                xanchor: 'center',
+                pad: { t: 20, b: 10 }
+            },
+        };
+
         // Render initial plot from server JSON
-      window.addEventListener('load', () => {
-          requestAnimationFrame(() => {
-              const initialSOEPlot = {{ soe_plot_json | safe }};
-              const initialCPPlot = {{ cp_plot_json | safe }};
-              const initialDetailPlot = {{ detail_plot_json | safe }};
-              Plotly.newPlot('soe-plot', initialSOEPlot.data, initialSOEPlot.layout);
-              Plotly.newPlot('cp-plot', initialCPPlot.data, initialCPPlot.layout);
-              Plotly.newPlot('detail-plot', initialDetailPlot.data, initialDetailPlot.layout);
-          });
-          const checkboxes = document.querySelectorAll('#soe-checklist input[type="checkbox"]');
-          const selected = Array.from(checkboxes)
-                              .filter(chk => chk.checked)
-                              .map(chk => chk.value);
-          fetchAndUpdateSoePlot(selected);
-          fetchAndUpdateCPPlot(selected);
-          fetchAndUpdateEPPlot();
-          detail_value = document.getElementById('detail-dropdown').value;
-          fetchAndUpdateDetailPlot(detail_value);
-      });
+        window.addEventListener('load', () => {
+            requestAnimationFrame(() => {
+                const initialSOEPlot = {{ soe_plot_json | safe }};
+                const initialCPPlot = {{ cp_plot_json | safe }};
+                const initialDetailPlot = {{ detail_plot_json | safe }};
+                Plotly.newPlot('soe-plot', initialSOEPlot.data, initialSOEPlot.layout);
+                Plotly.newPlot('cp-plot', initialCPPlot.data, initialCPPlot.layout);
+                Plotly.newPlot('detail-plot', initialDetailPlot.data, initialDetailPlot.layout);
+            });
+            const checkboxes = document.querySelectorAll('#soe-checklist input[type="checkbox"]');
+            const selected = Array.from(checkboxes)
+                .filter(chk => chk.checked)
+                .map(chk => chk.value);
+            fetchAndUpdateSoePlot(selected);
+            fetchAndUpdateCPPlot(selected);
+            fetchAndUpdateEPPlot();
+            detail_value = document.getElementById('detail-dropdown').value;
+            fetchAndUpdateDetailPlot(detail_value);
+        });
 
-      async function fetchAndUpdateSoePlot(vehicles) {
-          try {
-              const response = await fetch('/soe_plot/' + vehicles);
-              const plotData = await response.json();
-              Plotly.react('soe-plot', plotData.data, plotData.layout, {responsive: true});
-          } catch (err) {
-              console.error('Plot update error:', err);
-          }
-      }
+        async function fetchAndUpdateSoePlot(vehicles) {
+            try {
+                const response = await fetch('/soe_plot/' + vehicles);
+                const plotData = await response.json();
+                Plotly.react('soe-plot', plotData.data, plotData.layout, {responsive: true});
+            } catch (err) {
+                console.error('Plot update error:', err);
+            }
+        }
 
-      async function fetchAndUpdateCPPlot(vehicles) {
-          try {
-              const response = await fetch('/cp_plot/' + vehicles);
-              const plotData = await response.json();
-              Plotly.react('cp-plot', plotData.data, plotData.layout, {responsive: true});
-          } catch (err) {
-              console.error('Plot update error:', err);
-          }
-      }
+        async function fetchAndUpdateCPPlot(vehicles) {
+            try {
+                const response = await fetch('/cp_plot/' + vehicles);
+                const plotData = await response.json();
+                Plotly.react('cp-plot', plotData.data, plotData.layout, {responsive: true});
+            } catch (err) {
+                console.error('Plot update error:', err);
+            }
+        }
 
-      async function fetchAndUpdateDetailPlot(vehicle) {
-          try {
-              const response = await fetch('/detail_plot/' + vehicle);
-              const plotData = await response.json();
-              Plotly.react('detail-plot', plotData.data, plotData.layout, {responsive: true});
-          } catch (err) {
-              console.error('Plot update error:', err);
-          }
-      }
+        async function fetchAndUpdateDetailPlot(vehicle) {
+            try {
+                const response = await fetch('/detail_plot/' + vehicle);
+                const plotData = await response.json();
+                Plotly.react('detail-plot', plotData.data, plotData.layout, {responsive: true});
+            } catch (err) {
+                console.error('Plot update error:', err);
+            }
+        }
 
-      async function fetchAndUpdateEPPlot(vehicle) {
-          try {
-              const response = await fetch('/energy_price_plot');
-              const plotData = await response.json();
-              Plotly.react('ep-plot', plotData.data, plotData.layout, {responsive: true});
-          } catch (err) {
-              console.error('Plot update error:', err);
-          }
-      }
+        async function fetchAndUpdateEPPlot() {
+            try {
+                const response = await fetch('/energy_price_plot');
+                const plotData = await response.json();
+                Plotly.react('ep-plot', plotData.data, plotData.layout, {responsive: true});
+            } catch (err) {
+                console.error('Plot update error:', err);
+            }
+        }
+        
+        async function downloadWithSeabornTheme(plotJSON, title, fileName, showLegend=false){
+            plotJSON.layout.showlegend = showLegend;
+            const mergedLayout = {
+                ...plotJSON.layout,
+                ...seabornDarkgridStyle,
+                title: {
+                    text: title,
+                    ...seabornDarkgridStyle.title
+                }
+            };
 
-      document.querySelectorAll('#soe-checklist input[type="checkbox"]').forEach(chk => {
-          chk.addEventListener('change', () => {
-              const checkboxes = document.querySelectorAll('#soe-checklist input[type="checkbox"]');
-              const selected = Array.from(checkboxes)
-                                  .filter(chk => chk.checked)
-                                  .map(chk => chk.value);
-              fetchAndUpdateSoePlot(selected);
-              fetchAndUpdateCPPlot(selected);
-          });
-      });
+            // Preserve or restore axis titles from original layout if they exist:
+            mergedLayout.xaxis = {
+                ...seabornDarkgridStyle.xaxis,
+                ...plotJSON.layout?.xaxis,
+                title: {
+                    ...(seabornDarkgridStyle.xaxis?.title || {}),
+                    ...(plotJSON.layout?.xaxis?.title || {})
+                }
+            };
+            mergedLayout.yaxis = {
+                ...seabornDarkgridStyle.yaxis,
+                ...plotJSON.layout?.yaxis,
+                title: {
+                    ...(seabornDarkgridStyle.yaxis?.title || {}),
+                    ...(plotJSON.layout?.yaxis?.title || {})
+                }
+            };
+            Plotly.downloadImage({
+                format: 'png',
+                filename: fileName,
+                data: plotJSON.data,
+                layout: mergedLayout,
+                width: 800,
+                height: 600,
+                scale: 4
+            });
+        }
 
-      detail_dropdown = document.getElementById('detail-dropdown');
-      detail_dropdown.addEventListener('change', () => {
-          fetchAndUpdateDetailPlot(detail_dropdown.value);
-      });
+        async function exportSoePlot() {
+            const checkboxes = document.querySelectorAll('#soe-checklist input[type="checkbox"]');
+            const selected = Array.from(checkboxes)
+                                .filter(chk => chk.checked)
+                                .map(chk => chk.value);
+            try {
+                const response = await fetch('/soe_plot/' + selected);
+                const plotJSON = await response.json();
+
+                downloadWithSeabornTheme(plotJSON, "State of Energy Trajectories", "soe_plot", showLegend=true);
+            } catch (err) {
+                console.error('Plot update error:', err);
+            }
+        }
+
+        async function exportCpPlot() {
+            const checkboxes = document.querySelectorAll('#soe-checklist input[type="checkbox"]');
+            const selected = Array.from(checkboxes)
+                                .filter(chk => chk.checked)
+                                .map(chk => chk.value);
+            try {
+                const response = await fetch('/cp_plot/' + selected);
+                const plotJSON = await response.json();
+
+                downloadWithSeabornTheme(plotJSON, "Charging Power", "cp_plot", showLegend=true);
+            } catch (err) {
+                console.error('Plot update error:', err);
+            }
+        }
+
+        async function exportEpPlot() {
+            try {
+                const response = await fetch('/energy_price_plot');
+                const plotJSON = await response.json();
+
+                downloadWithSeabornTheme(plotJSON, "Energy Price", "ep_plot");
+            } catch (err) {
+                console.error('Plot update error:', err);
+            }
+        }
+        
+        async function exportDetailPlot() {
+            detail_value = document.getElementById('detail-dropdown').value;
+            try {
+                const response = await fetch('/detail_plot/' + detail_value);
+                const plotJSON = await response.json();
+
+                downloadWithSeabornTheme(plotJSON, "Vehicle Detail", "detail_plot");
+            } catch (err) {
+                console.error('Plot update error:', err);
+            }
+        }
+
+        document.querySelectorAll('#soe-checklist input[type="checkbox"]').forEach(chk => {
+            chk.addEventListener('change', () => {
+                const checkboxes = document.querySelectorAll('#soe-checklist input[type="checkbox"]');
+                const selected = Array.from(checkboxes)
+                                    .filter(chk => chk.checked)
+                                    .map(chk => chk.value);
+                fetchAndUpdateSoePlot(selected);
+                fetchAndUpdateCPPlot(selected);
+            });
+        });
+
+        detail_dropdown = document.getElementById('detail-dropdown');
+        detail_dropdown.addEventListener('change', () => {
+            fetchAndUpdateDetailPlot(detail_dropdown.value);
+        });
     </script>
     <style>
-      body {
-        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-        margin: 0;
-        height: 100vh;
-        background: linear-gradient(-45deg, #050535, #041d35, #050535, #1d0435);
-        background-size: 400% 400%;
-        animation: gradientBG 8s ease infinite;
-        color: white;
-      }
-
-      .header-link {
-        color: white;
-        text-decoration: none;
-        margin: 0 12px;
-        font-weight: 500;
-        font-size: 16px;
-        transition: color 0.3s ease;
-      }
-
-      .header-link:hover {
-        color: #2196f3;
-      }
-
-      .plot {
-        width: 100%;
-        height: 100%;
-        box-sizing: border-box; /* include padding/border in width */
-        padding: 0;
-        margin: 0;
-        border: none; /* or a thin border that fits */
-      }
-
-      .plot-card {
-        height: 400px;
-        position: relative;
-        border: 2px solid #111111;
-        border-radius: 8px; /* Rounded corners (optional) */
-        box-shadow: 0 0 15px 5px rgba(200, 200, 255, 0.4); /* Soft bluish glow */
-        background-color: #111111;
-        padding: 10px; /* Space between border and plot */
-      }
-
-      .chart-header-row {
-        margin-bottom: 30px;
-        margin-top: 50px;
-      }
-
-      input[type="checkbox"] {
-        /* Remove default styling */
-        appearance: none;
-        -webkit-appearance: none;
-        width: 18px;
-        height: 18px;
-        border: 2px solid #aaa;
-        border-radius: 3px;
-        margin-right: 5px;
-        cursor: pointer;
-        position: relative;
-      }
-
-      /* Style the checked state */
-      input[type="checkbox"]:checked {
-        background-color: #2196f3;
-        border-color: #2196f3;
-      }
-
-      /* Minimal checkmark with ::after */
-      input[type="checkbox"]:checked::after {
-        content: "";
-        position: absolute;
-        left: 5px;
-        top: 2px;
-        width: 5px;
-        height: 10px;
-        border: solid white;
-        border-width: 0 2px 2px 0;
-        transform: rotate(45deg);
-      }
-      select {
-        background-color: #2b2b2b;
-        color: #f0f0f0;
-        border: 1px solid #444;
-        border-radius: 6px;
-        padding: 6px 10px;
-        font-size: 16px;
-        outline: none;
-        appearance: none; /* removes default arrow styling in most browsers */
-        -webkit-appearance: none;
-        -moz-appearance: none;
-        background-image: url("data:image/svg+xml;utf8,<svg fill='gray' height='14' viewBox='0 0 20 20' width='14' xmlns='http://www.w3.org/2000/svg'><path d='M5.5 7l4.5 4.5L14.5 7z'/></svg>");
-        background-repeat: no-repeat;
-        background-position: right 10px center;
-        background-size: 14px;
-        padding-right: 30px; /* space for custom arrow */
-        cursor: pointer;
-      }
-
-      select:f @keyframes gradientBG {
-        0% {
-          background-position: 0% 50%;
+        body {
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            margin: 0;
+            height: 100vh;
+            background: linear-gradient(-45deg, #050535, #041d35, #050535, #1d0435);
+            background-size: 400% 400%;
+            animation: gradientBG 8s ease infinite;
+            color: white;
         }
-        50% {
-          background-position: 100% 50%;
+
+        #downloadBtn {
+            float: right;
+            width: 40px;
+            height: 40px;
+            border: 2px solid #111111;
+            border-radius: 8px; /* Rounded corners (optional) */
+            box-shadow: 0 0 15px 5px rgba(200, 200, 255, 0.4); /* Soft bluish glow */
+            background-color: #111111;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(59, 130, 246, 0.4);
+            transition: background-color 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
         }
-        100% {
-          background-position: 0% 50%;
+
+        #downloadBtn:hover {
+            background-color: #050535;
         }
-      }
+
+        #downloadBtn:active {
+            background-color: #050535;
+            box-shadow: none;
+        }
+
+        #downloadBtn:focus {
+            outline: 2px solid #60a5fa;
+            outline-offset: 2px;
+        }
+
+        #downloadBtn svg {
+            pointer-events: none;
+        }
+
+        .header-link {
+            color: white;
+            text-decoration: none;
+            margin: 0 12px;
+            font-weight: 500;
+            font-size: 16px;
+            transition: color 0.3s ease;
+        }
+
+        .header-link:hover {
+            color: #2196f3;
+        }
+
+        .plot {
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box; /* include padding/border in width */
+            padding: 0;
+            margin: 0;
+            border: none; /* or a thin border that fits */
+        }
+
+        .plot-card {
+            height: 400px;
+            position: relative;
+            border: 2px solid #111111;
+            border-radius: 8px; /* Rounded corners (optional) */
+            box-shadow: 0 0 15px 5px rgba(200, 200, 255, 0.4); /* Soft bluish glow */
+            background-color: #111111;
+            padding: 10px; /* Space between border and plot */
+        }
+
+        .chart-header-row {
+            margin-bottom: 30px;
+            margin-top: 50px;
+        }
+
+        input[type="checkbox"] {
+            /* Remove default styling */
+            appearance: none;
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border: 2px solid #aaa;
+            border-radius: 3px;
+            margin-right: 5px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        /* Style the checked state */
+        input[type="checkbox"]:checked {
+            background-color: #2196f3;
+            border-color: #2196f3;
+        }
+
+        /* Minimal checkmark with ::after */
+        input[type="checkbox"]:checked::after {
+            content: "";
+            position: absolute;
+            left: 5px;
+            top: 2px;
+            width: 5px;
+            height: 10px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+
+        select {
+            background-color: #2b2b2b;
+            color: #f0f0f0;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 16px;
+            outline: none;
+            appearance: none; /* removes default arrow styling in most browsers */
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-image: url("data:image/svg+xml;utf8,<svg fill='gray' height='14' viewBox='0 0 20 20' width='14' xmlns='http://www.w3.org/2000/svg'><path d='M5.5 7l4.5 4.5L14.5 7z'/></svg>");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 14px;
+            padding-right: 30px; /* space for custom arrow */
+            cursor: pointer;
+        }
+
+        select:f @keyframes gradientBG {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
     </style>
   </body>
 </html>
