@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from datetime import datetime, timedelta
 from typing import Optional
 
 import click
@@ -61,15 +62,26 @@ def get_solution():
     return solution
 
 
-def update_layout(fig):
+def convert_seconds_to_time(seconds):
+    start = datetime(2025, 1, 1)  # this date is arbitrary
+    x_times = [(start + timedelta(seconds=s)).isoformat() for s in seconds]
+    return x_times
+
+
+def update_layout(fig, yaxis_title=""):
     fig.update_layout(
+        xaxis=dict(
+            tickformat="%H:%M",
+        ),
+        xaxis_title="Time of Day",
+        yaxis_title=yaxis_title,
         template="plotly_dark",
         margin=dict(l=10, r=10, t=10, b=10),
         showlegend=False,
     )
 
 
-def soe_figure(vehicles: Optional[list] = None):
+def soe_figure(vehicles: list | None = None):
     solution = get_solution()
     time = [0] + solution.input_data.time
     if vehicles is None:
@@ -80,18 +92,14 @@ def soe_figure(vehicles: Optional[list] = None):
         color = TRACE_COLORS[vehicle % len(TRACE_COLORS)]
         fig.add_trace(
             go.Scatter(
-                x=time,
+                x=convert_seconds_to_time(time),
                 y=[soe / 3.6e6 for soe in solution.state_of_energy[vehicle]],
                 mode="lines",
                 marker=dict(color=color),
                 line=dict(color=color),
             )
         )
-    fig.update_layout(
-        xaxis_title="Time [s]",
-        yaxis_title="State of Energy [kWh]",
-    )
-    update_layout(fig)
+    update_layout(fig, yaxis_title="State of Energy [kWh]")
     return fig
 
 
@@ -112,9 +120,9 @@ def cp_figure(vehicles: Optional[list] = None):
         color = TRACE_COLORS[vehicle % len(TRACE_COLORS)]
         fig.add_trace(
             go.Bar(
-                x=time,
+                x=convert_seconds_to_time(time),
                 y=[cp / 1000 for cp in solution.charging_power[vehicle]],
-                width=width,
+                width=[1000 * w for w in width],  # when using datetime, width must be in milliseconds
                 marker_color=color,
                 marker=dict(line=dict(width=0)),
                 opacity=0.8,
@@ -127,7 +135,7 @@ def cp_figure(vehicles: Optional[list] = None):
     interval_total_charging_power = [cp for cp in total_charging_power for _ in range(2)]
     fig.add_trace(
         go.Scatter(
-            x=interval_time,
+            x=convert_seconds_to_time(interval_time),
             y=[cp / 1000 for cp in interval_total_charging_power],
             mode="lines",
             marker=dict(color="white"),
@@ -136,10 +144,8 @@ def cp_figure(vehicles: Optional[list] = None):
     )
     fig.update_layout(
         barmode="relative",
-        xaxis_title="Time [s]",
-        yaxis_title="Charging Power [kW]",
     )
-    update_layout(fig)
+    update_layout(fig, yaxis_title="Charging Power [kW]")
     return fig
 
 
@@ -151,17 +157,15 @@ def energy_price_figure():
     fig = go.Figure()
     fig.add_trace(
         go.Scatter(
-            x=time,
+            x=convert_seconds_to_time(time),
             y=[ep * 3.6e6 for ep in energy_price_twice],
             mode="lines",
         )
     )
     fig.update_layout(
         barmode="stack",
-        xaxis_title="Time [s]",
-        yaxis_title="Energy Price [CHF/kWh]",
     )
-    update_layout(fig)
+    update_layout(fig, yaxis_title="Energy Price [CHF/kWh]")
     return fig
 
 
@@ -178,7 +182,7 @@ def detail_figure(vehicle: int = -1):
     # state of Energy
     fig.add_trace(
         go.Scatter(
-            x=time,
+            x=convert_seconds_to_time(time),
             y=[soe / 3.6e6 for soe in solution.state_of_energy[vehicle]],
             mode="lines",
             marker=dict(color=color),
@@ -191,7 +195,7 @@ def detail_figure(vehicle: int = -1):
     ]:
         fig.add_trace(
             go.Scatter(
-                x=time,
+                x=convert_seconds_to_time(time),
                 y=[bound / 3.6e6 for _ in time],
                 mode="lines",
                 marker=dict(color=color),
@@ -207,9 +211,9 @@ def detail_figure(vehicle: int = -1):
         cp_time.append((t1 + t2) / 2)
     fig.add_trace(
         go.Bar(
-            x=cp_time,
+            x=convert_seconds_to_time(cp_time),
             y=[cp / 1000 for cp in solution.charging_power[vehicle]],
-            width=width,
+            width=[w * 1000 for w in width],
             marker_color=color,
             marker=dict(line=dict(width=0)),
             opacity=0.4,
@@ -219,7 +223,9 @@ def detail_figure(vehicle: int = -1):
 
     # depot charging intervals
     bands = []
-    for t1, t2, dc in zip(time, time[1:], solution.input_data.depot_charge[vehicle]):
+    for t1, t2, dc in zip(
+        convert_seconds_to_time(time), convert_seconds_to_time(time[1:]), solution.input_data.depot_charge[vehicle]
+    ):
         if dc:
             bands.append(
                 dict(
@@ -238,11 +244,9 @@ def detail_figure(vehicle: int = -1):
             )
     fig.update_layout(
         shapes=bands,
-        xaxis_title="Time [s]",
-        yaxis_title="State of Energy [kWh]",
         yaxis2_title="Charging Power [kW]",
     )
-    update_layout(fig)
+    update_layout(fig, yaxis_title="State of Energy [kWh]")
     return fig
 
 
