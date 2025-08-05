@@ -71,7 +71,15 @@ def convert_seconds_to_time(seconds):
 def update_layout(fig, yaxis_title=""):
     fig.update_layout(
         xaxis=dict(
-            tickformat="%H:%M",
+            type="date",
+            tickformatstops=[
+                dict(dtickrange=[None, 1000], value="%H:%M:%S.%L"),  # < 1s
+                dict(dtickrange=[1000, 60000], value="%H:%M:%S"),  # < 1min
+                dict(dtickrange=[60000, 3600000], value="%H:%M"),  # < 1h
+                dict(dtickrange=[3600000, 86400000], value="%H:%M"),  # < 1 day
+                dict(dtickrange=[86400000, 604800000], value="%a %H:%M"),  # < 1 week
+                dict(dtickrange=[604800000, None], value="%b %d"),  # > 1 week
+            ],
         ),
         xaxis_title="Time of Day",
         yaxis_title=yaxis_title,
