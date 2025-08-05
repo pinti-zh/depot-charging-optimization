@@ -57,40 +57,28 @@ class Input(BaseModel):
         if n <= 0:
             raise ValueError("Field[time] must not be empty")
         if not all(len(v) == n for v in self.energy_demand):
-            raise ValueError(
-                f"Entry of Field[energy_demand] does not have expected length {n}"
-            )
+            raise ValueError(f"Entry of Field[energy_demand] does not have expected length {n}")
         if not all(len(v) == n for v in self.depot_charge):
-            raise ValueError(
-                f"Entry of Field[depot_charge] does not have expected length {n}"
-            )
+            raise ValueError(f"Entry of Field[depot_charge] does not have expected length {n}")
         if not len(self.energy_demand) == self.num_vehicles:
             raise ValueError(
                 f"Field[energy_demand] has length {len(self.energy_demand)}, expected {self.num_vehicles}"
             )
         if not len(self.depot_charge) == self.num_vehicles:
-            raise ValueError(
-                f"Field[depot_charge] has length {len(self.depot_charge)}, expected {self.num_vehicles}"
-            )
+            raise ValueError(f"Field[depot_charge] has length {len(self.depot_charge)}, expected {self.num_vehicles}")
         if not len(self.battery_capacity) == self.num_vehicles:
             raise ValueError(
                 f"Field[battery_capacity] has length {len(self.battery_capacity)}, expected {self.num_vehicles}"
             )
         if not len(self.soe_lb) == self.num_vehicles:
-            raise ValueError(
-                f"Field[soe_lb] has length {len(self.soe_lb)}, expected {self.num_vehicles}"
-            )
+            raise ValueError(f"Field[soe_lb] has length {len(self.soe_lb)}, expected {self.num_vehicles}")
         if not len(self.soe_ub) == self.num_vehicles:
-            raise ValueError(
-                f"Field[soe_ub] has length {len(self.soe_ub)}, expected {self.num_vehicles}"
-            )
+            raise ValueError(f"Field[soe_ub] has length {len(self.soe_ub)}, expected {self.num_vehicles}")
         return self
 
     @model_validator(mode="after")
     def check_no_energy_demand_in_depot(self):
-        for vehicle_depot_charge, vehicle_energy_demand in zip(
-            self.depot_charge, self.energy_demand
-        ):
+        for vehicle_depot_charge, vehicle_energy_demand in zip(self.depot_charge, self.energy_demand):
             for dc, demand in zip(vehicle_depot_charge, vehicle_energy_demand):
                 if dc and not (demand == 0.0):
                     raise ValueError("Nonzero energy demand found while depot charging")
@@ -131,10 +119,7 @@ class Input(BaseModel):
             raise ValueError("Battery capacity columns do not match")
 
         max_charging_power = df[df["depot_charge"]]["max_charging_power"].max()
-        if not all(
-            mcp == max_charging_power or mcp == 0
-            for mcp in df[df["depot_charge"]]["max_charging_power"]
-        ):
+        if not all(mcp == max_charging_power or mcp == 0 for mcp in df[df["depot_charge"]]["max_charging_power"]):
             raise ValueError("Max charging power columns do not match")
 
         # create OptimizationInput
@@ -157,9 +142,7 @@ class Input(BaseModel):
         if not all(item.time[-1] == inputs[0].time[-1] for item in inputs):
             raise ValueError("Inputs do not cover same time period")
 
-        if not all(
-            item.max_charging_power == inputs[0].max_charging_power for item in inputs
-        ):
+        if not all(item.max_charging_power == inputs[0].max_charging_power for item in inputs):
             raise ValueError("Inputs do not have same max_charging_power")
 
         num_vehicles = sum(item.num_vehicles for item in inputs)
@@ -206,9 +189,7 @@ class Input(BaseModel):
         self.grid_tariff = grid_tariff
         return self
 
-    def add_energy_price(
-        self, energy_time: list[int], energy_price: list[float]
-    ) -> "Input":
+    def add_energy_price(self, energy_time: list[int], energy_price: list[float]) -> "Input":
         # check that energy price is not empty
         if not len(energy_price) > 0:
             raise ValueError("Energy time must not be empty")
@@ -216,9 +197,7 @@ class Input(BaseModel):
         if not len(energy_price) == len(energy_time):
             raise ValueError("Energy time and price must have equal length")
         # check that energy time is ascending
-        if not all(
-            energy_time[i] <= energy_time[i + 1] for i in range(len(energy_time) - 1)
-        ):
+        if not all(energy_time[i] <= energy_time[i + 1] for i in range(len(energy_time) - 1)):
             raise ValueError("Cannot add energy price, time is not ascending")
         # check that time is positive
         if not all(t_i > 0 for t_i in energy_time):
@@ -239,25 +218,16 @@ class Input(BaseModel):
     def _extend(self, extended_time: list[int]) -> "Input":
         # check that extended_time is a superset
         if not all(t_i in extended_time for t_i in self.time):
-            raise ValueError(
-                "Cannot extend Input to new time period, Input.time is not a subset"
-            )
+            raise ValueError("Cannot extend Input to new time period, Input.time is not a subset")
         # check that extended_time is ascending
-        if not all(
-            extended_time[i] <= extended_time[i + 1]
-            for i in range(len(extended_time) - 1)
-        ):
-            raise ValueError(
-                "Cannot extend Input to new time period, Input.time is not ascending"
-            )
+        if not all(extended_time[i] <= extended_time[i + 1] for i in range(len(extended_time) - 1)):
+            raise ValueError("Cannot extend Input to new time period, Input.time is not ascending")
         # check positivity
         if not all(t_i > 0 for t_i in extended_time):
-            raise ValueError(
-                "Cannot extend Input to new time period, Input.time is not positive"
-            )
+            raise ValueError("Cannot extend Input to new time period, Input.time is not positive")
 
         energy_demand: list[list[float]] = [[] for _ in range(self.num_vehicles)]
-        depot_charge: list[[float]] = [[] for _ in range(self.num_vehicles)]
+        depot_charge: list[list[float]] = [[] for _ in range(self.num_vehicles)]
         for t1, t2 in zip([0] + extended_time[:-1], extended_time):
             index = self._index_of_time_interval(t1, t2)
             if index == 0:
@@ -291,13 +261,9 @@ class Input(BaseModel):
                 index = i
                 break
         else:
-            raise ValueError(
-                f"Time interval ({start}, {end}) not contained in Input.time"
-            )
+            raise ValueError(f"Time interval ({start}, {end}) not contained in Input.time")
         if index > 0 and self.time[index - 1] > start:
-            raise ValueError(
-                f"Time interval ({start}, {end}) spans more than one interval"
-            )
+            raise ValueError(f"Time interval ({start}, {end}) spans more than one interval")
         return index
 
 
@@ -326,17 +292,13 @@ class Solution(BaseModel):
 
         # assert all list contain [num_vehicles] lists
         if not len(self.charging_power) == num_vehicles:
-            raise ValueError(
-                f"Field[charging_power] has length {len(self.charging_power)}, expected {num_vehicles}"
-            )
+            raise ValueError(f"Field[charging_power] has length {len(self.charging_power)}, expected {num_vehicles}")
         if not len(self.effective_charging_power) == num_vehicles:
             raise ValueError(
                 f"Field[effective_charging_power] has length {len(self.effective_charging_power)}, expected {num_vehicles}"
             )
         if not len(self.state_of_energy) == num_vehicles:
-            raise ValueError(
-                f"Field[state_of_energy] has length {len(self.state_of_energy)}, expected {num_vehicles}"
-            )
+            raise ValueError(f"Field[state_of_energy] has length {len(self.state_of_energy)}, expected {num_vehicles}")
 
         # assert all lists contain lists with [num_timesteps] values
         for values in self.charging_power:

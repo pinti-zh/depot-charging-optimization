@@ -59,7 +59,8 @@ def optimize(
     energy_price["energy_price"] /= 3.6e6
 
     data_input = data_input.add_energy_price(energy_price["time"].to_list(), energy_price["energy_price"].to_list())
-    data_input = data_input.add_grid_tariff(1.2e-4)
+    # data_input = data_input.add_grid_tariff(1.2e-4)
+    data_input = data_input.add_grid_tariff((17.0 / 30) * 1e-3)
 
     # optimization
     bdc = not no_bidirectional_charging
