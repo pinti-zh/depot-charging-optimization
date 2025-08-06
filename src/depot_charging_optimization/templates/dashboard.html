@@ -297,6 +297,8 @@
                 const response = await fetch('/cp_plot/' + selected);
                 const plotJSON = await response.json();
 
+                plotJSON.data[plotJSON.data.length - 1].line.color = 'black';
+
                 downloadWithSeabornTheme(plotJSON, "Charging Power", "cp_plot", showLegend=true);
             } catch (err) {
                 console.error('Plot update error:', err);
