@@ -19,9 +19,16 @@ logger = logging.getLogger("list_cycles")
 def list_cycles(file, cycle_id_column, vehicle_id_column):
     data = pd.read_csv(file)
     vehicle_ids = data[vehicle_id_column].unique()
-
+    depot_cycles = {}
     for vehicle_id in vehicle_ids:
-        cycle_ids = data[data[vehicle_id_column] == vehicle_id][cycle_id_column].unique()
-        logger.info(f"Vehicle ID: {vehicle_id} ({len(cycle_ids)} cycles)")
+        depot_id = vehicle_id.split("_")[0]
+        cycles = data[data[vehicle_id_column] == vehicle_id][cycle_id_column].unique().tolist()
+        if depot_id in depot_cycles.keys():
+            depot_cycles[depot_id] += cycles
+        else:
+            depot_cycles[depot_id] = cycles
+
+    for depot_id, cycle_ids in depot_cycles.items():
+        logger.info(f"Depot ID: {depot_id} ({len(cycle_ids)} cycles)")
         for cycle_id in cycle_ids:
             logger.info(f"  - {cycle_id}")
