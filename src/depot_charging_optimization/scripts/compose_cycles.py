@@ -63,8 +63,8 @@ def compose_cycles(data_files):
     logger.info("")
 
     number_of_partitions = 0
-    number_of_composable_partitions = 0
     max_length_of_partition_string = len(" ".join(str(i + 1) for i in range(len(cycles))))
+    composable_partitions = []
 
     for partition in partitions(list(range(len(cycles)))):
         number_of_partitions += 1
@@ -81,9 +81,13 @@ def compose_cycles(data_files):
                 info_string += "  [red]not composable"
             logger.info(info_string)
         if all(subset_is_composable):
-            number_of_composable_partitions += 1
+            composable_partitions.append(partition)
             logger.info("[green]Ok")
         else:
             logger.info("[red]Not ok")
         logger.info("")
-    logger.info(f"There are {number_of_composable_partitions}/{number_of_partitions} partitions composable")
+
+    logger.info(f"There are {len(composable_partitions)}/{number_of_partitions} partitions composable:")
+    for index, partition in enumerate(composable_partitions):
+        subset_strings = ["(" + " ".join(str(i + 1) for i in subset) + ")" for subset in partition]
+        logger.info(f"  {index + 1}.\t|vehicles: {len(partition)}|\t" + " - ".join(subset_strings))
