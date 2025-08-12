@@ -34,6 +34,7 @@ clean-data = "depot_charging_optimization.scripts.clean_data:clean_data"
 preprocess-data = "depot_charging_optimization.scripts.preprocess_data:preprocess_data"
 plot = "depot_charging_optimization.scripts.plotting_webapp:serve"
 list-cycles = "depot_charging_optimization.scripts.list_cycles:list_cycles"
+compose-cycles = "depot_charging_optimization.scripts.compose_cycles:compose_cycles"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
