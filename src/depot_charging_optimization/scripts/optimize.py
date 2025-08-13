@@ -1,10 +1,12 @@
 import json
 import logging
 import os
+import sys
 from time import perf_counter
 
 import click
 import pandas as pd
+from rich.console import Console
 from rich.logging import RichHandler
 
 from depot_charging_optimization.core import CasadiOptimizer, GurobiOptimizer
@@ -12,7 +14,10 @@ from depot_charging_optimization.data_models import Input
 
 # Basic Rich logging setup
 logging.basicConfig(
-    level="INFO", format="%(message)s", datefmt="[%X]", handlers=[RichHandler(markup=True)]
+    level="INFO",
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler(console=Console(file=sys.stderr), markup=True)],
 )  # or DEBUG
 
 logger = logging.getLogger("optimize")
