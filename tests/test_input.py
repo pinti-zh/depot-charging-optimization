@@ -4,7 +4,6 @@ from depot_charging_optimization.data_models import Input
 
 
 class TestInputCreation:
-
     def test_creation_from_dataframe(self):
         df = pd.DataFrame(
             {
@@ -30,7 +29,6 @@ class TestInputCreation:
 
 
 class TestCombine:
-
     def test_combination_from_singles(self):
         dataframes = []
         dataframes.append(
@@ -147,8 +145,81 @@ class TestCombine:
         ]
 
 
-class TestEnergyPrice:
+class TestConcatenate:
+    def test_simple(self):
+        input_data_1 = Input(
+            num_vehicles=1,
+            time=[1, 2, 3],
+            energy_demand=[[0.0, 1.0, 0.0]],
+            soe_lb=[0.2],
+            soe_ub=[0.8],
+            max_charging_power=1.0,
+            battery_capacity=[1.0],
+            depot_charge=[[True, False, True]],
+            is_battery=[False],
+        )
+        input_data_2 = Input(
+            num_vehicles=1,
+            time=[1, 2, 3],
+            energy_demand=[[1.0, 0.0, 0.0]],
+            soe_lb=[0.2],
+            soe_ub=[0.8],
+            max_charging_power=1.0,
+            battery_capacity=[1.0],
+            depot_charge=[[False, True, True]],
+            is_battery=[False],
+        )
 
+        concatenated = Input.concatenate([input_data_1, input_data_2])
+
+        assert concatenated.num_vehicles == 1
+        assert concatenated.time == [1, 2, 3]
+        assert concatenated.energy_demand == [[1.0, 1.0, 0.0]]
+        assert concatenated.soe_lb == [0.2]
+        assert concatenated.soe_ub == [0.8]
+        assert concatenated.max_charging_power == 1.0
+        assert concatenated.battery_capacity == [1.0]
+        assert concatenated.depot_charge == [[False, False, True]]
+        assert concatenated.is_battery == [False]
+
+    def test_complex(self):
+        input_data_1 = Input(
+            num_vehicles=1,
+            time=[1, 2, 3, 4, 10],
+            energy_demand=[[0.0, 1.0, 0.0, 1.0, 0.0]],
+            soe_lb=[0.2],
+            soe_ub=[0.8],
+            max_charging_power=1.0,
+            battery_capacity=[1.0],
+            depot_charge=[[True, False, True, False, True]],
+            is_battery=[False],
+        )
+        input_data_2 = Input(
+            num_vehicles=1,
+            time=[5, 8, 10],
+            energy_demand=[[0.0, 1.0, 0.0]],
+            soe_lb=[0.2],
+            soe_ub=[0.8],
+            max_charging_power=1.0,
+            battery_capacity=[1.0],
+            depot_charge=[[True, False, True]],
+            is_battery=[False],
+        )
+
+        concatenated = Input.concatenate([input_data_1, input_data_2])
+
+        assert concatenated.num_vehicles == 1
+        assert concatenated.time == [1, 2, 3, 4, 5, 8, 10]
+        assert concatenated.energy_demand == [[0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0]]
+        assert concatenated.soe_lb == [0.2]
+        assert concatenated.soe_ub == [0.8]
+        assert concatenated.max_charging_power == 1.0
+        assert concatenated.battery_capacity == [1.0]
+        assert concatenated.depot_charge == [[True, False, True, False, True, False, True]]
+        assert concatenated.is_battery == [False]
+
+
+class TestEnergyPrice:
     def test_energy_price_single(self):
         df = pd.DataFrame(
             {

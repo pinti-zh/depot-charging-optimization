@@ -135,6 +135,55 @@ class Input(BaseModel):
         )
 
     @classmethod
+    def concatenate(cls, inputs: list["Input"]) -> "Input":
+        if not len(inputs) > 0:
+            raise ValueError("Inputs must not be empty")
+
+        if not all(item.time[-1] == inputs[0].time[-1] for item in inputs):
+            raise ValueError("Inputs do not cover same time period")
+
+        if not all(item.max_charging_power == inputs[0].max_charging_power for item in inputs):
+            raise ValueError("Inputs do not have same max_charging_power")
+
+        if not all(item.num_vehicles == 1 for item in inputs):
+            raise ValueError("Inputs can only contain single vehicles")
+
+        if not all(item.soe_lb[0] == inputs[0].soe_lb[0] for item in inputs):
+            raise ValueError("Inputs do not have same SoE lower bound")
+
+        if not all(item.soe_ub[0] == inputs[0].soe_ub[0] for item in inputs):
+            raise ValueError("Inputs do not have same SoE upper bound")
+
+        if not all(item.battery_capacity[0] == inputs[0].battery_capacity[0] for item in inputs):
+            raise ValueError("Inputs do not have same battery capacity")
+
+        time = []
+        for item in inputs:
+            time += item.time
+        time = sorted(list(set(time)))
+
+        extended_inputs = [item._extend(time) for item in inputs]
+
+        energy_demand = [item.energy_demand[0] for item in extended_inputs]
+        depot_charge = [item.depot_charge[0] for item in extended_inputs]
+
+        # [[...], [...], [...], ...] -> [[...]]
+        energy_demand = [[max(values) for values in zip(*energy_demand)]]
+        depot_charge = [[all(values) for values in zip(*depot_charge)]]
+
+        return Input(
+            num_vehicles=1,
+            time=time,
+            energy_demand=energy_demand,
+            soe_lb=inputs[0].soe_lb,
+            soe_ub=inputs[0].soe_ub,
+            max_charging_power=inputs[0].max_charging_power,
+            battery_capacity=inputs[0].battery_capacity,
+            depot_charge=depot_charge,
+            is_battery=inputs[0].is_battery,
+        )
+
+    @classmethod
     def combine(cls, inputs: list["Input"]) -> "Input":
         if not len(inputs) > 0:
             raise ValueError("Inputs must not be empty")
