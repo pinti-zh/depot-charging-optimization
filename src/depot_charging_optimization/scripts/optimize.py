@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 from time import perf_counter
 
 import click
@@ -8,6 +9,7 @@ import pandas as pd
 from depot_charging_optimization.core import CasadiOptimizer, GurobiOptimizer
 from depot_charging_optimization.data_models import Input
 from depot_charging_optimization.logging import get_logger, log_stdout
+from depot_charging_optimization.result_store import ResultStore
 
 
 @click.command()
@@ -103,3 +105,21 @@ def optimize(
         with open(solution_file, "w") as f:
             f.write(solution.model_dump_json(indent=4))
         logger.info(f"Saved solution to [cyan3]{solution_file}")
+
+        result_store = ResultStore(Path("logs/optimize.log"))
+        result_store.write(
+            {
+                "solution_total_cost": solution.total_cost,
+                "input": {
+                    "data_files": data_files,
+                    "energy_price_file": energy_price_file,
+                    "ce_function": ce_function,
+                    "alpha": alpha,
+                    "time_limit": time_limit,
+                    "solution_file": solution_file,
+                    "use_casadi": use_casadi,
+                    "bidirectional_charging": bidirectional_charging,
+                    "debug": debug,
+                },
+            }
+        )
