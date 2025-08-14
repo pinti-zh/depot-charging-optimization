@@ -157,6 +157,9 @@ class Input(BaseModel):
         if not all(item.battery_capacity[0] == inputs[0].battery_capacity[0] for item in inputs):
             raise ValueError("Inputs do not have same battery capacity")
 
+        if not cls.concatenatable(inputs):
+            raise ValueError("Inputs cannot be concatenated")
+
         time = []
         for item in inputs:
             time += item.time
@@ -233,6 +236,31 @@ class Input(BaseModel):
             depot_charge=depot_charge,
             is_battery=is_battery,
         )
+
+    @classmethod
+    def concatenatable(cls, cycles):
+        if len(cycles) < 2:
+            return True
+        if len(cycles) > 2:
+            for i, cycle_1 in enumerate(cycles):
+                for cycle_2 in cycles[i + 1 :]:
+                    if not Input.concatenatable([cycle_1, cycle_2]):
+                        return False
+            return True
+        cycle_1, cycle_2 = cycles[0], cycles[1]
+        time_index_1, time_index_2 = 0, 0
+        while (time_index_1 < cycle_1.num_timesteps) and (time_index_2 < cycle_2.num_timesteps):
+            time_1 = cycle_1.time[time_index_1]
+            time_2 = cycle_2.time[time_index_2]
+            depot_charge_1 = cycle_1.depot_charge[0][time_index_1]
+            depot_charge_2 = cycle_2.depot_charge[0][time_index_2]
+            if not (depot_charge_1 or depot_charge_2):
+                return False
+            if time_1 <= time_2:
+                time_index_1 += 1
+            if time_2 <= time_1:
+                time_index_2 += 1
+        return True
 
     def add_grid_tariff(self, grid_tariff: float) -> "Input":
         self.grid_tariff = grid_tariff
