@@ -1,6 +1,3 @@
-import contextlib
-import os
-import sys
 from abc import ABC, abstractmethod
 from typing import Any, Generic, TypeVar
 
@@ -9,22 +6,9 @@ import gurobipy as gp
 from gurobipy import GRB
 
 from depot_charging_optimization.data_models import Input, Solution
+from depot_charging_optimization.logging import suppress_stdout_stderr
 
 OptVariable = TypeVar("OptVariable", gp.Var, ca.MX.sym)
-
-
-@contextlib.contextmanager
-def suppress_stdout_stderr():
-    with open(os.devnull, "w") as devnull:
-        old_stdout = sys.stdout
-        old_stderr = sys.stderr
-        sys.stdout = devnull
-        sys.stderr = devnull
-        try:
-            yield
-        finally:
-            sys.stdout = old_stdout
-            sys.stderr = old_stderr
 
 
 class Optimizer(ABC, Generic[OptVariable]):
@@ -282,7 +266,7 @@ class GurobiOptimizer(Optimizer[gp.Var]):
         super().__init__(input_data, name=name, bidirectional_charging=bidirectional_charging)
         with suppress_stdout_stderr():
             self._model: gp.Model = gp.Model(self.name)
-            self._model.setParam("LogToConsole", 0)
+            self._model.setParam("LogToConsole", 1)
             self._model.setParam("OutputFlag", 1)
             self._model.setParam("TimeLimit", time_limit)
 

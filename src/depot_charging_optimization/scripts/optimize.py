@@ -1,26 +1,13 @@
 import json
-import logging
 import os
-import sys
 from time import perf_counter
 
 import click
 import pandas as pd
-from rich.console import Console
-from rich.logging import RichHandler
 
 from depot_charging_optimization.core import CasadiOptimizer, GurobiOptimizer
 from depot_charging_optimization.data_models import Input
-
-# Basic Rich logging setup
-logging.basicConfig(
-    level="INFO",
-    format="%(message)s",
-    datefmt="[%X]",
-    handlers=[RichHandler(console=Console(file=sys.stderr), markup=True)],
-)  # or DEBUG
-
-logger = logging.getLogger("optimize")
+from depot_charging_optimization.logging import get_logger, log_stdout
 
 
 @click.command()
@@ -47,7 +34,9 @@ def optimize(
     debug,
 ):
     if debug:
-        logger.setLevel(logging.DEBUG)
+        logger = get_logger(name="optimize", level="debug")
+    else:
+        logger = get_logger(name="optimize", level="info")
     data = []
     logger.info("Reading files:")
     for i, file in enumerate(data_files):
@@ -75,7 +64,8 @@ def optimize(
     optimizer.build(ce_function_type=ce_function, alpha=alpha)
 
     # solve
-    solution = optimizer.solve()
+    with log_stdout(logger, level="debug"):
+        solution = optimizer.solve()
     optimization_time = perf_counter() - start
 
     if solution is None:
