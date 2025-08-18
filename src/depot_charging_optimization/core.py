@@ -17,10 +17,12 @@ class Optimizer(ABC, Generic[OptVariable]):
         input_data: Input,
         name: str | None = None,
         bidirectional_charging: bool = False,
+        initial_soe: list[float | None] | None = None,
         **kwargs,
     ):
         self.input_data: Input = input_data
         self.name: str = name or self.__class__.__name__
+        self.initial_soe: list[float | None] | None = initial_soe
 
         # State
         self._built: bool = False
@@ -261,9 +263,10 @@ class GurobiOptimizer(Optimizer[gp.Var]):
         input_data: Input,
         name: str = "GurobiOptimizer",
         bidirectional_charging: bool = True,
+        initial_soe: list[float | None] | None = None,
         time_limit: int = 5,
     ):
-        super().__init__(input_data, name=name, bidirectional_charging=bidirectional_charging)
+        super().__init__(input_data, name=name, bidirectional_charging=bidirectional_charging, initial_soe=initial_soe)
         with suppress_stdout_stderr():
             self._model: gp.Model = gp.Model(self.name)
             self._model.setParam("LogToConsole", 1)
@@ -349,6 +352,12 @@ class GurobiOptimizer(Optimizer[gp.Var]):
                 f"maxChargingPower_{t_i}",
             )
 
+        # initial state of energy
+        if self.initial_soe is not None:
+            for vehicle, soe in enumerate(self.initial_soe):
+                if soe is not None:
+                    self._model.addConstr(self._state_of_energy[vehicle][0] == soe * self._factor_soe)
+
     def _set_objective(self, **kwargs) -> None:
         assert self.input_data.energy_price is not None, "Energy price not provided"
         assert self.input_data.grid_tariff is not None, "Grid tariff not provided"
@@ -385,9 +394,10 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
         self,
         input_data: Input,
         name: str = "CasadiOptimizer",
+        initial_soe: list[float | None] | None = None,
         bidirectional_charging: bool = True,
     ):
-        super().__init__(input_data, name=name, bidirectional_charging=bidirectional_charging)
+        super().__init__(input_data, name=name, bidirectional_charging=bidirectional_charging, initial_soe=initial_soe)
 
         self._constraints: list[ca.casadi.MX] = []
         self._constraints_lb: list[float] = []
@@ -482,6 +492,14 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
 
                 if not self.input_data.depot_charge[vehicle][t_i]:
                     self._constraints.append(self._charging_power[vehicle][t_i])
+                    self._constraints_lb.append(0)
+                    self._constraints_ub.append(0)
+
+        # initial state of energy
+        if self.initial_soe is not None:
+            for vehicle, soe in enumerate(self.initial_soe):
+                if soe is not None:
+                    self._constraints.append(self._state_of_energy[vehicle][0] - soe * self._factor_soe)
                     self._constraints_lb.append(0)
                     self._constraints_ub.append(0)
 
