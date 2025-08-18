@@ -99,7 +99,7 @@ class Input(BaseModel):
         if self.energy_price is None:
             rotated_energy_price = None
         else:
-            rotated_energy_price = (self.energy_price[1:] + self.energy_price[0],)
+            rotated_energy_price = self.energy_price[1:] + [self.energy_price[0]]
 
         return Input(
             num_timesteps=self.num_timesteps,
