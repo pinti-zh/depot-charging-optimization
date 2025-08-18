@@ -95,6 +95,27 @@ class Input(BaseModel):
             self.is_battery = [False] * self.num_vehicles
         return self
 
+    def rotate(self) -> "Input":
+        if self.energy_price is None:
+            rotated_energy_price = None
+        else:
+            rotated_energy_price = (self.energy_price[1:] + self.energy_price[0],)
+
+        return Input(
+            num_timesteps=self.num_timesteps,
+            num_vehicles=self.num_vehicles,
+            time=[t - self.time[0] for t in self.time[1:]] + [self.time[-1]],
+            energy_demand=[item[1:] + [item[0]] for item in self.energy_demand],
+            soe_lb=self.soe_lb,
+            soe_ub=self.soe_ub,
+            max_charging_power=self.max_charging_power,
+            battery_capacity=self.battery_capacity,
+            depot_charge=[item[1:] + [item[0]] for item in self.depot_charge],
+            energy_price=rotated_energy_price,
+            grid_tariff=self.grid_tariff,
+            is_battery=self.is_battery,
+        )
+
     @classmethod
     def from_dataframe(cls, df: pd.DataFrame):
         required_dataframe_columns = [

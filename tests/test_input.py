@@ -219,6 +219,26 @@ class TestConcatenate:
         assert concatenated.is_battery == [False]
 
 
+class TestRotation:
+    def test_simple(self):
+        input_data = Input(
+            num_vehicles=1,
+            time=[5, 8, 10],
+            energy_demand=[[0.0, 1.0, 0.0]],
+            soe_lb=[0.2],
+            soe_ub=[0.8],
+            max_charging_power=1.0,
+            battery_capacity=[1.0],
+            depot_charge=[[True, False, True]],
+            is_battery=[False],
+        )
+
+        rotated = input_data.rotate()
+        assert rotated.time == [3, 5, 10]
+        assert rotated.energy_demand == [[1.0, 0.0, 0.0]]
+        assert rotated.depot_charge == [[False, True, True]]
+
+
 class TestEnergyPrice:
     def test_energy_price_single(self):
         df = pd.DataFrame(
