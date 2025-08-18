@@ -162,3 +162,32 @@ class TestOptimiazationChargingEfficiency:
 
         solution = optimizer.solve()
         assert abs(solution.total_cost - 50.0) < EPS
+
+
+class TestInitialSoE:
+    def test_simple(self):
+        input_data = Input(
+            num_vehicles=1,
+            time=[1, 2, 3],
+            energy_demand=[[0.0, 1.0, 0.0]],
+            soe_lb=[0.2],
+            soe_ub=[0.8],
+            max_charging_power=1.0,
+            battery_capacity=[10.0],
+            depot_charge=[[True, False, True]],
+            is_battery=[False],
+        )
+
+        energy_price = pd.DataFrame({"time": [1, 2, 3], "energy_price": [2.0, 1.0, 1.0]})
+        grid_tariff = 0.0
+
+        input_data = input_data.add_energy_price(
+            energy_price["time"].to_list(), energy_price["energy_price"].to_list()
+        )
+        input_data = input_data.add_grid_tariff(grid_tariff)
+
+        optimizer = GurobiOptimizer(input_data, initial_soe=[2.0])
+        optimizer.build()
+
+        solution = optimizer.solve()
+        assert abs(solution.total_cost - 2.0) < EPS
