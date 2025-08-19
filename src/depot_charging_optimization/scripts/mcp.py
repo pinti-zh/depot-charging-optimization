@@ -1,5 +1,4 @@
 import json
-from copy import deepcopy
 
 import click
 import matplotlib.pyplot as plt
@@ -30,29 +29,22 @@ def mcp(data_files, energy_price_file):
     plan = plan.add_energy_price(energy_price["time"].to_list(), energy_price["energy_price"].to_list())
     plan = plan.add_grid_tariff(1.2e-4)
 
-    # quick test
-    plan_copy = deepcopy(plan)
-    test_soe = None
-    for i in range(100):
-        optimizer = GurobiOptimizer(plan_copy, bidirectional_charging=False, initial_soe=test_soe)
-        optimizer.build(ce_function_type="quadratic", alpha=0.8)
-        with suppress_stdout_stderr():
-            solution = optimizer.solve()
-        logger.info(f"Run {i + 1}, Total Cost: {solution.total_cost}")
-        plan_copy = plan_copy.rotate()
-        test_soe = [soe[0] for soe in solution.state_of_energy]
-
-    return
+    alpha = 0.8
 
     # Get optimal initial state
-    initial_soe = [bc * 0.5 for bc in plan.battery_capacity]
-    optimizer = GurobiOptimizer(plan, bidirectional_charging=False, initial_soe=initial_soe)
-    optimizer.build(ce_function_type="quadratic", alpha=0.8)
+    optimizer = GurobiOptimizer(plan, bidirectional_charging=False)
+    optimizer.build(ce_function_type="quadratic", alpha=alpha)
     with suppress_stdout_stderr():
         global_solution = optimizer.solve()
 
     initial_soe = [soe[0] for soe in global_solution.state_of_energy]
-    env = Environment(initial_soe)
+
+    def charging_efficiency(p):
+        n = p / plan.max_charging_power
+        e = n - (1 - alpha) * n**2 / 2
+        return e * plan.max_charging_power
+
+    env = Environment(plan, initial_soe, charging_efficiency)
 
     # history
     time = [0]
@@ -68,7 +60,7 @@ def mcp(data_files, energy_price_file):
         logger.info(f"Global SoE:  {[soe[i] for soe in global_solution.state_of_energy]}")
 
         # optimize and find policy
-        optimizer = GurobiOptimizer(plan, bidirectional_charging=False, initial_soe=current_soe)
+        optimizer = GurobiOptimizer(env.plan, bidirectional_charging=False, initial_soe=current_soe)
         optimizer.build(ce_function_type="quadratic", alpha=0.8)
         with suppress_stdout_stderr():
             solution = optimizer.solve()
@@ -79,16 +71,14 @@ def mcp(data_files, energy_price_file):
         logger.info(f"Local Policy: {policy}")
 
         # track energy cost and max charging power
-        energy_cost += sum(cp * plan.time[0] * plan.energy_price[0] for cp in policy)
+        energy_cost += sum(cp * env.plan.time[0] * env.plan.energy_price[0] for cp in policy)
         max_charging_power = max(max_charging_power, max(policy))
 
         # update state of energy
-        current_soe = env.step(plan, policy)
+        current_soe = env.step(policy)
         for i, soe in enumerate(current_soe):
             state_history[i].append(soe)
-        time.append(time[-1] + plan.time[0])
-
-        plan = plan.rotate()
+        time.append(time[-1] + env.plan.time[0])
 
     power_cost = 1.2e-4 * max_charging_power
     total_cost = energy_cost + power_cost
@@ -101,5 +91,5 @@ def mcp(data_files, energy_price_file):
     logger.info(f"Power cost of solution:   {' ' * (max_cost_string_length - len(power_cost))}{power_cost}")
 
     for trace in state_history:
-        plt.plot(time, [v / 3.6e6 if v is not None else 0.0 for v in trace])
+        plt.plot(time, [v / 3.6e6 if v is not None else None for v in trace])
     plt.show()
