@@ -22,7 +22,7 @@ class Optimizer(ABC, Generic[OptVariable]):
     ):
         self.input_data: Input = input_data
         self.name: str = name or self.__class__.__name__
-        self.initial_soe: list[float | None] | None = initial_soe
+        self._initial_soe: list[float | None] | None = initial_soe
 
         # State
         self._built: bool = False
@@ -353,8 +353,8 @@ class GurobiOptimizer(Optimizer[gp.Var]):
             )
 
         # initial state of energy
-        if self.initial_soe is not None:
-            for vehicle, soe in enumerate(self.initial_soe):
+        if self._initial_soe is not None:
+            for vehicle, soe in enumerate(self._initial_soe):
                 if soe is not None:
                     self._model.addConstr(self._state_of_energy[vehicle][0] == soe * self._factor_soe)
 
@@ -496,8 +496,8 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
                     self._constraints_ub.append(0)
 
         # initial state of energy
-        if self.initial_soe is not None:
-            for vehicle, soe in enumerate(self.initial_soe):
+        if self._initial_soe is not None:
+            for vehicle, soe in enumerate(self._initial_soe):
                 if soe is not None:
                     self._constraints.append(self._state_of_energy[vehicle][0] - soe * self._factor_soe)
                     self._constraints_lb.append(0)

@@ -325,7 +325,7 @@ class Input(BaseModel):
             raise ValueError("Cannot extend Input to new time period, Input.time is not positive")
 
         energy_demand: list[list[float]] = [[] for _ in range(self.num_vehicles)]
-        depot_charge: list[list[float]] = [[] for _ in range(self.num_vehicles)]
+        depot_charge: list[list[bool]] = [[] for _ in range(self.num_vehicles)]
         for t1, t2 in zip([0] + extended_time[:-1], extended_time):
             index = self._index_of_time_interval(t1, t2)
             if index == 0:
