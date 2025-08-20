@@ -22,7 +22,8 @@ from depot_charging_optimization.logging import get_logger, suppress_stdout_stde
 )
 @click.option("--days", type=int, default=10, help="number of days simulated")
 @click.option("--alpha", "-a", type=float, default=1.0, help="charging efficiency")
-def mcp(data_files, energy_price_file, steps_until_reoptimization, days, alpha):
+@click.option("--sigma", "-s", type=float, default=0.0, help="standard deviation of energy demand")
+def mcp(data_files, energy_price_file, steps_until_reoptimization, days, alpha, sigma):
     logger = get_logger("mcp")
 
     input_data = []
@@ -50,7 +51,7 @@ def mcp(data_files, energy_price_file, steps_until_reoptimization, days, alpha):
         e = n - (1 - alpha) * n**2 / 2
         return e * plan.max_charging_power
 
-    env = Environment(plan, initial_soe, charging_efficiency)
+    env = Environment(plan, initial_soe, charging_efficiency, sigma=sigma)
     looped_plan = plan.loop(days)
 
     charging_power = [[] for _ in range(plan.num_vehicles)]
