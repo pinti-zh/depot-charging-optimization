@@ -109,6 +109,9 @@ def mcp(data_files, energy_price_file, steps_until_reoptimization, days, alpha, 
     logger.info(f"Energy cost of solution:  {' ' * (max_cost_string_length - len(energy_cost_str))}{energy_cost_str}")
     logger.info(f"Power cost of solution:   {' ' * (max_cost_string_length - len(power_cost_str))}{power_cost_str}")
 
+    if len(charging_power[0]) < looped_plan.num_timesteps:
+        looped_plan = looped_plan.truncate(len(charging_power[0]))
+
     solution = Solution(
         input_data=looped_plan,
         total_cost=total_cost,

@@ -116,6 +116,22 @@ class Input(BaseModel):
             is_battery=self.is_battery,
         )
 
+    def truncate(self, n: int) -> "Input":
+        return Input(
+            num_timesteps=min(self.num_timesteps, n),
+            num_vehicles=self.num_vehicles,
+            time=self.time[:n],
+            energy_demand=[energy_demand[:n] for energy_demand in self.energy_demand],
+            soe_lb=self.soe_lb,
+            soe_ub=self.soe_ub,
+            max_charging_power=self.max_charging_power,
+            battery_capacity=self.battery_capacity,
+            depot_charge=[depot_charge[:n] for depot_charge in self.depot_charge],
+            energy_price=self.energy_price[:n] if self.energy_price is not None else None,
+            grid_tariff=self.grid_tariff,
+            is_battery=self.is_battery,
+        )
+
     def loop(self, loops: int) -> "Input":
         if self.energy_price is None:
             looped_energy_price = None
