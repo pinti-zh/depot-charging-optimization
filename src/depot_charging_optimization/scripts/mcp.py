@@ -1,12 +1,11 @@
 import json
 
 import click
-import matplotlib.pyplot as plt
 import pandas as pd
 
 from depot_charging_optimization.controller import policy_from_solution
 from depot_charging_optimization.core import GurobiOptimizer
-from depot_charging_optimization.data_models import Input
+from depot_charging_optimization.data_models import Input, Solution
 from depot_charging_optimization.environment import Environment
 from depot_charging_optimization.logging import get_logger, suppress_stdout_stderr
 
@@ -52,10 +51,11 @@ def mcp(data_files, energy_price_file, steps_until_reoptimization, days, alpha):
         return e * plan.max_charging_power
 
     env = Environment(plan, initial_soe, charging_efficiency)
+    looped_plan = plan.loop(days)
 
-    # history
-    time = [0]
-    state_history = [[soe] for soe in initial_soe]
+    charging_power = [[] for _ in range(plan.num_vehicles)]
+    effective_charging_power = [[] for _ in range(plan.num_vehicles)]
+    state_of_energy = [[initial_soe[vehicle]] for vehicle in range(plan.num_vehicles)]
 
     num_steps = len(plan.time) * days
     energy_cost = 0
@@ -85,24 +85,41 @@ def mcp(data_files, energy_price_file, steps_until_reoptimization, days, alpha):
         energy_cost += sum(cp * env.plan.time[0] * env.plan.energy_price[0] for cp in policy[k])
         max_charging_power = max(max_charging_power, max(policy[k]))
 
+        for vehicle, cp in enumerate(policy[k]):
+            charging_power[vehicle].append(cp)
+            effective_charging_power[vehicle].append(charging_efficiency(cp))
+
         # update state of energy
         current_soe = env.step(policy[k])
-        for i, soe in enumerate(current_soe):
-            state_history[i].append(soe)
-        time.append(time[-1] + env.plan.time[0])
+        for vehicle, soe in enumerate(current_soe):
+            state_of_energy[vehicle].append(soe or 0.0)
+
         k = (k + 1) % steps_until_reoptimization
         logger.info("----------------------------------------------------------------------")
 
     power_cost = 1.2e-4 * max_charging_power
     total_cost = energy_cost + power_cost
-    total_cost = f"{total_cost:.3f} $"
-    energy_cost = f"{energy_cost:.3f} $"
-    power_cost = f"{power_cost:.3f} $"
-    max_cost_string_length = max(map(len, [total_cost, energy_cost, power_cost]))
-    logger.info(f"Total cost of solution:   {' ' * (max_cost_string_length - len(total_cost))}{total_cost}")
-    logger.info(f"Energy cost of solution:  {' ' * (max_cost_string_length - len(energy_cost))}{energy_cost}")
-    logger.info(f"Power cost of solution:   {' ' * (max_cost_string_length - len(power_cost))}{power_cost}")
 
-    for trace in state_history:
-        plt.plot(time, [v / 3.6e6 if v is not None else None for v in trace])
-    plt.show()
+    total_cost_str = f"{total_cost:.3f} $"
+    energy_cost_str = f"{energy_cost:.3f} $"
+    power_cost_str = f"{power_cost:.3f} $"
+    max_cost_string_length = max(map(len, [total_cost_str, energy_cost_str, power_cost_str]))
+    logger.info(f"Total cost of solution:   {' ' * (max_cost_string_length - len(total_cost_str))}{total_cost_str}")
+    logger.info(f"Energy cost of solution:  {' ' * (max_cost_string_length - len(energy_cost_str))}{energy_cost_str}")
+    logger.info(f"Power cost of solution:   {' ' * (max_cost_string_length - len(power_cost_str))}{power_cost_str}")
+
+    solution = Solution(
+        input_data=looped_plan,
+        total_cost=total_cost,
+        energy_cost=energy_cost,
+        power_cost=power_cost,
+        gap=0.0,
+        max_charging_power_used=max_charging_power,
+        charging_power=charging_power,
+        effective_charging_power=effective_charging_power,
+        state_of_energy=state_of_energy,
+    )
+    solution_file = "outputs/solutions/solution.json"
+    with open(solution_file, "w") as f:
+        f.write(solution.model_dump_json(indent=4))
+    logger.info(f"Saved solution to [cyan3]{solution_file}")

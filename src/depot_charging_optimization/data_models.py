@@ -116,6 +116,32 @@ class Input(BaseModel):
             is_battery=self.is_battery,
         )
 
+    def loop(self, loops: int) -> "Input":
+        if self.energy_price is None:
+            looped_energy_price = None
+        else:
+            looped_energy_price = self.energy_price * loops
+
+        looped_time = []
+        max_time = max(self.time)
+        for i in range(loops):
+            looped_time += [t + (i * max_time) for t in self.time]
+
+        return Input(
+            num_timesteps=self.num_timesteps * loops,
+            num_vehicles=self.num_vehicles,
+            time=looped_time,
+            energy_demand=[energy_demand * loops for energy_demand in self.energy_demand],
+            soe_lb=self.soe_lb,
+            soe_ub=self.soe_ub,
+            max_charging_power=self.max_charging_power,
+            battery_capacity=self.battery_capacity,
+            depot_charge=[depot_charge * loops for depot_charge in self.depot_charge],
+            energy_price=looped_energy_price,
+            grid_tariff=self.grid_tariff,
+            is_battery=self.is_battery,
+        )
+
     @classmethod
     def from_dataframe(cls, df: pd.DataFrame):
         required_dataframe_columns = [
