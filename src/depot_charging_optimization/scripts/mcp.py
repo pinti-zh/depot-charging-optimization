@@ -13,8 +13,17 @@ from depot_charging_optimization.logging import get_logger, suppress_stdout_stde
 
 @click.command()
 @click.argument("data_files", type=str, nargs=-1)
-@click.option("energy_price_file", "-epf", type=str, default="data/energy_price.csv", help="energy price file")
-def mcp(data_files, energy_price_file):
+@click.option("--energy_price_file", "-epf", type=str, default="data/energy_price.csv", help="energy price file")
+@click.option(
+    "--steps_until_reoptimization",
+    "-reop",
+    type=int,
+    default=10,
+    help="number of steps taken before reoptimizing policy",
+)
+@click.option("--days", type=int, default=10, help="number of days simulated")
+@click.option("--alpha", "-a", type=float, default=1.0, help="charging efficiency")
+def mcp(data_files, energy_price_file, steps_until_reoptimization, days, alpha):
     logger = get_logger("mcp")
 
     input_data = []
@@ -28,8 +37,6 @@ def mcp(data_files, energy_price_file):
 
     plan = plan.add_energy_price(energy_price["time"].to_list(), energy_price["energy_price"].to_list())
     plan = plan.add_grid_tariff(1.2e-4)
-
-    alpha = 0.8
 
     # Get optimal initial state
     optimizer = GurobiOptimizer(plan, bidirectional_charging=False)
@@ -50,35 +57,41 @@ def mcp(data_files, energy_price_file):
     time = [0]
     state_history = [[soe] for soe in initial_soe]
 
-    num_steps = len(plan.time)
+    num_steps = len(plan.time) * days
     energy_cost = 0
     max_charging_power = 0
+    k = 0
+    policy = None
     current_soe = initial_soe
     for i in range(num_steps):
         logger.info(f"Step {i + 1}")
-        logger.info(f"Current SoE: {current_soe}")
-        logger.info(f"Global SoE:  {[soe[i] for soe in global_solution.state_of_energy]}")
+        logger.info(
+            f"  Current SoE: ({', '.join([f'{soe:.5f}' if soe is not None else '---' for soe in current_soe])[:-1]})"
+        )
 
         # optimize and find policy
-        optimizer = GurobiOptimizer(env.plan, bidirectional_charging=False, initial_soe=current_soe)
-        optimizer.build(ce_function_type="quadratic", alpha=0.8)
-        with suppress_stdout_stderr():
-            solution = optimizer.solve()
-        if solution is None:
-            break
-        policy = policy_from_solution(solution)
-        logger.info(f"Global Policy: {[cp[i] for cp in global_solution.charging_power]}")
-        logger.info(f"Local Policy: {policy}")
+        if k == 0:
+            logger.info(f"  [orange1]Optimizing the next {steps_until_reoptimization} steps")
+            optimizer = GurobiOptimizer(env.plan, bidirectional_charging=False, initial_soe=current_soe)
+            optimizer.build(ce_function_type="quadratic", alpha=0.8)
+            with suppress_stdout_stderr():
+                solution = optimizer.solve()
+            if solution is None:
+                break
+            policy = policy_from_solution(solution, steps_until_reoptimization)
+        logger.info(f"  Policy: ({', '.join([f'{cp:.5f}' for cp in policy[k]])[:-1]})")
 
         # track energy cost and max charging power
-        energy_cost += sum(cp * env.plan.time[0] * env.plan.energy_price[0] for cp in policy)
-        max_charging_power = max(max_charging_power, max(policy))
+        energy_cost += sum(cp * env.plan.time[0] * env.plan.energy_price[0] for cp in policy[k])
+        max_charging_power = max(max_charging_power, max(policy[k]))
 
         # update state of energy
-        current_soe = env.step(policy)
+        current_soe = env.step(policy[k])
         for i, soe in enumerate(current_soe):
             state_history[i].append(soe)
         time.append(time[-1] + env.plan.time[0])
+        k = (k + 1) % steps_until_reoptimization
+        logger.info("----------------------------------------------------------------------")
 
     power_cost = 1.2e-4 * max_charging_power
     total_cost = energy_cost + power_cost
