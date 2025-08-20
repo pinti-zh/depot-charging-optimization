@@ -66,20 +66,21 @@ def mcp(data_files, energy_price_file, steps_until_reoptimization, days, alpha, 
     current_soe = initial_soe
     for i in range(num_steps):
         logger.info(f"Step {i + 1}")
-        logger.info(
-            f"  Current SoE: ({', '.join([f'{soe:.5f}' if soe is not None else '---' for soe in current_soe])[:-1]})"
-        )
 
         # optimize and find policy
         if k == 0:
-            logger.info(f"  [orange1]Optimizing the next {steps_until_reoptimization} steps")
+            logger.info(f"  [light_sea_green]Optimizing the next {steps_until_reoptimization} steps")
             optimizer = GurobiOptimizer(env.plan, bidirectional_charging=False, initial_soe=current_soe)
             optimizer.build(ce_function_type="quadratic", alpha=0.8)
             with suppress_stdout_stderr():
                 solution = optimizer.solve()
             if solution is None:
+                logger.warning("  [orange1]Optimizer encountered infeasible problem -- stopping early")
                 break
             policy = policy_from_solution(solution, steps_until_reoptimization)
+        logger.info(
+            f"  Current SoE: ({', '.join([f'{soe:.5f}' if soe is not None else '---' for soe in current_soe])[:-1]})"
+        )
         logger.info(f"  Policy: ({', '.join([f'{cp:.5f}' for cp in policy[k]])[:-1]})")
 
         # track energy cost and max charging power
@@ -93,7 +94,7 @@ def mcp(data_files, energy_price_file, steps_until_reoptimization, days, alpha, 
         # update state of energy
         current_soe = env.step(policy[k])
         for vehicle, soe in enumerate(current_soe):
-            state_of_energy[vehicle].append(soe or 0.0)
+            state_of_energy[vehicle].append(env.soe[vehicle])
 
         k = (k + 1) % steps_until_reoptimization
         logger.info("----------------------------------------------------------------------")
