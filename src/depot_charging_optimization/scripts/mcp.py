@@ -75,8 +75,8 @@ def mcp(data_files, energy_price_file, steps_until_reoptimization, days, alpha, 
     policy = None
     current_soe = initial_soe
 
-    step_generator = range(num_steps) if debug else tqdm(range(num_steps))
     logger.info("Running simulation")
+    step_generator = range(num_steps) if debug else tqdm(range(num_steps))
     for i in step_generator:
         logger.debug(f"Step {i + 1}")
 
