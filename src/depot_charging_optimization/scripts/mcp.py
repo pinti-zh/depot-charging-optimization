@@ -2,6 +2,7 @@ import json
 
 import click
 import pandas as pd
+from tqdm import tqdm
 
 from depot_charging_optimization.controller import policy_from_solution
 from depot_charging_optimization.core import GurobiOptimizer
@@ -23,8 +24,13 @@ from depot_charging_optimization.logging import get_logger, suppress_stdout_stde
 @click.option("--days", type=int, default=10, help="number of days simulated")
 @click.option("--alpha", "-a", type=float, default=1.0, help="charging efficiency")
 @click.option("--sigma", "-s", type=float, default=0.0, help="standard deviation of energy demand")
-def mcp(data_files, energy_price_file, steps_until_reoptimization, days, alpha, sigma):
-    logger = get_logger("mcp")
+@click.option("--equalize_timesteps", "-eqt", is_flag=True, default=False, help="equalize timesteps of data")
+@click.option("--debug", "-d", is_flag=True, default=False, help="print debug messages")
+def mcp(data_files, energy_price_file, steps_until_reoptimization, days, alpha, sigma, equalize_timesteps, debug):
+    if debug:
+        logger = get_logger(name="mcp", level="debug")
+    else:
+        logger = get_logger(name="mcp", level="info")
 
     input_data = []
     for data_file in data_files:
@@ -34,6 +40,10 @@ def mcp(data_files, energy_price_file, steps_until_reoptimization, days, alpha, 
 
     energy_price = pd.read_csv(energy_price_file)
     energy_price["energy_price"] /= 3.6e6
+
+    if equalize_timesteps:
+        plan = plan.equalize_timesteps()
+        logger.debug(f"Equalized timesteps to {plan.time[0]}")
 
     plan = plan.add_energy_price(energy_price["time"].to_list(), energy_price["energy_price"].to_list())
     plan = plan.add_grid_tariff(1.2e-4)
@@ -64,12 +74,15 @@ def mcp(data_files, energy_price_file, steps_until_reoptimization, days, alpha, 
     k = 0
     policy = None
     current_soe = initial_soe
-    for i in range(num_steps):
-        logger.info(f"Step {i + 1}")
+
+    step_generator = range(num_steps) if debug else tqdm(range(num_steps))
+    logger.info("Running simulation")
+    for i in step_generator:
+        logger.debug(f"Step {i + 1}")
 
         # optimize and find policy
         if k == 0:
-            logger.info(f"  [light_sea_green]Optimizing the next {steps_until_reoptimization} steps")
+            logger.debug(f"  [light_sea_green]Optimizing the next {steps_until_reoptimization} steps")
             optimizer = GurobiOptimizer(env.plan, bidirectional_charging=False, initial_soe=current_soe)
             optimizer.build(ce_function_type="quadratic", alpha=0.8)
             with suppress_stdout_stderr():
@@ -78,10 +91,10 @@ def mcp(data_files, energy_price_file, steps_until_reoptimization, days, alpha, 
                 logger.warning("  [orange1]Optimizer encountered infeasible problem -- stopping early")
                 break
             policy = policy_from_solution(solution, steps_until_reoptimization)
-        logger.info(
+        logger.debug(
             f"  Current SoE: ({', '.join([f'{soe:.5f}' if soe is not None else '---' for soe in current_soe])[:-1]})"
         )
-        logger.info(f"  Policy: ({', '.join([f'{cp:.5f}' for cp in policy[k]])[:-1]})")
+        logger.debug(f"  Policy: ({', '.join([f'{cp:.5f}' for cp in policy[k]])[:-1]})")
 
         # track energy cost and max charging power
         energy_cost += sum(cp * env.plan.time[0] * env.plan.energy_price[0] for cp in policy[k])
@@ -97,7 +110,7 @@ def mcp(data_files, energy_price_file, steps_until_reoptimization, days, alpha, 
             state_of_energy[vehicle].append(env.soe[vehicle])
 
         k = (k + 1) % steps_until_reoptimization
-        logger.info("----------------------------------------------------------------------")
+        logger.debug("----------------------------------------------------------------------")
 
     power_cost = 1.2e-4 * max_charging_power * days
     total_cost = energy_cost + power_cost
