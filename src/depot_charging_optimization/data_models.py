@@ -1,3 +1,6 @@
+from functools import reduce
+from math import gcd
+
 import pandas as pd
 from pydantic import BaseModel, field_validator, model_validator
 
@@ -157,6 +160,22 @@ class Input(BaseModel):
             grid_tariff=self.grid_tariff,
             is_battery=self.is_battery,
         )
+
+    def maximum_possible_equal_timestep(self) -> int:
+        delta_time = []
+        for t1, t2 in zip([0] + self.time[:-1], self.time):
+            delta_time.append(t2 - t1)
+        return reduce(gcd, delta_time)
+
+    def equalize_timesteps(self, dt: int | None = None) -> "Input":
+        max_dt = self.maximum_possible_equal_timestep()
+        dt = dt or max_dt
+
+        if gcd(max_dt, dt) != dt:
+            raise ValueError(f"Incompatible dt for equalizing timestep: dt = {dt}, must be divisor of {max_dt}")
+        equalized_timesteps = [dt * (i + 1) for i in range(self.time[-1] // dt)]
+
+        return self._extend(equalized_timesteps)
 
     @classmethod
     def from_dataframe(cls, df: pd.DataFrame):
