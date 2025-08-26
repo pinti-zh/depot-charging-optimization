@@ -99,7 +99,7 @@ def mcp(data_files, energy_price_file, steps_until_reoptimization, days, alpha, 
         k = (k + 1) % steps_until_reoptimization
         logger.info("----------------------------------------------------------------------")
 
-    power_cost = 1.2e-4 * max_charging_power
+    power_cost = 1.2e-4 * max_charging_power * days
     total_cost = energy_cost + power_cost
 
     total_cost_str = f"{total_cost:.3f} $"
