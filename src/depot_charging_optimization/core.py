@@ -370,7 +370,7 @@ class GurobiOptimizer(Optimizer[gp.Var]):
                     * self._delta_time[t_i]
                     * (self._factor_soe / self._factor_cp)
                     - energy_demand_high * self._factor_soe,
-                    f"energyFlow_v{vehicle}_{t_i}",
+                    f"energyFlowLowerEnvelope_v{vehicle}_{t_i}",
                 )
                 if not self.input_data.depot_charge[vehicle][t_i]:
                     self._model.addConstr(
