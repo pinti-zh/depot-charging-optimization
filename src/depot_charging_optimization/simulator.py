@@ -44,7 +44,7 @@ class Simulator(ABC):
         return max(self.total_charging_power)
 
     @property
-    def total_charging_power(self) -> list[list[float]]:
+    def total_charging_power(self) -> list[float]:
         tcp = []
         cp = self.charging_power
         for t_i in range(self.input_data.num_timesteps):
@@ -122,6 +122,7 @@ class GreedySimulator(Simulator):
             charging_power=self.charging_power,
             effective_charging_power=self.effective_charging_power,
             state_of_energy=self.state_of_energy,
+            lower_soe_envelope=self.state_of_energy,
         )
 
 
@@ -170,6 +171,7 @@ class PeakShavingSimulator(Simulator):
             charging_power=self.charging_power,
             effective_charging_power=self.effective_charging_power,
             state_of_energy=self.state_of_energy,
+            lower_soe_envelope=self.state_of_energy,
         )
 
 
