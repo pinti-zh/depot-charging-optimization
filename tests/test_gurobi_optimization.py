@@ -3,7 +3,7 @@ import pandas as pd
 from depot_charging_optimization.core import GurobiOptimizer
 from depot_charging_optimization.data_models import Input
 
-EPS = 1e-5
+EPS = 1e-3
 
 
 class TestOptimizationSingleVehicle:

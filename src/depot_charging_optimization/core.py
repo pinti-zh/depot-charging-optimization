@@ -49,6 +49,9 @@ class Optimizer(ABC, Generic[OptVariable]):
         self._total_charging_power: list[OptVariable] = []
         self._mcp: OptVariable | None = None
 
+        # envelope for stochastic robustness
+        self._lower_soe_envelope: list[list[OptVariable]] = []
+
         # Scaling factors
         self._factor_cp: float = 1.0 / self.input_data.max_charging_power
         self._factor_soe: float = 1.0 / max(self.input_data.battery_capacity)
@@ -248,6 +251,16 @@ class Optimizer(ABC, Generic[OptVariable]):
                 for t_i in range(self._num_timesteps)
             ]
             self._mcp = self._set_variable("maxChargingPower", self._lb_mcp, self._ub_mcp)
+            self._lower_soe_envelope.append(
+                [
+                    self._set_variable(
+                        f"lowerSoEEnvelope_v{vehicle}_{t_i}",
+                        self._lb_soe[vehicle][t_i],
+                        self._ub_soe[vehicle][t_i],
+                    )
+                    for t_i in range(self._num_timesteps + 1)
+                ]
+            )
 
     @abstractmethod
     def _set_all_constraints(self, **kwargs: Any) -> None:
@@ -335,6 +348,18 @@ class GurobiOptimizer(Optimizer[gp.Var]):
                     * self._delta_time[t_i]
                     * (self._factor_soe / self._factor_cp)
                     - self.input_data.energy_demand[vehicle][t_i] * self._factor_soe,
+                    f"energyFlow_v{vehicle}_{t_i}",
+                )
+                energy_demand_high = upper_energy_confidence_bound(
+                    self.input_data.energy_demand[vehicle][t_i], self._confidence_level, self._energy_std_dev
+                )
+                self._model.addConstr(
+                    self._lower_soe_envelope[vehicle][t_i + 1]
+                    <= self._lower_soe_envelope[vehicle][t_i]
+                    + self._effective_charging_power[vehicle][t_i]
+                    * self._delta_time[t_i]
+                    * (self._factor_soe / self._factor_cp)
+                    - energy_demand_high * self._factor_soe,
                     f"energyFlow_v{vehicle}_{t_i}",
                 )
                 if not self.input_data.depot_charge[vehicle][t_i]:
@@ -513,6 +538,22 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
                 self._constraints_lb.append(float("-inf"))
                 self._constraints_ub.append(0)
 
+                energy_demand_high = upper_energy_confidence_bound(
+                    self.input_data.energy_demand[vehicle][t_i], self._confidence_level, self._energy_std_dev
+                )
+                self._constraints.append(
+                    self._lower_soe_envelope[vehicle][t_i + 1]
+                    - (
+                        self._lower_soe_envelope[vehicle][t_i]
+                        + self._effective_charging_power[vehicle][t_i]
+                        * self._delta_time[t_i]
+                        * (self._factor_soe / self._factor_cp)
+                        - energy_demand_high * self._factor_soe
+                    )
+                )
+                self._constraints_lb.append(float("-inf"))
+                self._constraints_ub.append(0)
+
                 if not self.input_data.depot_charge[vehicle][t_i]:
                     self._constraints.append(self._charging_power[vehicle][t_i])
                     self._constraints_lb.append(0)
@@ -569,6 +610,7 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
                 *flatten_lol(self._state_of_energy),
                 *self._total_charging_power,
                 self._mcp,
+                *flatten_lol(self._lower_soe_envelope),
             ),
             "f": self._objective,
             "g": ca.vertcat(*self._constraints),
@@ -578,8 +620,8 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
         self.solution_dict = solver(
             lbg=ca.vertcat(*self._constraints_lb),
             ubg=ca.vertcat(*self._constraints_ub),
-            lbx=ca.vertcat(*self._lb_cp, *self._lb_ecp, *self._lb_soe, *self._lb_tcp, self._lb_mcp),
-            ubx=ca.vertcat(*self._ub_cp, *self._ub_ecp, *self._ub_soe, *self._ub_tcp, self._ub_mcp),
+            lbx=ca.vertcat(*self._lb_cp, *self._lb_ecp, *self._lb_soe, *self._lb_tcp, self._lb_mcp, *self._lb_soe),
+            ubx=ca.vertcat(*self._ub_cp, *self._ub_ecp, *self._ub_soe, *self._ub_tcp, self._ub_mcp, *self._ub_soe),
         )
 
         if not solver.stats()["success"]:

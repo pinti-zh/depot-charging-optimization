@@ -24,6 +24,10 @@ from depot_charging_optimization.result_store import ResultStore
 @click.option("--use_casadi", "-uc", is_flag=True, default=False, help="use casadi instead of gurobi")
 @click.option("--bidirectional_charging", "-bc", is_flag=True, default=False, help="allow no bidirectional charging")
 @click.option("--debug", "-d", is_flag=True, default=False, help="print debug messages")
+@click.option("--confidence_level", "-cl", type=float, default=0.0, help="confidence level for stochastic robustness")
+@click.option(
+    "--energy_std_dev", "-esd", type=float, default=0.0, help="energy standard deviation for stochastic robustness"
+)
 def optimize(
     data_files,
     energy_price_file,
@@ -34,6 +38,8 @@ def optimize(
     use_casadi,
     bidirectional_charging,
     debug,
+    confidence_level,
+    energy_std_dev,
 ):
     if debug:
         logger = get_logger(name="optimize", level="debug")
@@ -59,9 +65,20 @@ def optimize(
     # optimization
     start = perf_counter()
     if use_casadi:
-        optimizer = CasadiOptimizer(data_input, bidirectional_charging=bidirectional_charging)
+        optimizer = CasadiOptimizer(
+            data_input,
+            bidirectional_charging=bidirectional_charging,
+            confidence_level=confidence_level,
+            energy_std_dev=energy_std_dev,
+        )
     else:
-        optimizer = GurobiOptimizer(data_input, bidirectional_charging=bidirectional_charging, time_limit=time_limit)
+        optimizer = GurobiOptimizer(
+            data_input,
+            bidirectional_charging=bidirectional_charging,
+            time_limit=time_limit,
+            confidence_level=confidence_level,
+            energy_std_dev=energy_std_dev,
+        )
 
     optimizer.build(ce_function_type=ce_function, alpha=alpha)
 
