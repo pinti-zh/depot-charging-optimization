@@ -18,6 +18,7 @@ dependencies = [
     "pandas",
     "casadi==3.7.0",
     "tqdm",
+    "scipy",
 ]
 
 [project.optional-dependencies]

@@ -4,6 +4,7 @@ from typing import Any, Generic, TypeVar
 import casadi as ca
 import gurobipy as gp
 from gurobipy import GRB
+from scipy.stats import norm
 
 from depot_charging_optimization.data_models import Input, Solution
 from depot_charging_optimization.logging import suppress_stdout_stderr
@@ -18,11 +19,15 @@ class Optimizer(ABC, Generic[OptVariable]):
         name: str | None = None,
         bidirectional_charging: bool = False,
         initial_soe: list[float | None] | None = None,
+        confidence_level: float = 0.0,
+        energy_std_dev: float = 0.0,
         **kwargs,
     ):
         self.input_data: Input = input_data
         self.name: str = name or self.__class__.__name__
         self._initial_soe: list[float | None] | None = initial_soe
+        self._confidence_level: float = confidence_level
+        self._energy_std_dev: float = energy_std_dev
 
         # State
         self._built: bool = False
@@ -265,8 +270,17 @@ class GurobiOptimizer(Optimizer[gp.Var]):
         bidirectional_charging: bool = True,
         initial_soe: list[float | None] | None = None,
         time_limit: int = 5,
+        confidence_level: float = 0.0,
+        energy_std_dev: float = 0.0,
     ):
-        super().__init__(input_data, name=name, bidirectional_charging=bidirectional_charging, initial_soe=initial_soe)
+        super().__init__(
+            input_data,
+            name=name,
+            bidirectional_charging=bidirectional_charging,
+            initial_soe=initial_soe,
+            confidence_level=confidence_level,
+            energy_std_dev=energy_std_dev,
+        )
         with suppress_stdout_stderr():
             self._model: gp.Model = gp.Model(self.name)
             self._model.setParam("LogToConsole", 1)
@@ -396,8 +410,17 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
         name: str = "CasadiOptimizer",
         initial_soe: list[float | None] | None = None,
         bidirectional_charging: bool = True,
+        confidence_level: float = 0.0,
+        energy_std_dev: float = 0.0,
     ):
-        super().__init__(input_data, name=name, bidirectional_charging=bidirectional_charging, initial_soe=initial_soe)
+        super().__init__(
+            input_data,
+            name=name,
+            bidirectional_charging=bidirectional_charging,
+            initial_soe=initial_soe,
+            confidence_level=confidence_level,
+            energy_std_dev=energy_std_dev,
+        )
 
         self._constraints: list[ca.casadi.MX] = []
         self._constraints_lb: list[float] = []
@@ -567,3 +590,9 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
 
 def flatten_lol(list_of_lists: list[Any]):
     return [item for sublist in list_of_lists for item in sublist]
+
+
+def upper_energy_confidence_bound(value: float, confidence_level: float, standard_deviation: float) -> float:
+    z = float(norm.ppf((1 - confidence_level) / 2))
+    dv = abs(value * standard_deviation * z)
+    return value + dv
