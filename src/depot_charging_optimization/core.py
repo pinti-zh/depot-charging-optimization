@@ -385,6 +385,12 @@ class GurobiOptimizer(Optimizer[gp.Var]):
                 f"energyLoop_v{vehicle}",
             )
 
+        for vehicle in range(self._num_vehicles):
+            self._model.addConstr(
+                self._lower_soe_envelope[vehicle][0] <= self._state_of_energy[vehicle][0],
+                f"initialEnvelopeValue_v{vehicle}",
+            )
+
         # total charging power
         for t_i in range(self._num_timesteps):
             self._model.addConstr(
@@ -595,6 +601,11 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
             self._constraints.append(
                 self._state_of_energy[vehicle][self._num_timesteps] - self._state_of_energy[vehicle][0]
             )
+            self._constraints_lb.append(0)
+            self._constraints_ub.append(float("inf"))
+
+        for vehicle in range(self._num_vehicles):
+            self._constraints.append(self._state_of_energy[vehicle][0] - self._lower_soe_envelope[vehicle][0])
             self._constraints_lb.append(0)
             self._constraints_ub.append(float("inf"))
 
