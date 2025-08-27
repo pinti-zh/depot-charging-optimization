@@ -436,6 +436,7 @@ class Solution(BaseModel):
     charging_power: list[list[float]]
     effective_charging_power: list[list[float]]
     state_of_energy: list[list[float]]
+    lower_soe_envelope: list[list[float]]
 
     @field_validator("gap")
     @classmethod
@@ -459,6 +460,11 @@ class Solution(BaseModel):
         if not len(self.state_of_energy) == num_vehicles:
             raise ValueError(f"Field[state_of_energy] has length {len(self.state_of_energy)}, expected {num_vehicles}")
 
+        if not len(self.lower_soe_envelope) == num_vehicles:
+            raise ValueError(
+                f"Field[lower_soe_envelope] has length {len(self.lower_soe_envelope)}, expected {num_vehicles}"
+            )
+
         # assert all lists contain lists with [num_timesteps] values
         for values in self.charging_power:
             if not len(values) == num_timesteps:
@@ -474,6 +480,11 @@ class Solution(BaseModel):
             if not len(values) == num_timesteps + 1:
                 raise ValueError(
                     f"Field[state_of_energy] contains list of length {len(values)}, expected {num_timesteps + 1}"
+                )
+        for values in self.lower_soe_envelope:
+            if not len(values) == num_timesteps + 1:
+                raise ValueError(
+                    f"Field[lower_soe_envelope] contains list of length {len(values)}, expected {num_timesteps + 1}"
                 )
 
         return self

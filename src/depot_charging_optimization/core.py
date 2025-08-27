@@ -120,6 +120,11 @@ class Optimizer(ABC, Generic[OptVariable]):
         pass
 
     @property
+    @abstractmethod
+    def lower_soe_envelope(self) -> list[list[float]]:
+        pass
+
+    @property
     def slack(self) -> dict[str, list[list[float]] | float]:
         state_of_energy = self.state_of_energy
         charging_power = self.charging_power
@@ -212,6 +217,7 @@ class Optimizer(ABC, Generic[OptVariable]):
             charging_power=self.charging_power,
             effective_charging_power=self.effective_charging_power,
             state_of_energy=self.state_of_energy,
+            lower_soe_envelope=self.lower_soe_envelope,
         )
 
     def _set_all_variables(self, **kwargs: Any) -> None:
@@ -311,6 +317,10 @@ class GurobiOptimizer(Optimizer[gp.Var]):
     @property
     def state_of_energy(self) -> list[list[float]]:
         return [list(map(lambda v: v.X / self._factor_soe, sublist)) for sublist in self._state_of_energy]
+
+    @property
+    def lower_soe_envelope(self) -> list[list[float]]:
+        return [list(map(lambda v: v.X / self._factor_soe, sublist)) for sublist in self._lower_soe_envelope]
 
     def _set_variable(self, name: str, lb: float, ub: float) -> gp.Var:
         return self._model.addVar(name=name, vtype=GRB.CONTINUOUS, lb=lb, ub=ub)
@@ -486,6 +496,19 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
         if self.solution_dict is None:
             raise ValueError("Solution is not computed")
         offset = 2 * self._num_vehicles * self._num_timesteps
+        return [
+            [
+                float(self.solution_dict["x"][offset + vehicle * (self._num_timesteps + 1) + t_i]) / self._factor_soe
+                for t_i in range(self._num_timesteps + 1)
+            ]
+            for vehicle in range(self._num_vehicles)
+        ]
+
+    @property
+    def lower_soe_envelope(self) -> list[list[float]]:
+        if self.solution_dict is None:
+            raise ValueError("Solution is not computed")
+        offset = 3 * self._num_vehicles * self._num_timesteps + self._num_vehicles + self._num_timesteps + 1
         return [
             [
                 float(self.solution_dict["x"][offset + vehicle * (self._num_timesteps + 1) + t_i]) / self._factor_soe

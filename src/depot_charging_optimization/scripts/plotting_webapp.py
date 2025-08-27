@@ -206,7 +206,17 @@ def detail_figure(vehicle: int = -1):
     time = [0] + solution.input_data.time
     color = TRACE_COLORS[vehicle % len(TRACE_COLORS)]
 
-    # state of Energy
+    # lower envelope
+    fig.add_trace(
+        go.Scatter(
+            x=convert_seconds_to_time(time),
+            y=[soe / 3.6e6 for soe in solution.lower_soe_envelope[vehicle]],
+            mode="lines",
+            marker=dict(color=color),
+            line=dict(dash="dot", color=color),
+        )
+    )
+    # state of energy
     fig.add_trace(
         go.Scatter(
             x=convert_seconds_to_time(time),
