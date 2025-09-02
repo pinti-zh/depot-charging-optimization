@@ -6,6 +6,7 @@ import sys
 
 from rich.console import Console
 from rich.logging import RichHandler
+from rich.theme import Theme
 
 
 def get_logger(name="my_logger", level="info"):
@@ -22,9 +23,20 @@ def get_logger(name="my_logger", level="info"):
     else:
         raise ValueError(f"Unknown log-level: {level}")
 
+    theme = Theme(
+        {
+            "logging.level.critical": "bold reverse red",
+            "logging.level.error": "bold red",
+            "logging.level.warning": "bold yellow",
+            "logging.level.info": "blue",
+            "logging.level.debug": "dim cyan",
+            "logging.level.notset": "dim",
+        }
+    )
+
     logger = logging.getLogger(name)
     logger.setLevel(log_level)
-    handler = RichHandler(console=Console(file=sys.stderr), markup=True, rich_tracebacks=True)
+    handler = RichHandler(console=Console(theme=theme, file=sys.stderr), markup=True, rich_tracebacks=True)
     formatter = logging.Formatter("%(message)s", datefmt="[%X]")
     handler.setFormatter(formatter)
     logger.handlers = [handler]
