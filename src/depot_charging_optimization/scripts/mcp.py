@@ -136,6 +136,7 @@ def mcp(data_files, energy_price_file, steps_until_reoptimization, days, alpha, 
         charging_power=charging_power,
         effective_charging_power=effective_charging_power,
         state_of_energy=state_of_energy,
+        lower_soe_envelope=state_of_energy,
     )
     solution_file = "outputs/solutions/solution.json"
     with open(solution_file, "w") as f:
