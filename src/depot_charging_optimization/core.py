@@ -6,6 +6,7 @@ import gurobipy as gp
 from gurobipy import GRB
 from scipy.stats import norm
 
+from depot_charging_optimization.config import OptimizerConfig
 from depot_charging_optimization.data_models import Input, Solution
 from depot_charging_optimization.logging import suppress_stdout_stderr
 
@@ -17,17 +18,16 @@ class Optimizer(ABC, Generic[OptVariable]):
         self,
         input_data: Input,
         name: str | None = None,
-        bidirectional_charging: bool = False,
-        initial_soe: list[float | None] | None = None,
-        confidence_level: float = 0.0,
-        energy_std_dev: float = 0.0,
-        **kwargs,
+        config: OptimizerConfig | None = None,
     ):
         self.input_data: Input = input_data
         self.name: str = name or self.__class__.__name__
-        self._initial_soe: list[float | None] | None = initial_soe
-        self._confidence_level: float = confidence_level
-        self._energy_std_dev: float = energy_std_dev
+        self.config = config or OptimizerConfig()
+
+        self._optimizer_type = self.config.optimizer_type
+        self._initial_soe: list[float | None] | None = self.config.initial_soe
+        self._confidence_level: float = self.config.confidence_level
+        self._energy_std_dev: float = self.config.energy_std_dev
 
         # State
         self._built: bool = False
@@ -61,7 +61,8 @@ class Optimizer(ABC, Generic[OptVariable]):
         # Variable bounds
         assert self.input_data.is_battery is not None
         vehicle_lower_bounds = [
-            -1.0 if (is_battery or bidirectional_charging) else 0.0 for is_battery in self.input_data.is_battery
+            -1.0 if (is_battery or self.config.bidirectional_charging) else 0.0
+            for is_battery in self.input_data.is_battery
         ]
         self._lb_cp: list[list[float]] = [[lb for _ in range(self._num_timesteps)] for lb in vehicle_lower_bounds]
         self._ub_cp: list[list[float]] = [[1.0 for _ in range(self._num_timesteps)] for _ in range(self._num_vehicles)]
@@ -286,25 +287,17 @@ class GurobiOptimizer(Optimizer[gp.Var]):
         self,
         input_data: Input,
         name: str = "GurobiOptimizer",
-        bidirectional_charging: bool = True,
-        initial_soe: list[float | None] | None = None,
-        time_limit: int = 5,
-        confidence_level: float = 0.0,
-        energy_std_dev: float = 0.0,
+        config: OptimizerConfig | None = None,
     ):
         super().__init__(
             input_data,
             name=name,
-            bidirectional_charging=bidirectional_charging,
-            initial_soe=initial_soe,
-            confidence_level=confidence_level,
-            energy_std_dev=energy_std_dev,
+            config=config,
         )
         with suppress_stdout_stderr():
             self._model: gp.Model = gp.Model(self.name)
             self._model.setParam("LogToConsole", 1)
             self._model.setParam("OutputFlag", 1)
-            self._model.setParam("TimeLimit", time_limit)
 
     @property
     def charging_power(self) -> list[list[float]]:
@@ -449,18 +442,12 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
         self,
         input_data: Input,
         name: str = "CasadiOptimizer",
-        initial_soe: list[float | None] | None = None,
-        bidirectional_charging: bool = True,
-        confidence_level: float = 0.0,
-        energy_std_dev: float = 0.0,
+        config: OptimizerConfig | None = None,
     ):
         super().__init__(
             input_data,
             name=name,
-            bidirectional_charging=bidirectional_charging,
-            initial_soe=initial_soe,
-            confidence_level=confidence_level,
-            energy_std_dev=energy_std_dev,
+            config=config,
         )
 
         self._constraints: list[ca.casadi.MX] = []

@@ -1,5 +1,6 @@
 import pandas as pd
 
+from depot_charging_optimization.config import OptimizerConfig
 from depot_charging_optimization.core import CasadiOptimizer
 from depot_charging_optimization.data_models import Input
 
@@ -186,7 +187,9 @@ class TestInitialSoE:
         )
         input_data = input_data.add_grid_tariff(grid_tariff)
 
-        optimizer = CasadiOptimizer(input_data, initial_soe=[2.0])
+        config = OptimizerConfig(initial_soe=[2.0])
+
+        optimizer = CasadiOptimizer(input_data, config=config)
         optimizer.build()
 
         solution = optimizer.solve()

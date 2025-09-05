@@ -1,5 +1,7 @@
+from typing import get_origin
+
 import click
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 
 
 class BaseConfig(BaseModel):
@@ -31,7 +33,9 @@ class BaseConfig(BaseModel):
         def decorator(f):
             for name, field_type in option_list:
                 param_name = f"--{name.replace('_', '-')}"
-                if field_type is bool:
+                if get_origin(field_type) is not None:  # no cli argument for complex types
+                    pass
+                elif field_type is bool:
                     f = click.option(param_name, is_flag=True)(f)
                 else:
                     f = click.option(param_name, type=field_type)(f)
@@ -47,14 +51,15 @@ class OptimizerConfig(BaseConfig):
     bidirectional_charging: bool = False
     confidence_level: float = 0.0
     energy_std_dev: float = 0.0
+    initial_soe: list[float | None] | None = None
 
-    @validator("optimizer_type")
+    @field_validator("optimizer_type")
     def valid_optimizer_type(cls, v):
         if v.lower() not in ["gurobi", "casadi"]:
             raise ValueError(f"unknown optimizer type [{v}], must be either gurobi or casadi")
         return v.lower()
 
-    @validator("ce_function_type")
+    @field_validator("ce_function_type")
     def valid_ce_function_type(cls, v):
         if v.lower() not in ["one", "constant", "quadratic"]:
             raise ValueError(
@@ -62,7 +67,7 @@ class OptimizerConfig(BaseConfig):
             )
         return v.lower()
 
-    @validator("alpha", "confidence_level", "energy_std_dev")
+    @field_validator("alpha", "confidence_level", "energy_std_dev")
     def between_zero_and_one(cls, v):
         if not (0 <= v <= 1):
             raise ValueError(f"Value must be between zero and one, got {v}")
