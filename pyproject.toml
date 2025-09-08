@@ -29,7 +29,7 @@ notebooks = [
 ]
 
 [project.scripts]
-optimize = "depot_charging_optimization.scripts.optimize:optimize"
+optimize = "depot_charging_optimization.scripts.optimize:main"
 simulate = "depot_charging_optimization.scripts.simulate:simulate"
 clean-data = "depot_charging_optimization.scripts.clean_data:clean_data"
 preprocess-data = "depot_charging_optimization.scripts.preprocess_data:preprocess_data"

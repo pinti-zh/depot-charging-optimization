@@ -6,40 +6,55 @@ from time import perf_counter
 import click
 import pandas as pd
 
-from depot_charging_optimization.core import CasadiOptimizer, GurobiOptimizer
+from depot_charging_optimization.config import OptimizerConfig
+from depot_charging_optimization.core import CasadiOptimizer, GurobiOptimizer, Optimizer
 from depot_charging_optimization.data_models import Input
 from depot_charging_optimization.logging import get_logger, log_stdout
 from depot_charging_optimization.result_store import ResultStore
 
 
 @click.command()
-@click.argument("data_files", type=str, nargs=-1)
-@click.option("energy_price_file", "-epf", type=str, default="data/energy_price.csv", help="energy price file")
-@click.option(
-    "--ce_function", "-cef", type=click.Choice(["constant", "quadratic", "one"], case_sensitive=False), default="one"
-)
-@click.option("--alpha", "-a", type=float, default=1.0, help="constant for charging efficiency function")
-@click.option("--time_limit", "-tl", type=int, default=5, help="solver time limit in seconds")
-@click.option("--solution_file", "-sf", type=str, default="outputs/solutions/solution.json", help="solution file")
-@click.option("--use_casadi", "-uc", is_flag=True, default=False, help="use casadi instead of gurobi")
-@click.option("--bidirectional_charging", "-bc", is_flag=True, default=False, help="allow no bidirectional charging")
-@click.option("--debug", "-d", is_flag=True, default=False, help="print debug messages")
-@click.option("--confidence_level", "-cl", type=float, default=0.0, help="confidence level for stochastic robustness")
-@click.option(
-    "--energy_std_dev", "-esd", type=float, default=0.0, help="energy standard deviation for stochastic robustness"
-)
+# general options
+@click.argument("data-files", type=Path, nargs=-1)
+@click.option("--energy-price-file", type=Path, default="data/energy_price.csv", help="energy price file")
+@click.option("--solution-file", type=Path, default="outputs/solutions/solution.json", help="solution file")
+@click.option("--debug", is_flag=True, default=False, help="print debug messages")
+# optimizer options
+@click.option("--optimizer-type", type=str, default="gurobi")
+@click.option("--ce-function-type", type=str, default="constant")
+@click.option("--alpha", type=float, default=1.0)
+@click.option("--bidirectional-charging", is_flag=True, default=False)
+@click.option("--confidence-level", type=float, default=0.0)
+@click.option("--energy-std-dev", type=float, default=0.0)
+def main(
+    data_files: list[Path],
+    energy_price_file: Path,
+    solution_file: Path,
+    debug: bool,
+    optimizer_type: str,
+    ce_function_type: str,
+    alpha: float,
+    bidirectional_charging: bool,
+    confidence_level: float,
+    energy_std_dev: float,
+):
+    optimizer_config = OptimizerConfig(
+        optimizer_type=optimizer_type,
+        ce_function_type=ce_function_type,
+        alpha=alpha,
+        bidirectional_charging=bidirectional_charging,
+        confidence_level=confidence_level,
+        energy_std_dev=energy_std_dev,
+    )
+    optimize(data_files, energy_price_file, solution_file, debug, optimizer_config)
+
+
 def optimize(
-    data_files,
-    energy_price_file,
-    ce_function,
-    alpha,
-    time_limit,
-    solution_file,
-    use_casadi,
-    bidirectional_charging,
-    debug,
-    confidence_level,
-    energy_std_dev,
+    data_files: list[Path],
+    energy_price_file: Path,
+    solution_file: Path,
+    debug: bool,
+    optimizer_config: OptimizerConfig,
 ):
     if debug:
         logger = get_logger(name="optimize", level="debug")
@@ -64,23 +79,19 @@ def optimize(
 
     # optimization
     start = perf_counter()
-    if use_casadi:
+    optimizer: Optimizer | None = None
+    if optimizer_config.optimizer_type == "casadi":
         optimizer = CasadiOptimizer(
             data_input,
-            bidirectional_charging=bidirectional_charging,
-            confidence_level=confidence_level,
-            energy_std_dev=energy_std_dev,
+            config=optimizer_config,
         )
     else:
         optimizer = GurobiOptimizer(
             data_input,
-            bidirectional_charging=bidirectional_charging,
-            time_limit=time_limit,
-            confidence_level=confidence_level,
-            energy_std_dev=energy_std_dev,
+            config=optimizer_config,
         )
 
-    optimizer.build(ce_function_type=ce_function, alpha=alpha)
+    optimizer.build(ce_function_type=optimizer_config.ce_function_type, alpha=optimizer_config.alpha)
 
     # solve
     with log_stdout(logger, level="debug"):
@@ -128,14 +139,13 @@ def optimize(
             {
                 "solution_total_cost": solution.total_cost,
                 "input": {
-                    "data_files": data_files,
-                    "energy_price_file": energy_price_file,
-                    "ce_function": ce_function,
-                    "alpha": alpha,
-                    "time_limit": time_limit,
-                    "solution_file": solution_file,
-                    "use_casadi": use_casadi,
-                    "bidirectional_charging": bidirectional_charging,
+                    "data_files": list(map(str, data_files)),
+                    "energy_price_file": str(energy_price_file),
+                    "ce_function": optimizer_config.ce_function_type,
+                    "alpha": optimizer_config.alpha,
+                    "solution_file": str(solution_file),
+                    "bidirectional_charging": optimizer_config.bidirectional_charging,
+                    "optimizer_type": optimizer_config.optimizer_type,
                     "debug": debug,
                 },
             }

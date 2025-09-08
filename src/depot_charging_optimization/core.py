@@ -18,7 +18,7 @@ class Optimizer(ABC, Generic[OptVariable]):
         self,
         input_data: Input,
         name: str | None = None,
-        config: OptimizerConfig | None = None,
+        config: OptimizerConfig = OptimizerConfig(),
     ):
         self.input_data: Input = input_data
         self.name: str = name or self.__class__.__name__
@@ -287,7 +287,7 @@ class GurobiOptimizer(Optimizer[gp.Var]):
         self,
         input_data: Input,
         name: str = "GurobiOptimizer",
-        config: OptimizerConfig | None = None,
+        config: OptimizerConfig = OptimizerConfig(),
     ):
         super().__init__(
             input_data,
@@ -442,7 +442,7 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
         self,
         input_data: Input,
         name: str = "CasadiOptimizer",
-        config: OptimizerConfig | None = None,
+        config: OptimizerConfig = OptimizerConfig(),
     ):
         super().__init__(
             input_data,

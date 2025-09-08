@@ -1,6 +1,3 @@
-from typing import get_origin
-
-import click
 from pydantic import BaseModel, field_validator
 
 
@@ -14,34 +11,8 @@ class BaseConfig(BaseModel):
         return self.__repr__()
 
     @classmethod
-    def config_options(cls, func):
-        @cls._generate_click_options()
-        def wrapper(*args, **kwargs):
-            filtered_kwargs = dict((key, value) for key, value in kwargs.items() if value is not None)
-            filtered_kwargs = dict(
-                (key, list(value)) for key, value in filtered_kwargs.items() if isinstance(value, tuple)
-            )
-            config = OptimizerConfig(**filtered_kwargs)
-            return func(config)
-
-        return wrapper
-
-    @classmethod
-    def _generate_click_options(cls):
-        option_list = [(field[0], field[1].annotation) for field in cls.model_fields.items()]
-
-        def decorator(f):
-            for name, field_type in option_list:
-                param_name = f"--{name.replace('_', '-')}"
-                if get_origin(field_type) is not None:  # no cli argument for complex types
-                    pass
-                elif field_type is bool:
-                    f = click.option(param_name, is_flag=True)(f)
-                else:
-                    f = click.option(param_name, type=field_type)(f)
-            return f
-
-        return decorator
+    def as_click_options(cls):
+        pass
 
 
 class OptimizerConfig(BaseConfig):
