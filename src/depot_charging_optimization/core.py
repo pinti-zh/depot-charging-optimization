@@ -128,15 +128,18 @@ class Optimizer(ABC, Generic[OptVariable]):
     @property
     def slack(self) -> dict[str, list[list[float]] | float]:
         state_of_energy = self.state_of_energy
+        lower_soe_envelope = self.lower_soe_envelope
         charging_power = self.charging_power
         effective_charging_power = self.effective_charging_power
         max_charging_power = self.max_charging_power
         total_charging_power = self.total_charging_power
         soe_slack = []
+        lower_soe_envelope_slack = []
         cp_slack = []
         mcp_slack = abs(max_charging_power - max(total_charging_power)) * self._factor_cp
         for vehicle in range(self._num_vehicles):
             soe_slack_v = []
+            lower_soe_envelope_slack_v = []
             cp_slack_v = []
             for t_i in range(self._num_timesteps):
                 # SOE slack
@@ -144,6 +147,17 @@ class Optimizer(ABC, Generic[OptVariable]):
                 soe_2 = state_of_energy[vehicle][t_i] + effective_charging_power[vehicle][t_i] * self._delta_time[t_i]
                 soe_2 -= self.input_data.energy_demand[vehicle][t_i]
                 soe_slack_v.append(abs((soe_1 - soe_2) / soe_1))
+
+                # LOWER SOE ENVELOPE slack
+                energy_demand_high = upper_energy_confidence_bound(
+                    self.input_data.energy_demand[vehicle][t_i], self._confidence_level, self._energy_std_dev
+                )
+                soe_1 = lower_soe_envelope[vehicle][t_i + 1]
+                soe_2 = (
+                    lower_soe_envelope[vehicle][t_i] + effective_charging_power[vehicle][t_i] * self._delta_time[t_i]
+                )
+                soe_2 -= energy_demand_high
+                lower_soe_envelope_slack_v.append(abs((soe_1 - soe_2) / soe_1))
 
                 # CP slack
                 assert self._alpha is not None
@@ -165,10 +179,12 @@ class Optimizer(ABC, Generic[OptVariable]):
                 abs(state_of_energy[vehicle][0] - state_of_energy[vehicle][self._num_timesteps]) * self._factor_soe
             )
             soe_slack.append(soe_slack_v)
+            lower_soe_envelope_slack.append(lower_soe_envelope_slack_v)
             cp_slack.append(cp_slack_v)
 
         return {
             "state_of_energy": soe_slack,
+            "lower_soe_envelope": lower_soe_envelope_slack,
             "charging_power": cp_slack,
             "max_charging_power": mcp_slack,
         }
