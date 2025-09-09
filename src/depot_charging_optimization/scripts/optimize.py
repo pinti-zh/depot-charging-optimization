@@ -38,7 +38,7 @@ def main(
     confidence_level: float | None,
     energy_std_dev: float | None,
 ):
-    optimizer_kwargs = {k: v for k, v in locals().items() if v is not None}
+    optimizer_kwargs = {k: v for k, v in locals().items() if v is not None and k in OptimizerConfig.model_fields}
     optimizer_config = OptimizerConfig(**optimizer_kwargs)
     optimize(data_files, energy_price_file, solution_file, debug, optimizer_config)
 
