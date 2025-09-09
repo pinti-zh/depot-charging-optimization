@@ -108,6 +108,10 @@ def optimize(
             if max(sublist) > max_slack:
                 max_slack = max(sublist)
                 max_slack_location = "State of Energy"
+        for sublist in optimizer.slack["lower_soe_envelope"]:
+            if max(sublist) > max_slack:
+                max_slack = max(sublist)
+                max_slack_location = "Lower SoE Envelope"
         for sublist in optimizer.slack["charging_power"]:
             if max(sublist) > max_slack:
                 max_slack = max(sublist)
