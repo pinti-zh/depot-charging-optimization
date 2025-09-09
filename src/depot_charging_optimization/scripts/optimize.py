@@ -20,32 +20,26 @@ from depot_charging_optimization.result_store import ResultStore
 @click.option("--solution-file", type=Path, default="outputs/solutions/solution.json", help="solution file")
 @click.option("--debug", is_flag=True, default=False, help="print debug messages")
 # optimizer options
-@click.option("--optimizer-type", type=str, default="gurobi")
-@click.option("--ce-function-type", type=str, default="constant")
-@click.option("--alpha", type=float, default=1.0)
-@click.option("--bidirectional-charging", is_flag=True, default=False)
-@click.option("--confidence-level", type=float, default=0.0)
-@click.option("--energy-std-dev", type=float, default=0.0)
+@click.option("--optimizer-type", type=str)
+@click.option("--ce-function-type", type=str)
+@click.option("--alpha", type=float)
+@click.option("--bidirectional-charging", is_flag=True)
+@click.option("--confidence-level", type=float)
+@click.option("--energy-std-dev", type=float)
 def main(
     data_files: list[Path],
     energy_price_file: Path,
     solution_file: Path,
     debug: bool,
-    optimizer_type: str,
-    ce_function_type: str,
-    alpha: float,
-    bidirectional_charging: bool,
-    confidence_level: float,
-    energy_std_dev: float,
+    optimizer_type: str | None,
+    ce_function_type: str | None,
+    alpha: float | None,
+    bidirectional_charging: bool | None,
+    confidence_level: float | None,
+    energy_std_dev: float | None,
 ):
-    optimizer_config = OptimizerConfig(
-        optimizer_type=optimizer_type,
-        ce_function_type=ce_function_type,
-        alpha=alpha,
-        bidirectional_charging=bidirectional_charging,
-        confidence_level=confidence_level,
-        energy_std_dev=energy_std_dev,
-    )
+    optimizer_kwargs = {k: v for k, v in locals().items() if v is not None}
+    optimizer_config = OptimizerConfig(**optimizer_kwargs)
     optimize(data_files, energy_price_file, solution_file, debug, optimizer_config)
 
 
@@ -61,6 +55,8 @@ def optimize(
     else:
         logger = get_logger(name="optimize", level="info")
     data = []
+    logger.debug("Optimizer Config:")
+    logger.debug(optimizer_config)
     logger.info("Reading files:")
     for i, file in enumerate(data_files):
         with open(file) as f:
