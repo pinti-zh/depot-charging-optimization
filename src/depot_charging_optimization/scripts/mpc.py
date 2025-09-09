@@ -4,6 +4,7 @@ import click
 import pandas as pd
 from tqdm import tqdm
 
+from depot_charging_optimization.config import OptimizerConfig
 from depot_charging_optimization.controller import policy_from_solution
 from depot_charging_optimization.core import GurobiOptimizer
 from depot_charging_optimization.data_models import Input, Solution
@@ -26,7 +27,7 @@ from depot_charging_optimization.logging import get_logger, suppress_stdout_stde
 @click.option("--sigma", "-s", type=float, default=0.0, help="standard deviation of energy demand")
 @click.option("--equalize_timesteps", "-eqt", is_flag=True, default=False, help="equalize timesteps of data")
 @click.option("--debug", "-d", is_flag=True, default=False, help="print debug messages")
-def mcp(data_files, energy_price_file, steps_until_reoptimization, days, alpha, sigma, equalize_timesteps, debug):
+def main(data_files, energy_price_file, steps_until_reoptimization, days, alpha, sigma, equalize_timesteps, debug):
     if debug:
         logger = get_logger(name="mcp", level="debug")
     else:
@@ -48,8 +49,10 @@ def mcp(data_files, energy_price_file, steps_until_reoptimization, days, alpha, 
     plan = plan.add_energy_price(energy_price["time"].to_list(), energy_price["energy_price"].to_list())
     plan = plan.add_grid_tariff(1.2e-4)
 
+    optimizer_config = OptimizerConfig()
+
     # Get optimal initial state
-    optimizer = GurobiOptimizer(plan, bidirectional_charging=False)
+    optimizer = GurobiOptimizer(plan, config=optimizer_config)
     optimizer.build(ce_function_type="quadratic", alpha=alpha)
     with suppress_stdout_stderr():
         global_solution = optimizer.solve()
@@ -83,7 +86,8 @@ def mcp(data_files, energy_price_file, steps_until_reoptimization, days, alpha, 
         # optimize and find policy
         if k == 0:
             logger.debug(f"  [light_sea_green]Optimizing the next {steps_until_reoptimization} steps")
-            optimizer = GurobiOptimizer(env.plan, bidirectional_charging=False, initial_soe=current_soe)
+            optimizer_config.initial_soe = current_soe
+            optimizer = GurobiOptimizer(env.plan, config=optimizer_config)
             optimizer.build(ce_function_type="quadratic", alpha=0.8)
             with suppress_stdout_stderr():
                 solution = optimizer.solve()
