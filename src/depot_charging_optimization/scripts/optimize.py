@@ -23,7 +23,7 @@ from depot_charging_optimization.result_store import ResultStore
 @click.option("--optimizer-type", type=str)
 @click.option("--ce-function-type", type=str)
 @click.option("--alpha", type=float)
-@click.option("--bidirectional-charging", is_flag=True)
+@click.option("--bidirectional-charging", is_flag=True, default=None)
 @click.option("--confidence-level", type=float)
 @click.option("--energy-std-dev", type=float)
 def main(
