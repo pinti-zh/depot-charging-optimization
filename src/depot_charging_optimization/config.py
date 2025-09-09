@@ -1,7 +1,33 @@
-from pydantic import BaseModel, field_validator
+from pathlib import Path
+from typing import Any
+
+import yaml  # type: ignore
+from pydantic import BaseModel, field_validator, model_validator
 
 
 class BaseConfig(BaseModel):
+    config_file: Path | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def load_from_config(cls, data: Any) -> Any:
+        if isinstance(data, cls):
+            return data  # already model instance
+
+        data = data or {}  # make sure its mutable
+
+        config_file = data.get("config_file")
+        if config_file is None:
+            config_file = cls.model_fields["config_file"].default
+
+        if config_file is not None and Path(config_file).exists():
+            with open(config_file, "r") as f:
+                config_data = yaml.safe_load(f)
+
+            return {**config_data, **data}
+
+        return data
+
     def __repr__(self):
         return "\n".join(
             [f"{field[0]}: [{field[1].annotation}] = {self.dict()[field[0]]} " for field in self.model_fields.items()]
@@ -23,6 +49,7 @@ class OptimizerConfig(BaseConfig):
     confidence_level: float = 0.0
     energy_std_dev: float = 0.0
     initial_soe: list[float | None] | None = None
+    config_file: Path | None = Path("config/optimizer.yaml")
 
     @field_validator("optimizer_type")
     def valid_optimizer_type(cls, v):

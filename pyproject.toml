@@ -19,6 +19,7 @@ dependencies = [
     "casadi==3.7.0",
     "tqdm",
     "scipy",
+    "pyyaml>=6.0.2",
 ]
 
 [project.optional-dependencies]
