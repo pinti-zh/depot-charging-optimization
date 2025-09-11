@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 
 import click
 import pandas as pd
@@ -14,13 +13,6 @@ from depot_charging_optimization.logging import get_logger, suppress_stdout_stde
 
 
 @click.command()
-# file options
-@click.argument("data-files", type=Path, nargs=-1)
-@click.option("--energy-price-file", type=str, help="energy price file")
-# optimizer options
-@click.option("--alpha", type=float, help="charging efficiency")
-@click.option("--energy-std-dev", type=float, help="standard deviation of energy demand")
-@click.option("--confidence-level", type=float)
 # general options
 @click.option("--debug", is_flag=True, default=False, help="print debug messages")
 @click.option(
@@ -31,30 +23,9 @@ from depot_charging_optimization.logging import get_logger, suppress_stdout_stde
 )
 @click.option("--equalize-timesteps", is_flag=True, default=False, help="equalize timesteps of data")
 @click.option("--days", type=int, default=10, help="number of days simulated")
+@FileConfig.as_click_options
+@OptimizerConfig.as_click_options
 def main(
-    data_files: list[Path] | None,
-    energy_price_file: Path | None,
-    alpha: float | None,
-    energy_std_dev: float | None,
-    confidence_level: float | None,
-    debug: bool,
-    steps_until_reoptimization: int,
-    equalize_timesteps: bool,
-    days: int,
-):
-    assert data_files is not None
-    if len(data_files) == 0:
-        data_files = None
-    file_kwargs = {k: v for k, v in locals().items() if v is not None and k in FileConfig.model_fields}
-    file_config = FileConfig(**file_kwargs)
-
-    optimizer_kwargs = {k: v for k, v in locals().items() if v is not None and k in OptimizerConfig.model_fields}
-    optimizer_config = OptimizerConfig(**optimizer_kwargs)
-
-    mpc(debug, steps_until_reoptimization, equalize_timesteps, days, file_config, optimizer_config)
-
-
-def mpc(
     debug: bool,
     steps_until_reoptimization: int,
     equalize_timesteps: bool,
@@ -63,9 +34,9 @@ def mpc(
     optimizer_config: OptimizerConfig,
 ):
     if debug:
-        logger = get_logger(name="mcp", level="debug")
+        logger = get_logger(name="mpc", level="debug")
     else:
-        logger = get_logger(name="mcp", level="info")
+        logger = get_logger(name="mpc", level="info")
 
     # log config
     logger.debug("File Config:")

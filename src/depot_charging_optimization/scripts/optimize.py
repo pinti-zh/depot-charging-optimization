@@ -14,42 +14,10 @@ from depot_charging_optimization.result_store import ResultStore
 
 
 @click.command()
-# general options
-@click.argument("data-files", type=Path, nargs=-1)
-@click.option("--energy-price-file", type=Path, help="energy price file")
-@click.option("--solution-file", type=Path, help="solution file")
 @click.option("--debug", is_flag=True, default=False, help="print debug messages")
-# optimizer options
-@click.option("--optimizer-type", type=str)
-@click.option("--ce-function-type", type=str)
-@click.option("--alpha", type=float)
-@click.option("--bidirectional-charging", is_flag=True, default=None)
-@click.option("--confidence-level", type=float)
-@click.option("--energy-std-dev", type=float)
+@FileConfig.as_click_options
+@OptimizerConfig.as_click_options
 def main(
-    data_files: list[Path] | None,
-    energy_price_file: Path | None,
-    solution_file: Path | None,
-    debug: bool,
-    optimizer_type: str | None,
-    ce_function_type: str | None,
-    alpha: float | None,
-    bidirectional_charging: bool | None,
-    confidence_level: float | None,
-    energy_std_dev: float | None,
-):
-    assert data_files is not None
-    if len(data_files) == 0:
-        data_files = None
-    file_kwargs = {k: v for k, v in locals().items() if v is not None and k in FileConfig.model_fields}
-    file_config = FileConfig(**file_kwargs)
-
-    optimizer_kwargs = {k: v for k, v in locals().items() if v is not None and k in OptimizerConfig.model_fields}
-    optimizer_config = OptimizerConfig(**optimizer_kwargs)
-    optimize(debug, file_config, optimizer_config)
-
-
-def optimize(
     debug: bool,
     file_config: FileConfig,
     optimizer_config: OptimizerConfig,

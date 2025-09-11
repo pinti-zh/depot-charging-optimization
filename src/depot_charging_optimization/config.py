@@ -1,12 +1,15 @@
+from functools import wraps
 from pathlib import Path
-from typing import Any
+from typing import Any, get_origin
 
+import click
 import yaml  # type: ignore
 from pydantic import BaseModel, field_validator, model_validator
 
 
 class BaseConfig(BaseModel):
     config_file: Path | None = None
+    _function_argument_name: str = "config"
 
     @model_validator(mode="before")
     @classmethod
@@ -37,8 +40,25 @@ class BaseConfig(BaseModel):
         return self.__repr__()
 
     @classmethod
-    def as_click_options(cls):
-        pass
+    def as_click_options(cls, func):
+        options = cls.model_fields
+
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            config = cls(**{k: v for k, v in kwargs.items() if v is not None})
+            return func(
+                *args,
+                **{config._function_argument_name: config},
+                **{k: v for k, v in kwargs.items() if k not in cls.model_fields},
+            )
+
+        for name, info in reversed(options.items()):
+            if get_origin(info.annotation) is not None:
+                pass
+            else:
+                wrapper = click.option(f"--{name.replace('_', '-')}", type=info.annotation)(wrapper)
+
+        return wrapper
 
 
 class OptimizerConfig(BaseConfig):
@@ -50,6 +70,7 @@ class OptimizerConfig(BaseConfig):
     energy_std_dev: float = 0.0
     initial_soe: list[float | None] | None = None
     config_file: Path | None = Path("config/optimizer.yaml")
+    _function_argument_name: str = "optimizer_config"
 
     @field_validator("optimizer_type")
     def valid_optimizer_type(cls, v):
@@ -78,6 +99,7 @@ class FileConfig(BaseConfig):
     grid_tariff_file: Path = Path("data/grid_tariff.csv")
     solution_file: Path = Path("outputs/solutions/solution.json")
     config_file: Path | None = Path("config/file.yaml")
+    _function_argument_name: str = "file_config"
 
     @field_validator("energy_price_file", "grid_tariff_file")
     def file_exists(cls, v):
