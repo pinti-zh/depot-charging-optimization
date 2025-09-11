@@ -72,6 +72,19 @@ class OptimizerConfig(BaseConfig):
         return v
 
 
+class FileConfig(BaseConfig):
+    data_files: list[Path] = []
+    energy_price_file: Path = Path("data/energy_price.csv")
+    grid_tariff_file: Path = Path("data/grid_tariff.csv")
+    solution_file: Path = Path("outputs/solutions/solution.json")
+    config_file: Path | None = Path("config/file.yaml")
+
+    @field_validator("energy_price_file", "grid_tariff_file")
+    def file_exists(cls, v):
+        assert v.exists()
+        return v
+
+
 # optimize arguments
 
 # @click.option("--alpha", "-a", type=float, default=1.0, help="constant for charging efficiency function")

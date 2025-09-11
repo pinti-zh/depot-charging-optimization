@@ -1,10 +1,11 @@
 import json
+from pathlib import Path
 
 import click
 import pandas as pd
 from tqdm import tqdm
 
-from depot_charging_optimization.config import OptimizerConfig
+from depot_charging_optimization.config import FileConfig, OptimizerConfig
 from depot_charging_optimization.controller import policy_from_solution
 from depot_charging_optimization.core import GurobiOptimizer
 from depot_charging_optimization.data_models import Input, Solution
@@ -13,33 +14,72 @@ from depot_charging_optimization.logging import get_logger, suppress_stdout_stde
 
 
 @click.command()
-@click.argument("data_files", type=str, nargs=-1)
-@click.option("--energy_price_file", "-epf", type=str, default="data/energy_price.csv", help="energy price file")
+# file options
+@click.argument("data-files", type=Path, nargs=-1)
+@click.option("--energy-price-file", type=str, help="energy price file")
+# optimizer options
+@click.option("--alpha", type=float, help="charging efficiency")
+@click.option("--energy-std-dev", type=float, help="standard deviation of energy demand")
+@click.option("--confidence-level", type=float)
+# general options
+@click.option("--debug", is_flag=True, default=False, help="print debug messages")
 @click.option(
-    "--steps_until_reoptimization",
-    "-reop",
+    "--steps-until-reoptimization",
     type=int,
     default=10,
     help="number of steps taken before reoptimizing policy",
 )
+@click.option("--equalize-timesteps", is_flag=True, default=False, help="equalize timesteps of data")
 @click.option("--days", type=int, default=10, help="number of days simulated")
-@click.option("--alpha", "-a", type=float, default=1.0, help="charging efficiency")
-@click.option("--sigma", "-s", type=float, default=0.0, help="standard deviation of energy demand")
-@click.option("--equalize_timesteps", "-eqt", is_flag=True, default=False, help="equalize timesteps of data")
-@click.option("--debug", "-d", is_flag=True, default=False, help="print debug messages")
-def main(data_files, energy_price_file, steps_until_reoptimization, days, alpha, sigma, equalize_timesteps, debug):
+def main(
+    data_files: list[Path] | None,
+    energy_price_file: Path | None,
+    alpha: float | None,
+    energy_std_dev: float | None,
+    confidence_level: float | None,
+    debug: bool,
+    steps_until_reoptimization: int,
+    equalize_timesteps: bool,
+    days: int,
+):
+    assert data_files is not None
+    if len(data_files) == 0:
+        data_files = None
+    file_kwargs = {k: v for k, v in locals().items() if v is not None and k in FileConfig.model_fields}
+    file_config = FileConfig(**file_kwargs)
+
+    optimizer_kwargs = {k: v for k, v in locals().items() if v is not None and k in OptimizerConfig.model_fields}
+    optimizer_config = OptimizerConfig(**optimizer_kwargs)
+
+    mpc(debug, steps_until_reoptimization, equalize_timesteps, days, file_config, optimizer_config)
+
+
+def mpc(
+    debug: bool,
+    steps_until_reoptimization: int,
+    equalize_timesteps: bool,
+    days: int,
+    file_config: FileConfig,
+    optimizer_config: OptimizerConfig,
+):
     if debug:
         logger = get_logger(name="mcp", level="debug")
     else:
         logger = get_logger(name="mcp", level="info")
 
+    # log config
+    logger.debug("File Config:")
+    logger.debug(file_config)
+    logger.debug("Optimizer Config:")
+    logger.debug(optimizer_config)
+
     input_data = []
-    for data_file in data_files:
+    for data_file in file_config.data_files:
         with open(data_file, "r") as f:
             input_data.append(Input.model_validate(json.load(f)))
     plan = Input.combine(input_data)
 
-    energy_price = pd.read_csv(energy_price_file)
+    energy_price = pd.read_csv(file_config.energy_price_file)
     energy_price["energy_price"] /= 3.6e6
 
     if equalize_timesteps:
@@ -53,18 +93,19 @@ def main(data_files, energy_price_file, steps_until_reoptimization, days, alpha,
 
     # Get optimal initial state
     optimizer = GurobiOptimizer(plan, config=optimizer_config)
-    optimizer.build(ce_function_type="quadratic", alpha=alpha)
+    optimizer.build(ce_function_type="quadratic", alpha=optimizer_config.alpha)
     with suppress_stdout_stderr():
         global_solution = optimizer.solve()
 
+    assert global_solution is not None
     initial_soe = [soe[0] for soe in global_solution.state_of_energy]
 
     def charging_efficiency(p):
         n = p / plan.max_charging_power
-        e = n - (1 - alpha) * n**2 / 2
+        e = n - (1 - optimizer_config.alpha) * n**2 / 2
         return e * plan.max_charging_power
 
-    env = Environment(plan, initial_soe, charging_efficiency, sigma=sigma)
+    env = Environment(plan, initial_soe, charging_efficiency, sigma=optimizer_config.energy_std_dev)
     looped_plan = plan.loop(days)
 
     charging_power = [[] for _ in range(plan.num_vehicles)]
@@ -82,6 +123,12 @@ def main(data_files, energy_price_file, steps_until_reoptimization, days, alpha,
     step_generator = range(num_steps) if debug else tqdm(range(num_steps))
     for i in step_generator:
         logger.debug(f"Step {i + 1}")
+        if any(
+            soe is not None and soe < threshold * cap
+            for soe, threshold, cap in zip(current_soe, plan.soe_lb, plan.battery_capacity)
+        ):
+            logger.warning("  [orange1]Invalid state encountered -- stopping early")
+            break
 
         # optimize and find policy
         if k == 0:
@@ -142,7 +189,7 @@ def main(data_files, energy_price_file, steps_until_reoptimization, days, alpha,
         state_of_energy=state_of_energy,
         lower_soe_envelope=state_of_energy,
     )
-    solution_file = "outputs/solutions/solution.json"
-    with open(solution_file, "w") as f:
+
+    with open(file_config.solution_file, "w") as f:
         f.write(solution.model_dump_json(indent=4))
-    logger.info(f"Saved solution to [cyan3]{solution_file}")
+    logger.info(f"Saved solution to [cyan3]{file_config.solution_file}")

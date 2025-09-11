@@ -6,7 +6,7 @@ from time import perf_counter
 import click
 import pandas as pd
 
-from depot_charging_optimization.config import OptimizerConfig
+from depot_charging_optimization.config import FileConfig, OptimizerConfig
 from depot_charging_optimization.core import CasadiOptimizer, GurobiOptimizer, Optimizer
 from depot_charging_optimization.data_models import Input
 from depot_charging_optimization.logging import get_logger, log_stdout
@@ -16,8 +16,8 @@ from depot_charging_optimization.result_store import ResultStore
 @click.command()
 # general options
 @click.argument("data-files", type=Path, nargs=-1)
-@click.option("--energy-price-file", type=Path, default="data/energy_price.csv", help="energy price file")
-@click.option("--solution-file", type=Path, default="outputs/solutions/solution.json", help="solution file")
+@click.option("--energy-price-file", type=Path, help="energy price file")
+@click.option("--solution-file", type=Path, help="solution file")
 @click.option("--debug", is_flag=True, default=False, help="print debug messages")
 # optimizer options
 @click.option("--optimizer-type", type=str)
@@ -27,9 +27,9 @@ from depot_charging_optimization.result_store import ResultStore
 @click.option("--confidence-level", type=float)
 @click.option("--energy-std-dev", type=float)
 def main(
-    data_files: list[Path],
-    energy_price_file: Path,
-    solution_file: Path,
+    data_files: list[Path] | None,
+    energy_price_file: Path | None,
+    solution_file: Path | None,
     debug: bool,
     optimizer_type: str | None,
     ce_function_type: str | None,
@@ -38,16 +38,20 @@ def main(
     confidence_level: float | None,
     energy_std_dev: float | None,
 ):
+    assert data_files is not None
+    if len(data_files) == 0:
+        data_files = None
+    file_kwargs = {k: v for k, v in locals().items() if v is not None and k in FileConfig.model_fields}
+    file_config = FileConfig(**file_kwargs)
+
     optimizer_kwargs = {k: v for k, v in locals().items() if v is not None and k in OptimizerConfig.model_fields}
     optimizer_config = OptimizerConfig(**optimizer_kwargs)
-    optimize(data_files, energy_price_file, solution_file, debug, optimizer_config)
+    optimize(debug, file_config, optimizer_config)
 
 
 def optimize(
-    data_files: list[Path],
-    energy_price_file: Path,
-    solution_file: Path,
     debug: bool,
+    file_config: FileConfig,
     optimizer_config: OptimizerConfig,
 ):
     if debug:
@@ -55,10 +59,15 @@ def optimize(
     else:
         logger = get_logger(name="optimize", level="info")
     data = []
+
+    # log config
+    logger.debug("File Config:")
+    logger.debug(file_config)
     logger.debug("Optimizer Config:")
     logger.debug(optimizer_config)
+
     logger.info("Reading files:")
-    for i, file in enumerate(data_files):
+    for i, file in enumerate(file_config.data_files):
         with open(file) as f:
             data.append(Input.model_validate(json.load(f)))
         logger.info(f"  {i + 1}. [cyan]{file}")
@@ -66,7 +75,7 @@ def optimize(
 
     data_input = Input.combine(data)
 
-    energy_price = pd.read_csv(energy_price_file)
+    energy_price = pd.read_csv(file_config.energy_price_file)
     energy_price["energy_price"] /= 3.6e6
 
     data_input = data_input.add_energy_price(energy_price["time"].to_list(), energy_price["energy_price"].to_list())
@@ -128,22 +137,22 @@ def optimize(
         logger.info(f"Energy cost of solution:  {' ' * (max_cost_string_length - len(energy_cost))}{energy_cost}")
         logger.info(f"Power cost of solution:   {' ' * (max_cost_string_length - len(power_cost))}{power_cost}")
 
-        solution_dir = os.path.dirname(solution_file)
+        solution_dir = os.path.dirname(file_config.solution_file)
         os.makedirs(solution_dir, exist_ok=True)
-        with open(solution_file, "w") as f:
+        with open(file_config.solution_file, "w") as f:
             f.write(solution.model_dump_json(indent=4))
-        logger.info(f"Saved solution to [cyan3]{solution_file}")
+        logger.info(f"Saved solution to [cyan3]{file_config.solution_file}")
 
         result_store = ResultStore(Path("logs/optimize.log"))
         result_store.write(
             {
                 "solution_total_cost": solution.total_cost,
                 "input": {
-                    "data_files": list(map(str, data_files)),
-                    "energy_price_file": str(energy_price_file),
+                    "data_files": list(map(str, file_config.data_files)),
+                    "energy_price_file": str(file_config.energy_price_file),
                     "ce_function": optimizer_config.ce_function_type,
                     "alpha": optimizer_config.alpha,
-                    "solution_file": str(solution_file),
+                    "solution_file": str(file_config.solution_file),
                     "bidirectional_charging": optimizer_config.bidirectional_charging,
                     "optimizer_type": optimizer_config.optimizer_type,
                     "debug": debug,
