@@ -1,2 +1,3 @@
 data_files:
   - data/processed/example.json
+energy_price_file: data/energy_price_post_auto.csv

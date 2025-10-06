@@ -359,8 +359,8 @@ class GurobiOptimizer(Optimizer[gp.Var]):
                 elif ce_function_type == "quadratic":
                     self._model.addConstr(
                         self._effective_charging_power[vehicle][t_i]
-                        <= self._charging_power[vehicle][t_i]
-                        - (1 - alpha) * self._charging_power[vehicle][t_i] ** 2 / 2,
+                        <= (self._charging_power[vehicle][t_i] - alpha * self._charging_power[vehicle][t_i] ** 2 / 2)
+                        * 0.95,
                         f"effectiveChargingPower_v{vehicle}_{t_i}",
                     )
                 else:
@@ -553,10 +553,8 @@ class CasadiOptimizer(Optimizer[ca.MX.sym]):
                 elif ce_function_type == "quadratic":
                     self._constraints.append(
                         self._effective_charging_power[vehicle][t_i]
-                        - (
-                            self._charging_power[vehicle][t_i]
-                            - ((1 - alpha) / 2) * self._charging_power[vehicle][t_i] ** 2
-                        )
+                        - (self._charging_power[vehicle][t_i] - (alpha / 2) * self._charging_power[vehicle][t_i] ** 2)
+                        * 0.95
                     )
                     self._constraints_lb.append(float("-inf"))
                     self._constraints_ub.append(0)
