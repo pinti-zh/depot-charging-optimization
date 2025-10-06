@@ -6,6 +6,7 @@ import click
 import pandas as pd
 from rich.logging import RichHandler
 
+from depot_charging_optimization.config import FileConfig
 from depot_charging_optimization.data_models import Input
 from depot_charging_optimization.simulator import GreedySimulator, PeakShavingSimulator
 
@@ -18,10 +19,12 @@ logger = logging.getLogger("simulate")
 
 
 @click.command()
-@click.argument("data_files", type=str, nargs=-1)
 @click.option("energy_price_file", "-epf", type=str, default="data/energy_price.csv", help="energy price file")
 @click.option(
-    "--ce_function", "-cef", type=click.Choice(["constant", "quadratic", "one"], case_sensitive=False), default="one"
+    "--ce_function",
+    "-cef",
+    type=click.Choice(["constant", "quadratic", "one"], case_sensitive=False),
+    default="quadratic",
 )
 @click.option(
     "--simulation_algorithm",
@@ -30,7 +33,6 @@ logger = logging.getLogger("simulate")
     default="greedy",
 )
 @click.option("--alpha", "-a", type=float, default=1.0, help="constant for charging efficiency function")
-@click.option("--solution_file", "-sf", type=str, default="outputs/solutions/solution.json", help="solution file")
 @click.option("--debug", "-d", is_flag=True, default=False, help="print debug messages")
 @click.option(
     "--max_charging_power",
@@ -39,21 +41,20 @@ logger = logging.getLogger("simulate")
     default=1.0,
     help="maximum charging power for peak shaving (between 0 and 1)",
 )
+@FileConfig.as_click_options
 def simulate(
-    data_files,
-    energy_price_file,
     ce_function,
     simulation_algorithm,
     alpha,
-    solution_file,
     debug,
     max_charging_power,
+    file_config,
 ):
     if debug:
         logger.setLevel(logging.DEBUG)
     data = []
     logger.info("Reading files:")
-    for i, file in enumerate(data_files):
+    for i, file in enumerate(file_config.data_files):
         with open(file) as f:
             data.append(Input.model_validate(json.load(f)))
         logger.info(f"  {i + 1}. [cyan]{file}")
@@ -61,11 +62,12 @@ def simulate(
 
     data_input = Input.combine(data)
 
-    energy_price = pd.read_csv(energy_price_file)
+    energy_price = pd.read_csv(file_config.energy_price_file)
     energy_price["energy_price"] /= 3.6e6
 
     data_input = data_input.add_energy_price(energy_price["time"].to_list(), energy_price["energy_price"].to_list())
-    data_input = data_input.add_grid_tariff(1.2e-4)
+    # data_input = data_input.add_grid_tariff(1.2e-4)
+    data_input = data_input.add_grid_tariff((17.0 / 30) * 1e-3)
 
     # simulation
     if simulation_algorithm == "greedy":
@@ -90,8 +92,8 @@ def simulate(
         logger.info(f"Energy cost of solution:  {' ' * (max_cost_string_length - len(energy_cost))}{energy_cost}")
         logger.info(f"Power cost of solution:   {' ' * (max_cost_string_length - len(power_cost))}{power_cost}")
 
-        solution_dir = os.path.dirname(solution_file)
+        solution_dir = os.path.dirname(file_config.solution_file)
         os.makedirs(solution_dir, exist_ok=True)
-        with open(solution_file, "w") as f:
+        with open(file_config.solution_file, "w") as f:
             f.write(solution.model_dump_json(indent=4))
-        logger.info(f"Saved solution to [cyan3]{solution_file}")
+        logger.info(f"Saved solution to [cyan3]{file_config.solution_file}")

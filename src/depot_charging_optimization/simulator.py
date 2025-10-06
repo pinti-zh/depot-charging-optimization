@@ -91,13 +91,13 @@ class GreedySimulator(Simulator):
             self._timestamp_map.append(
                 [(t_i + t_start) % self.input_data.num_timesteps for t_i in range(self.input_data.num_timesteps)]
             )
-            self._state_of_energy[vehicle][t_start] = 0.8 * self.input_data.battery_capacity[vehicle]
+            self._state_of_energy[vehicle][t_start] = 1.0 * self.input_data.battery_capacity[vehicle]
 
     def _on_timestep(self, t_i, ce_function_type="one", alpha=1.0, **kwargs) -> None:
         for vehicle in range(self.input_data.num_vehicles):
             t_m = self._timestamp_map[vehicle][t_i]
             next_soe = self._state_of_energy[vehicle][t_m] - self.input_data.energy_demand[vehicle][t_m]
-            max_soe = 0.8 * self.input_data.battery_capacity[vehicle]
+            max_soe = 1.0 * self.input_data.battery_capacity[vehicle]
             if self.input_data.depot_charge[vehicle][t_m] and (next_soe < max_soe):
                 desired_power = (max_soe - next_soe) / self._delta_time[t_m]
                 cp, ecp = power_and_effective_power(
@@ -141,13 +141,13 @@ class PeakShavingSimulator(Simulator):
             self._timestamp_map.append(
                 [(t_i + t_start) % self.input_data.num_timesteps for t_i in range(self.input_data.num_timesteps)]
             )
-            self._state_of_energy[vehicle][t_start] = 0.8 * self.input_data.battery_capacity[vehicle]
+            self._state_of_energy[vehicle][t_start] = 1.0 * self.input_data.battery_capacity[vehicle]
 
     def _on_timestep(self, t_i, ce_function_type="one", alpha=1.0, **kwargs) -> None:
         for vehicle in range(self.input_data.num_vehicles):
             t_m = self._timestamp_map[vehicle][t_i]
             next_soe = self._state_of_energy[vehicle][t_m] - self.input_data.energy_demand[vehicle][t_m]
-            max_soe = 0.8 * self.input_data.battery_capacity[vehicle]
+            max_soe = 1.0 * self.input_data.battery_capacity[vehicle]
             if self.input_data.depot_charge[vehicle][t_m] and (next_soe < max_soe):
                 tund = time_until_next_departure(self._delta_time, self.input_data.depot_charge[vehicle], t_m)
                 desired_power = (max_soe - next_soe) / tund
@@ -195,12 +195,12 @@ def power_and_effective_power(
         cp = min(cp, max_power)
         return cp, alpha * cp
     elif ce_function_type == "quadratic":
-        if desired_power >= max_power * (1 - (1 - alpha) / 2):
-            return max_power, max_power * (1 - (1 - alpha) / 2)
+        if desired_power >= 0.95 * (max_power * (1 - alpha / 2)):
+            return max_power, 0.95 * (max_power * (1 - alpha / 2))
         else:
-            k = (1 - alpha) / (2 * max_power)
-            root_term = math.sqrt(1 - 4 * k * desired_power)
-            cp = -(root_term - 1) / (2 * k)
+            k = alpha / (2 * max_power)
+            root_term = math.sqrt(0.95**2 - 0.95 * 4 * k * desired_power)
+            cp = (0.95 - root_term) / (2 * k * 0.95)
             return cp, desired_power
     else:
         raise ValueError(f"Unknown ce_function_type: {ce_function_type}")
