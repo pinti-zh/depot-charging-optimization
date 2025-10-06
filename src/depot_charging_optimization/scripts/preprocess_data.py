@@ -5,7 +5,6 @@ from dataclasses import dataclass
 import click
 import pandas as pd
 from pydantic import ValidationError
-from rich import print as printr
 from rich.logging import RichHandler
 
 from depot_charging_optimization.data_models import Input
@@ -184,4 +183,4 @@ def preprocess_data(
         except ValidationError:
             logger.info("  [bold red]not ok[/bold red]  |  [orange1]skipping")
 
-    printr(f"[bold]processed {num_successes}/{num_groups} groups successfully")
+    logger.info(f"[bold]processed {num_successes}/{num_groups} groups successfully")

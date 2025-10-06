@@ -76,14 +76,14 @@ class Optimizer(ABC, Generic[OptVariable]):
 
         self._lb_soe: list[list[float]] = [
             [
-                0.2 * self.input_data.battery_capacity[vehicle] * self._factor_soe
+                self.input_data.soe_lb[vehicle] * self.input_data.battery_capacity[vehicle] * self._factor_soe
                 for _ in range(self._num_timesteps + 1)
             ]
             for vehicle in range(self._num_vehicles)
         ]
         self._ub_soe: list[list[float]] = [
             [
-                0.8 * self.input_data.battery_capacity[vehicle] * self._factor_soe
+                self.input_data.soe_ub[vehicle] * self.input_data.battery_capacity[vehicle] * self._factor_soe
                 for _ in range(self._num_timesteps + 1)
             ]
             for vehicle in range(self._num_vehicles)
@@ -146,7 +146,10 @@ class Optimizer(ABC, Generic[OptVariable]):
                 soe_1 = state_of_energy[vehicle][t_i + 1]
                 soe_2 = state_of_energy[vehicle][t_i] + effective_charging_power[vehicle][t_i] * self._delta_time[t_i]
                 soe_2 -= self.input_data.energy_demand[vehicle][t_i]
-                soe_slack_v.append(abs((soe_1 - soe_2) / soe_1))
+                if soe_1 > 0:
+                    soe_slack_v.append(abs((soe_1 - soe_2) / (soe_1)))
+                else:
+                    soe_slack_v.append(soe_2)
 
                 # LOWER SOE ENVELOPE slack
                 energy_demand_high = upper_energy_confidence_bound(
@@ -157,7 +160,10 @@ class Optimizer(ABC, Generic[OptVariable]):
                     lower_soe_envelope[vehicle][t_i] + effective_charging_power[vehicle][t_i] * self._delta_time[t_i]
                 )
                 soe_2 -= energy_demand_high
-                lower_soe_envelope_slack_v.append(abs((soe_1 - soe_2) / soe_1))
+                if soe_1 > 0:
+                    lower_soe_envelope_slack_v.append(abs((soe_1 - soe_2) / (soe_1)))
+                else:
+                    lower_soe_envelope_slack_v.append(soe_2)
 
                 # CP slack
                 assert self._alpha is not None
