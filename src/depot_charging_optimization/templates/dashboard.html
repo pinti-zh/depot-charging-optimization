@@ -120,6 +120,33 @@
         </div>
         <div class="col-2"></div>
       </div>
+      <div id="input-data-header" class="row chart-header-row">
+        <div class="col-2"></div>
+        <h2 class="col-7">Input Data</h2>
+        <div class="col-1">
+            <button id="downloadBtn" aria-label="Download PNG" onclick="exportInputDataPlot()">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+            </button>
+        </div>
+        <div class="col-2"></div>
+      </div>
+      <div class="row" id="cp-row">
+        <div class="col-2" id="input-data-dropdown-col" style="margin-top: 10px">
+          <select id="input-data-dropdown">
+            {% for index in indices %}
+            <option value="{{ index }}">{{ names[index] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-8 plot-card" id="cp-plot-card">
+          <div class="plot" id="input-data-plot"></div>
+        </div>
+        <div class="col-2"></div>
+      </div>
     </div>
     <div id="footer-spacer" style="height: 50px"></div>
     <script>
@@ -173,15 +200,67 @@
             },
         };
 
+        const seabornPaperStyle = {
+            template: 'none',  // Don't inherit from plotly templates
+            paper_bgcolor: 'white',
+            plot_bgcolor: 'white',
+
+            font: {
+                family: 'Arial, sans-serif',
+                color: '#000',
+                size: 12
+            },
+
+            xaxis: {
+                showgrid: true,
+                gridcolor: '#DDDDDD',
+                gridwidth: 1,
+                zeroline: false,
+                linecolor: '#000',
+                ticks: 'outside',
+                tickcolor: '#000',
+                tickwidth: 1,
+                title: { font: { size: 14 } }
+            },
+
+            yaxis: {
+                showgrid: true,
+                gridcolor: '#DDDDDD',
+                gridwidth: 1,
+                zeroline: false,
+                linecolor: '#000',
+                ticks: 'outside',
+                tickcolor: '#000',
+                tickwidth: 1,
+                title: { font: { size: 14 } }
+            },
+
+            margin: {
+                t: 60,
+                b: 60,
+                l: 60,
+                r: 40
+            },
+
+            title: {
+                font: { size: 16 },
+                x: 0.5,
+                xanchor: 'center',
+                pad: { t: 10, b: 5 }
+            },
+        };
+
         // Render initial plot from server JSON
         window.addEventListener('load', () => {
             requestAnimationFrame(() => {
                 const initialSOEPlot = {{ soe_plot_json | safe }};
                 const initialCPPlot = {{ cp_plot_json | safe }};
                 const initialDetailPlot = {{ detail_plot_json | safe }};
+                const initialInputDataPlot = {{ input_data_plot_json | safe }};
                 Plotly.newPlot('soe-plot', initialSOEPlot.data, initialSOEPlot.layout);
                 Plotly.newPlot('cp-plot', initialCPPlot.data, initialCPPlot.layout);
                 Plotly.newPlot('detail-plot', initialDetailPlot.data, initialDetailPlot.layout);
+                Plotly.newPlot('detail-plot', initialInputDataPlot.data, initialInputDataPlot.layout);
             });
             const checkboxes = document.querySelectorAll('#soe-checklist input[type="checkbox"]');
             const selected = Array.from(checkboxes)
@@ -192,6 +271,8 @@
             fetchAndUpdateEPPlot();
             detail_value = document.getElementById('detail-dropdown').value;
             fetchAndUpdateDetailPlot(detail_value);
+            input_data_value = document.getElementById('input-data-dropdown').value;
+            fetchAndUpdateInputDataPlot(input_data_value);
         });
 
         async function fetchAndUpdateSoePlot(vehicles) {
@@ -224,6 +305,16 @@
             }
         }
 
+        async function fetchAndUpdateInputDataPlot(vehicle) {
+            try {
+                const response = await fetch('/input_data_plot/' + vehicle);
+                const plotData = await response.json();
+                Plotly.react('input-data-plot', plotData.data, plotData.layout, {responsive: true});
+            } catch (err) {
+                console.error('Plot update error:', err);
+            }
+        }
+
         async function fetchAndUpdateEPPlot() {
             try {
                 const response = await fetch('/energy_price_plot');
@@ -238,27 +329,27 @@
             plotJSON.layout.showlegend = showLegend;
             const mergedLayout = {
                 ...plotJSON.layout,
-                ...seabornDarkgridStyle,
+                ...seabornPaperStyle,
                 title: {
                     text: title,
-                    ...seabornDarkgridStyle.title
+                    ...seabornPaperStyle.title
                 }
             };
 
             // Preserve or restore axis titles from original layout if they exist:
             mergedLayout.xaxis = {
-                ...seabornDarkgridStyle.xaxis,
+                ...seabornPaperStyle.xaxis,
                 ...plotJSON.layout?.xaxis,
                 title: {
-                    ...(seabornDarkgridStyle.xaxis?.title || {}),
+                    ...(seabornPaperStyle.xaxis?.title || {}),
                     ...(plotJSON.layout?.xaxis?.title || {})
                 }
             };
             mergedLayout.yaxis = {
-                ...seabornDarkgridStyle.yaxis,
+                ...seabornPaperStyle.yaxis,
                 ...plotJSON.layout?.yaxis,
                 title: {
-                    ...(seabornDarkgridStyle.yaxis?.title || {}),
+                    ...(seabornPaperStyle.yaxis?.title || {}),
                     ...(plotJSON.layout?.yaxis?.title || {})
                 }
             };
@@ -322,7 +413,19 @@
                 const response = await fetch('/detail_plot/' + detail_value);
                 const plotJSON = await response.json();
 
-                downloadWithSeabornTheme(plotJSON, "Vehicle Detail", "detail_plot");
+                downloadWithSeabornTheme(plotJSON, "Detail Vehicle " + (parseInt(detail_value) + 1).toString(), "detail_plot");
+            } catch (err) {
+                console.error('Plot update error:', err);
+            }
+        }
+
+        async function exportInputDataPlot() {
+            detail_value = document.getElementById('input-data-dropdown').value;
+            try {
+                const response = await fetch('/input_data_plot/' + detail_value);
+                const plotJSON = await response.json();
+
+                downloadWithSeabornTheme(plotJSON, "Input Vehicle " + (parseInt(detail_value) + 1).toString(), "detail_plot");
             } catch (err) {
                 console.error('Plot update error:', err);
             }
@@ -342,6 +445,11 @@
         detail_dropdown = document.getElementById('detail-dropdown');
         detail_dropdown.addEventListener('change', () => {
             fetchAndUpdateDetailPlot(detail_dropdown.value);
+        });
+
+        input_data_dropdown = document.getElementById('input-data-dropdown');
+        input_data_dropdown.addEventListener('change', () => {
+            fetchAndUpdateInputDataPlot(input_data_dropdown.value);
         });
     </script>
     <style>

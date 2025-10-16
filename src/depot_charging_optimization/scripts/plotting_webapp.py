@@ -207,15 +207,15 @@ def detail_figure(vehicle: int = -1):
     color = TRACE_COLORS[vehicle % len(TRACE_COLORS)]
 
     # lower envelope
-    fig.add_trace(
-        go.Scatter(
-            x=convert_seconds_to_time(time),
-            y=[soe / 3.6e6 for soe in solution.lower_soe_envelope[vehicle]],
-            mode="lines",
-            marker=dict(color=color),
-            line=dict(dash="dot", color=color),
-        )
-    )
+    # fig.add_trace(
+    #     go.Scatter(
+    #         x=convert_seconds_to_time(time),
+    #         y=[soe / 3.6e6 for soe in solution.lower_soe_envelope[vehicle]],
+    #         mode="lines",
+    #         marker=dict(color=color),
+    #         line=dict(dash="dot", color=color),
+    #     )
+    # )
     # state of energy
     fig.add_trace(
         go.Scatter(
@@ -287,6 +287,77 @@ def detail_figure(vehicle: int = -1):
     return fig
 
 
+def input_data_figure(vehicle: int = -1):
+    fig = go.Figure()
+    if vehicle == -1:
+        update_layout(fig)
+        return fig
+
+    solution = get_solution()
+    time = [0] + solution.input_data.time
+
+    _ = [
+        "#58A7C5",  # Darker Soft Sky Blue
+        "#63B88D",  # Darker Light Mint
+        "#E58D87",  # Darker Pale Coral
+        "#A987D6",  # Darker Lavender Mist
+        "#C7A94F",  # Darker Misty Gold
+        "#BA8B86",  # Darker Dusty Rose
+        "#4F9792",  # Darker Muted Teal
+        "#9889D4",  # Darker Cool Lilac
+        "#E4A87E",  # Darker Soft Apricot
+        "#89AEB0",  # Darker Silver Blue
+        "#90B9A9",  # Darker Powder Green
+        "#CDBE97",  # Darker Creamy Sand
+    ]
+
+    # energy demands
+    ed_time = [solution.input_data.time[0] / 2]
+    width = [solution.input_data.time[0]]
+    for t1, t2 in zip(solution.input_data.time[:-1], solution.input_data.time[1:]):
+        width.append(t2 - t1)
+        ed_time.append((t1 + t2) / 2)
+    fig.add_trace(
+        go.Bar(
+            x=convert_seconds_to_time(ed_time),
+            y=[
+                ed / (3600 * dt)
+                for ed, dt in zip(solution.input_data.energy_demand[vehicle], solution.input_data.time)
+            ],
+            width=[w * 1000 for w in width],
+            marker_color="#B82E2E",
+            marker=dict(line=dict(width=0)),
+        ),
+    )
+
+    # depot charging intervals
+    bands = []
+    for t1, t2, dc in zip(
+        convert_seconds_to_time(time), convert_seconds_to_time(time[1:]), solution.input_data.depot_charge[vehicle]
+    ):
+        if dc:
+            bands.append(
+                dict(
+                    type="rect",
+                    xref="x",
+                    yref="paper",
+                    x0=t1,
+                    x1=t2,
+                    y0=0,
+                    y1=1,
+                    fillcolor="#109618",
+                    opacity=0.4,
+                    line_width=0,
+                    layer="below",
+                )
+            )
+    fig.update_layout(
+        shapes=bands,
+    )
+    update_layout(fig, yaxis_title="Power Demand [kW]")
+    return fig
+
+
 @app.get("/")
 async def index(request: Request):
     solution = get_solution()
@@ -297,6 +368,7 @@ async def index(request: Request):
     fig_soe = soe_figure([])
     fig_cp = cp_figure([])
     fig_detail = detail_figure(-1)
+    fig_input_data = input_data_figure(-1)
 
     return TEMPLATES.TemplateResponse(
         "dashboard.html",
@@ -305,6 +377,7 @@ async def index(request: Request):
             "soe_plot_json": fig_soe.to_json(),
             "cp_plot_json": fig_cp.to_json(),
             "detail_plot_json": fig_detail.to_json(),
+            "input_data_plot_json": fig_input_data.to_json(),
             "indices": indices,
             "names": names,
             "colors": TRACE_COLORS,
@@ -353,6 +426,13 @@ async def get_cp_plot(vehicles_str):
 async def get_detail_plot(vehicle_str):
     vehicle = int(vehicle_str)
     fig = detail_figure(vehicle=vehicle)
+    return JSONResponse(content=fig.to_dict())
+
+
+@app.get("/input_data_plot/{vehicle_str}")
+async def get_input_data_plot(vehicle_str):
+    vehicle = int(vehicle_str)
+    fig = input_data_figure(vehicle=vehicle)
     return JSONResponse(content=fig.to_dict())
 
 
