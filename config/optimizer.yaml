@@ -3,4 +3,4 @@ ce_function_type: quadratic
 alpha: 0.105263157895 
 bidirecional_charging: false
 confidence_level: 0.0
-energy_std_dev: 0.1
+energy_std_dev: 0.0
