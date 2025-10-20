@@ -58,7 +58,7 @@ def main(
         logger.debug(f"Equalized timesteps to {plan.time[0]}")
 
     plan = plan.add_energy_price(energy_price["time"].to_list(), energy_price["energy_price"].to_list())
-    plan = plan.add_grid_tariff(1.2e-4)
+    plan = plan.add_grid_tariff(1.3e-4)
 
     optimizer_config = OptimizerConfig()
 
@@ -70,11 +70,10 @@ def main(
 
     assert global_solution is not None
     initial_soe = [soe[0] for soe in global_solution.state_of_energy]
+    eta_max = 0.95
 
     def charging_efficiency(p):
-        n = p / plan.max_charging_power
-        e = n - (1 - optimizer_config.alpha) * n**2 / 2
-        return e * plan.max_charging_power
+        return eta_max * (p - (optimizer_config.alpha) * p**2 / (2 * plan.max_charging_power))
 
     env = Environment(plan, initial_soe, charging_efficiency, sigma=optimizer_config.energy_std_dev)
     looped_plan = plan.loop(days)
@@ -106,7 +105,7 @@ def main(
             logger.debug(f"  [light_sea_green]Optimizing the next {steps_until_reoptimization} steps")
             optimizer_config.initial_soe = current_soe
             optimizer = GurobiOptimizer(env.plan, config=optimizer_config)
-            optimizer.build(ce_function_type="quadratic", alpha=0.8)
+            optimizer.build(ce_function_type="quadratic", alpha=optimizer_config.alpha)
             with suppress_stdout_stderr():
                 solution = optimizer.solve()
             if solution is None:
@@ -134,7 +133,7 @@ def main(
         k = (k + 1) % steps_until_reoptimization
         logger.debug("----------------------------------------------------------------------")
 
-    power_cost = 1.2e-4 * max_charging_power * days
+    power_cost = 1.3e-4 * max_charging_power * days
     total_cost = energy_cost + power_cost
 
     total_cost_str = f"{total_cost:.3f} $"
