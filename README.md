@@ -80,14 +80,43 @@ With all the dependencies installed, the project is now ready to be used.
 
 ## Usage
 
+### Unit Tests
+Optionally, run the following command to run the unit tests.
+```bash
+pytest
+```
+
 ### Cleaning the Data
 
-TODO
+To clean the data run
+```bash
+clean-data data/raw/vehicle_cycle_energy.csv data/clean/vehicle_cycle_energy.csv
+```
 
 ### Preprocessing the Data
-
-TODO
+To preprocess the data run
+```bash
+preprocess-data data/clean/vehicle_cycle_energy.csv -t data/processed
+```
 
 ### Optimization
 
-TODO
+Hyper-parameters can be adjusted in the config files inside the config/ directory. Alternatively, they can be supplied as command line arguments.
+Run the following command to see which options there are.
+```bash
+optimize --help
+```
+
+Run the following command to run the optimization.
+```bash
+optimize
+```
+
+To see the results run
+
+```bash
+plot
+```
+
+The results will be shown as a dashboard in the browser.
+
