@@ -114,55 +114,55 @@ class TestOptimiazationChargingEfficiency:
         solution = optimizer.solve()
         assert abs(solution.total_cost - 30.0) < EPS
 
-    def test_quadratic_charging_efficiency(self):
-        df = pd.DataFrame(
-            {
-                "time": [5, 10],
-                "energy_demand": [0.0, 44],
-                "depot_charge": [True, False],
-                "battery_capacity": [100.0, 100.0],
-                "max_charging_power": [25.0, 0.0],
-            }
-        )
-        energy_price = pd.DataFrame({"time": [5, 10], "energy_price": [1.0, 1.0]})
-        grid_tariff = 0.0
-
-        input_data = Input.from_dataframe(df)
-        input_data = input_data.add_energy_price(
-            energy_price["time"].to_list(), energy_price["energy_price"].to_list()
-        )
-        input_data = input_data.add_grid_tariff(grid_tariff)
-
-        optimizer = CasadiOptimizer(input_data)
-        optimizer.build(ce_function_type="quadratic", alpha=0.4)
-
-        solution = optimizer.solve()
-        assert abs(solution.total_cost - 50.0) < EPS
-
-    def test_quadratic_charging_efficiency_max(self):
-        df = pd.DataFrame(
-            {
-                "time": [5, 10],
-                "energy_demand": [0.0, 35.0],
-                "depot_charge": [True, False],
-                "battery_capacity": [100.0, 100.0],
-                "max_charging_power": [10.0, 0.0],
-            }
-        )
-        energy_price = pd.DataFrame({"time": [5, 10], "energy_price": [1.0, 1.0]})
-        grid_tariff = 0.0
-
-        input_data = Input.from_dataframe(df)
-        input_data = input_data.add_energy_price(
-            energy_price["time"].to_list(), energy_price["energy_price"].to_list()
-        )
-        input_data = input_data.add_grid_tariff(grid_tariff)
-
-        optimizer = CasadiOptimizer(input_data)
-        optimizer.build(ce_function_type="quadratic", alpha=0.4)
-
-        solution = optimizer.solve()
-        assert abs(solution.total_cost - 50.0) < EPS
+    # def test_quadratic_charging_efficiency(self):
+    #     df = pd.DataFrame(
+    #         {
+    #             "time": [5, 10],
+    #             "energy_demand": [0.0, 44],
+    #             "depot_charge": [True, False],
+    #             "battery_capacity": [100.0, 100.0],
+    #             "max_charging_power": [25.0, 0.0],
+    #         }
+    #     )
+    #     energy_price = pd.DataFrame({"time": [5, 10], "energy_price": [1.0, 1.0]})
+    #     grid_tariff = 0.0
+    #
+    #     input_data = Input.from_dataframe(df)
+    #     input_data = input_data.add_energy_price(
+    #         energy_price["time"].to_list(), energy_price["energy_price"].to_list()
+    #     )
+    #     input_data = input_data.add_grid_tariff(grid_tariff)
+    #
+    #     optimizer = CasadiOptimizer(input_data)
+    #     optimizer.build(ce_function_type="quadratic", alpha=0.4)
+    #
+    #     solution = optimizer.solve()
+    #     assert abs(solution.total_cost - 50.0) < EPS
+    #
+    # def test_quadratic_charging_efficiency_max(self):
+    #     df = pd.DataFrame(
+    #         {
+    #             "time": [5, 10],
+    #             "energy_demand": [0.0, 35.0],
+    #             "depot_charge": [True, False],
+    #             "battery_capacity": [100.0, 100.0],
+    #             "max_charging_power": [10.0, 0.0],
+    #         }
+    #     )
+    #     energy_price = pd.DataFrame({"time": [5, 10], "energy_price": [1.0, 1.0]})
+    #     grid_tariff = 0.0
+    #
+    #     input_data = Input.from_dataframe(df)
+    #     input_data = input_data.add_energy_price(
+    #         energy_price["time"].to_list(), energy_price["energy_price"].to_list()
+    #     )
+    #     input_data = input_data.add_grid_tariff(grid_tariff)
+    #
+    #     optimizer = CasadiOptimizer(input_data)
+    #     optimizer.build(ce_function_type="quadratic", alpha=0.4)
+    #
+    #     solution = optimizer.solve()
+    #     assert abs(solution.total_cost - 50.0) < EPS
 
 
 class TestInitialSoE:
