@@ -112,11 +112,25 @@ Run the following command to run the optimization.
 optimize
 ```
 
+### Plotting Results
+
+Before plotting the results run
+```bash
+./fix.bash
+```
+
 To see the results run
 
 ```bash
 plot
 ```
 
-The results will be shown as a dashboard in the browser.
+The results will be shown as a dashboard in the browser on localhost:8000.
+
+### Model Predictive Control
+
+To run model predictive control run
+```bash
+mpc --equalize-timesteps --steps-until-reoptimization 60 --days 5
+```
 
