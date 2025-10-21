@@ -129,8 +129,12 @@ The results will be shown as a dashboard in the browser on localhost:8000.
 
 ### Model Predictive Control
 
+Adjust the *confidence_level* and *energy_std_dev* in `config/optimizer.yaml` to 0.95 and 0.05. The optimizer will now perform robust optimzation.
+
 To run model predictive control run
 ```bash
 mpc --equalize-timesteps --steps-until-reoptimization 60 --days 5
 ```
+
+This will run MPC with uniform timesteps and re-optimize once per hour. The simulation will span 5 days.
 
