@@ -111,6 +111,7 @@ Run the following command to run the optimization.
 ```bash
 optimize
 ```
+To use a battery add `data/processed/battery.json` to data_files in `config/file.yaml`
 
 ### Plotting Results
 
