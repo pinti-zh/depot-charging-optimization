@@ -4,22 +4,23 @@ version = "0.0.1"
 description = "Depot Charging Optimization"
 requires-python = ">=3.11"
 dependencies = [
-    "click",
-    "gurobipy",
-    "numpy",
-    "plotly",
-    "ruff",
-    "rich",
-    "pytest",
-    "fastapi",
-    "uvicorn",
-    "pydantic",
-    "jinja2",
-    "pandas",
     "casadi==3.7.0",
-    "tqdm",
-    "scipy",
     "pyyaml>=6.0.2",
+    "pydantic>=2.11.7",
+    "pandas-stubs==2.3.2.250926",
+    "click>=8.2.1",
+    "gurobipy>=13.0.0",
+    "numpy>=2.3.2",
+    "plotly>=6.4.0",
+    "ruff>=0.14.4",
+    "rich>=14.2.0",
+    "pytest>=9.0.0",
+    "fastapi>=0.121.1",
+    "uvicorn>=0.38.0",
+    "jinja2>=3.1.6",
+    "pandas>=2.3.2",
+    "tqdm>=4.67.1",
+    "scipy>=1.16.3",
 ]
 
 [project.optional-dependencies]
