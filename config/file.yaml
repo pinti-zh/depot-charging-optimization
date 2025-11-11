@@ -1,6 +1,6 @@
 data_files:
-  - data/processed/858581801_MAXI_1.csv
-  - data/processed/858581801_MAXI_2.csv
-  - data/processed/858581801_MAXI_3.csv
+  - data/processed/858581801_MAXI_1.json
+  - data/processed/858581801_MAXI_2.json
+  - data/processed/858581801_MAXI_3.json
 energy_price_file: data/energy_price.csv
 solution_file: outputs/solutions/solution.json
