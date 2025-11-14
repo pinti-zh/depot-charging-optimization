@@ -176,7 +176,7 @@ def input_data_figure(solution: Solution, index: int) -> go.Figure:
     )
 
     # depot charging intervals
-    bands = get_depot_charge_bands(solution, index, "#109618", 0.4)
+    bands = get_depot_charge_bands(solution, index, "#109618", 0.2)
     fig.update_layout(
         shapes=bands,
     )
