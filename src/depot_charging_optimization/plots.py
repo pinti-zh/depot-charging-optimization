@@ -243,7 +243,7 @@ def get_depot_charge_bands(solution: Solution, index: int, color: str, opacity: 
     plot_data = get_state_of_energy_plot_data(solution)
     bands = []
     for x0, x1, dc in zip(
-            plot_data.x, plot_data.x, solution.input_data.depot_charge[index]
+            plot_data.x[:-1], plot_data.x[1:], solution.input_data.depot_charge[index]
     ):
         if dc:
             bands.append(
