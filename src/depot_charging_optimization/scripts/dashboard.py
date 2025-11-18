@@ -2,7 +2,7 @@ import streamlit as st
 import json
 
 from depot_charging_optimization.data_models import Solution
-from depot_charging_optimization.plots import state_of_energy_trajectories_figure, cumulative_charging_power_figure, detail_figure, energy_price_figure, input_data_figure
+from depot_charging_optimization.plots import state_of_energy_trajectories_figure, cumulative_charging_power_figure, detail_figure, energy_price_figure, input_data_figure, color_wheel
 
 
 def get_names(solution):
@@ -35,12 +35,22 @@ tab_state_of_energy, tab_charging_power, tab_detail = st.tabs(output_tab_names)
 
 with tab_state_of_energy:
     st.header("State of Energy Trajectories")
-    soe_selection = [st.checkbox(names[i], value=True, key=f"soe-{i}") for i in range(solution.input_data.num_vehicles)]
+    soe_selection = []
+    with st.container(horizontal=True):
+        for i in range(solution.input_data.num_vehicles):
+            with st.container(horizontal=True, border=True, width=150):
+                soe_selection.append(st.checkbox(" ", key=f"soe-{i}", value=True))
+                st.html(f"<span style='color: {color_wheel(i)}; font-weight: bold;'>{names[i]}</span>")
     st.plotly_chart(state_of_energy_trajectories_figure(solution, names, soe_selection), width="stretch")
 
 with tab_charging_power:
     st.header("Cumulative Charging Power")
-    cp_selection = [st.checkbox(names[i], value=True, key=f"cp-{i}") for i in range(solution.input_data.num_vehicles)]
+    cp_selection = []
+    with st.container(horizontal=True):
+        for i in range(solution.input_data.num_vehicles):
+            with st.container(horizontal=True, border=True, width=150):
+                cp_selection.append(st.checkbox(" ", key=f"cp-{i}", value=True))
+                st.html(f"<span style='color: {color_wheel(i)}; font-weight: bold;'>{names[i]}</span>")
     st.plotly_chart(cumulative_charging_power_figure(solution, names, cp_selection), width="stretch")
 
 with tab_detail:
