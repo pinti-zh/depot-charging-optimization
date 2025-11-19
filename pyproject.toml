@@ -37,7 +37,7 @@ optimize = "depot_charging_optimization.scripts.optimize:main"
 simulate = "depot_charging_optimization.scripts.simulate:simulate"
 clean-data = "depot_charging_optimization.scripts.clean_data:clean_data"
 preprocess-data = "depot_charging_optimization.scripts.preprocess_data:preprocess_data"
-plot = "depot_charging_optimization.scripts.plotting_webapp:serve"
+dashboard= "depot_charging_optimization.scripts.dashboard_runner:run_dashboard"
 list-cycles = "depot_charging_optimization.scripts.list_cycles:list_cycles"
 compose-cycles = "depot_charging_optimization.scripts.compose_cycles:compose_cycles"
 
