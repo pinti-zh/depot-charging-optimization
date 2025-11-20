@@ -555,6 +555,7 @@ dependencies = [
     { name = "ruff" },
     { name = "scipy" },
     { name = "streamlit" },
+    { name = "tqdm" },
     { name = "watchdog" },
 ]
 
@@ -563,7 +564,6 @@ notebooks = [
     { name = "jupyter" },
     { name = "matplotlib" },
     { name = "seaborn" },
-    { name = "tqdm" },
 ]
 
 [package.metadata]
@@ -588,7 +588,7 @@ requires-dist = [
     { name = "scipy", specifier = ">=1.16.3" },
     { name = "seaborn", marker = "extra == 'notebooks'" },
     { name = "streamlit", specifier = ">=1.51.0" },
-    { name = "tqdm", marker = "extra == 'notebooks'" },
+    { name = "tqdm", specifier = ">=4.67.1" },
     { name = "watchdog", specifier = ">=6.0.0" },
 ]
 provides-extras = ["notebooks"]
