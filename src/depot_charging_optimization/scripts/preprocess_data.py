@@ -141,7 +141,7 @@ def preprocess_group(group, column_arguments):
 @click.option("--demand_column", "-dc", type=str, default="Energie.total")
 @click.option("--capacity_column", "-cc", type=str, default="Batteriekapazitaet")
 @click.option("--max_charging_power_column", "-mc", type=str, default="Ladegeschwindigkeit")
-def preprocess_data(
+def main(
     source,
     target,
     group_by,

@@ -35,10 +35,10 @@ notebooks = [
 [project.scripts]
 optimize = "depot_charging_optimization.scripts.optimize:main"
 mpc = "depot_charging_optimization.scripts.mpc:main"
-simulate = "depot_charging_optimization.scripts.simulate:simulate"
-clean-data = "depot_charging_optimization.scripts.clean_data:clean_data"
-preprocess-data = "depot_charging_optimization.scripts.preprocess_data:preprocess_data"
-dashboard= "depot_charging_optimization.scripts.dashboard_runner:run_dashboard"
+simulate = "depot_charging_optimization.scripts.simulate:main"
+clean-data = "depot_charging_optimization.scripts.clean_data:main"
+preprocess-data = "depot_charging_optimization.scripts.preprocess_data:main"
+dashboard= "depot_charging_optimization.scripts.dashboard_runner:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

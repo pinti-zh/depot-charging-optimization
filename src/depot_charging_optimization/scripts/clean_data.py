@@ -35,7 +35,7 @@ def add_decimal_point_to_int(string):
 @click.argument("source", type=str)
 @click.argument("target", type=str)
 @click.option("--sep", "-s", type=str, default=";", help="csv file seperator")
-def clean_data(source, target, sep):
+def main(source, target, sep):
     df = pd.read_csv(source, sep=sep, dtype=str, keep_default_na=False)  # read data as string
 
     logger.info(f"loaded [magenta]{source}[/magenta]\n  {len(df.columns)} columns and {len(df)} rows")

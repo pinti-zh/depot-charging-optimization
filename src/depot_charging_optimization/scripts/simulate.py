@@ -42,7 +42,7 @@ logger = logging.getLogger("simulate")
     help="maximum charging power for peak shaving (between 0 and 1)",
 )
 @FileConfig.as_click_options
-def simulate(
+def main(
     ce_function,
     simulation_algorithm,
     alpha,
