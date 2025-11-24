@@ -4,6 +4,7 @@ data/
 plots/
 outputs/
 logs/
+build/
 
 *.ipynb
 *.lic
