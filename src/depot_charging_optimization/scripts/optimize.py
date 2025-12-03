@@ -52,7 +52,7 @@ def run_main(
 
     # optimization
     start = perf_counter()
-    optimizer: Optimizer | None = None
+    optimizer: Optimizer
     if optimizer_config.optimizer_type == "casadi":
         optimizer = CasadiOptimizer(
             data_input,
