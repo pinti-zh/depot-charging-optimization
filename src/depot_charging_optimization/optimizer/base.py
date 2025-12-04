@@ -9,7 +9,7 @@ from depot_charging_optimization.data_models import Input
 OptVariable = TypeVar("OptVariable")
 
 
-class Optimizer(ABC, Generic[OptVariable]):
+class BaseOptimizer(ABC, Generic[OptVariable]):
     def __init__(self, input_data: Input, config: OptimizerConfig):
         self._input_data: Input = input_data
         self._config: OptimizerConfig = config
@@ -72,14 +72,16 @@ class Optimizer(ABC, Generic[OptVariable]):
     def build(self):
         pass
 
-    @abstractmethod
-    def _set_variable(self):
+    def _set_all_variables(self) -> None:
+        pass
+
+    def _set_all_constraints(self) -> None:
         pass
 
     @abstractmethod
-    def _set_constraint(self):
+    def _set_variable(self, spec: VariableSpec) -> OptVariable:
         pass
 
-
-
-
+    @abstractmethod
+    def _set_constraint(self, spec: ConstraintSpec) -> None:
+        pass
