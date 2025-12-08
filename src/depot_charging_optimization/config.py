@@ -1,37 +1,18 @@
 from functools import wraps
 from pathlib import Path
-from typing import Any, get_origin
+from typing import get_origin, ClassVar
 
 import click
-import yaml  # type: ignore
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, field_validator
 
 
 class BaseConfig(BaseModel):
-    config_file: Path | None = None
-    _function_argument_name: str = "config"
-
-    @model_validator(mode="before")
-    @classmethod
-    def load_from_config(cls, data: Any) -> Any:
-        if isinstance(data, cls):
-            return data  # already model instance
-
-        data = data or {}  # make sure its mutable
-
-        config_file = data.get("config_file")
-
-        if config_file is not None and Path(config_file).exists():
-            with open(config_file, "r") as f:
-                config_data = yaml.safe_load(f)
-
-            return {**config_data, **data}
-
-        return data
+    function_argument_name: ClassVar[str] = "config_cli_arguments"
+    default_config: ClassVar[tuple[str, Path]] = ("config", Path("config/optimizer.yaml"))
 
     def __repr__(self):
         return "\n".join(
-            [f"{field[0]}: [{field[1].annotation}] = {self.dict()[field[0]]} " for field in self.model_fields.items()]
+            [f"{field[0]}: [{field[1].annotation}] = {self.model_dump()[field[0]]} " for field in self.model_fields.items()]
         )
 
     def __str__(self):
@@ -40,15 +21,24 @@ class BaseConfig(BaseModel):
     @classmethod
     def as_click_options(cls, func):
         options = cls.model_fields
+        config_file_argument_name, config_file = cls.default_config
 
         @wraps(func)
         def wrapper(*args, **kwargs):
-            config = cls(**{k: v for k, v in kwargs.items() if v is not None})
+            config = {k: v for k, v in kwargs.items() if v is not None and k in options}
+            if config_file_argument_name in kwargs.keys():
+                config["config_file"] = kwargs[config_file_argument_name] or config_file
+            else:
+                config["config_file"] = config_file
             return func(
                 *args,
-                **{config._function_argument_name: config},
-                **{k: v for k, v in kwargs.items() if k not in cls.model_fields},
+                **{cls.function_argument_name: config},
+                **{k: v for k, v in kwargs.items() if k not in options and k != config_file_argument_name},
             )
+
+        wrapper = click.option(
+            f"--{config_file_argument_name.replace("_", "-")}", type=Path
+        )(wrapper)
 
         for name, info in reversed(options.items()):
             if get_origin(info.annotation) is not None:
@@ -60,6 +50,8 @@ class BaseConfig(BaseModel):
 
 
 class OptimizerConfig(BaseConfig):
+    function_argument_name: ClassVar[str] = "optimizer_config_cli_arguments"
+    default_config: ClassVar[tuple[str, Path]] = ("optimizer_config", Path("config/optimizer.yaml"))
     optimizer_type: str = "gurobi"
     ce_function_type: str = "one"
     alpha: float = 0.0
@@ -68,16 +60,16 @@ class OptimizerConfig(BaseConfig):
     confidence_level: float = 0.0
     energy_std_dev: float = 0.0
     initial_soe: list[float | None] | None = None
-    config_file: Path | None = Path("config/optimizer.yaml")
-    _function_argument_name: str = "optimizer_config"
 
     @field_validator("optimizer_type")
+    @classmethod
     def valid_optimizer_type(cls, v):
         if v.lower() not in ["gurobi", "casadi"]:
             raise ValueError(f"unknown optimizer type [{v}], must be either gurobi or casadi")
         return v.lower()
 
     @field_validator("ce_function_type")
+    @classmethod
     def valid_ce_function_type(cls, v):
         if v.lower() not in ["one", "constant", "quadratic"]:
             raise ValueError(
@@ -86,6 +78,7 @@ class OptimizerConfig(BaseConfig):
         return v.lower()
 
     @field_validator("alpha", "confidence_level", "energy_std_dev")
+    @classmethod
     def between_zero_and_one(cls, v):
         if not (0 <= v <= 1):
             raise ValueError(f"Value must be between zero and one, got {v}")
@@ -93,14 +86,15 @@ class OptimizerConfig(BaseConfig):
 
 
 class FileConfig(BaseConfig):
+    function_argument_name: ClassVar[str] = "file_config_cli_arguments"
+    default_config: ClassVar[tuple[str, Path]] = ("file_config", Path("config/file.yaml"))
     data_files: list[Path] = []
     energy_price_file: Path = Path("data/energy_price.csv")
     grid_tariff_file: Path = Path("data/grid_tariff.csv")
     solution_file: Path = Path("outputs/solutions/solution.json")
-    config_file: Path | None = Path("config/file.yaml")
-    _function_argument_name: str = "file_config"
 
     @field_validator("energy_price_file", "grid_tariff_file")
+    @classmethod
     def file_exists(cls, v):
         assert v.exists()
         return v

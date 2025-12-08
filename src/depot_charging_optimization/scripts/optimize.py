@@ -2,6 +2,7 @@ import json
 import os
 from pathlib import Path
 from time import perf_counter
+import yaml
 
 import click
 import pandas as pd
@@ -15,20 +16,46 @@ from depot_charging_optimization.result_store import ResultStore
 
 def run_main(
     debug: bool,
-    file_config: FileConfig,
-    optimizer_config: OptimizerConfig,
+    file_config_cli_arguments: dict,
+    optimizer_config_cli_arguments: dict,
 ):
     if debug:
         logger = get_logger(name="optimize", level="debug")
     else:
         logger = get_logger(name="optimize", level="info")
-    data = []
+
+    if file_config_cli_arguments["config_file"].exists():
+        with open(file_config_cli_arguments["config_file"]) as f:
+            file_config_file_dict = yaml.safe_load(f)
+    else:
+        logger.warning(f"File config file {file_config_cli_arguments['config_file']} not found")
+        file_config_file_dict = {}
+    del file_config_cli_arguments["config_file"]
+
+    if optimizer_config_cli_arguments["config_file"].exists():
+        with open(optimizer_config_cli_arguments["config_file"]) as f:
+            optimizer_config_file_dict = yaml.safe_load(f)
+    else:
+        logger.warning(f"Optimizer config file {optimizer_config_cli_arguments['config_file']} not found")
+        optimizer_config_file_dict = {}
+    del optimizer_config_cli_arguments["config_file"]
+
+    file_config = FileConfig(**file_config_file_dict)
+    file_config = file_config.model_copy(update=file_config_cli_arguments)
+    optimizer_config = OptimizerConfig(**optimizer_config_file_dict)
+    optimizer_config = optimizer_config.model_copy(update=optimizer_config_cli_arguments)
 
     # log config
     logger.debug("File Config:")
     logger.debug(file_config)
     logger.debug("Optimizer Config:")
     logger.debug(optimizer_config)
+
+    data = []
+
+    if len(file_config.data_files) < 1:
+        logger.error("No data files specified.")
+        return
 
     logger.info("Reading files:")
     for i, file in enumerate(file_config.data_files):
