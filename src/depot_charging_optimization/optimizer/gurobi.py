@@ -159,7 +159,7 @@ class GurobiOptimizer:
         )
 
         if self._config.initial_soe is not None:
-            self._initial_soe = np.array(self._config.initial_soe, dtype=float) * self._factor_soe
+            self.initial_soe = np.array(self._config.initial_soe, dtype=float) * self._factor_soe
 
         self._energy_demand = np.array(self._input_data.energy_demand, dtype=float) * self._factor_soe
 
@@ -237,12 +237,6 @@ class GurobiOptimizer:
             "soe_sustainability",
         )
 
-        if isinstance(self._initial_soe, np.ndarray):
-            self._model.addConstr(
-                soe_first == self._initial_soe,
-                "initial_soe",
-            )
-
         lse_first = self._lower_soe_envelope[:, 0]
         assert isinstance(lse_first, gp.MVar)
         self._model.addConstr(
@@ -263,6 +257,7 @@ class GurobiOptimizer:
         assert isinstance(self._time_delta, np.ndarray), "uninitialized optimization variable"
         assert isinstance(self._energy_price, np.ndarray), "uninitialized optimization variable"
         assert isinstance(self._grid_tariff, float), "uninitialized optimization variable"
+        assert self._input_data.grid_tariff is not None
 
         energy_cost = (self._energy_price * self._total_charging_power * self._time_delta[0]).sum()
         power_cost = self._max_charging_power * self._grid_tariff
