@@ -159,7 +159,7 @@ class GurobiOptimizer:
         )
 
         if self._config.initial_soe is not None:
-            self.initial_soe = np.array(self._config.initial_soe, dtype=float) * self._factor_soe
+            self._initial_soe = np.array(self._config.initial_soe, dtype=float) * self._factor_soe
 
         self._energy_demand = np.array(self._input_data.energy_demand, dtype=float) * self._factor_soe
 
@@ -236,6 +236,12 @@ class GurobiOptimizer:
             soe_first <= soe_last,
             "soe_sustainability",
         )
+
+        if isinstance(self._initial_soe, np.ndarray):
+            self._model.addConstr(
+                soe_first == self._initial_soe,
+                "initial_soe",
+            )
 
         lse_first = self._lower_soe_envelope[:, 0]
         assert isinstance(lse_first, gp.MVar)
