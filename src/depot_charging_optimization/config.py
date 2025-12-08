@@ -20,8 +20,6 @@ class BaseConfig(BaseModel):
         data = data or {}  # make sure its mutable
 
         config_file = data.get("config_file")
-        if config_file is None:
-            config_file = cls.model_fields["config_file"].default
 
         if config_file is not None and Path(config_file).exists():
             with open(config_file, "r") as f:
@@ -64,7 +62,8 @@ class BaseConfig(BaseModel):
 class OptimizerConfig(BaseConfig):
     optimizer_type: str = "gurobi"
     ce_function_type: str = "one"
-    alpha: float = 1.0
+    alpha: float = 0.0
+    max_efficiency: float = 1.0
     bidirectional_charging: bool = False
     confidence_level: float = 0.0
     energy_std_dev: float = 0.0
