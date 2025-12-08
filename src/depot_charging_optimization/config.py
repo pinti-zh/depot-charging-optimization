@@ -12,7 +12,8 @@ class BaseConfig(BaseModel):
 
     def __repr__(self):
         return "\n".join(
-            [f"{field[0]}: [{field[1].annotation}] = {self.model_dump()[field[0]]} " for field in self.model_fields.items()]
+            [f"{field[0]}: [{field[1].annotation}] = {self.model_dump()[field[0]]} "
+             for field in self.__class__.model_fields.items()]
         )
 
     def __str__(self):
