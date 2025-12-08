@@ -54,7 +54,6 @@ class OptimizerConfig(BaseConfig):
     function_argument_name: ClassVar[str] = "optimizer_config_cli_arguments"
     default_config: ClassVar[tuple[str, Path]] = ("optimizer_config", Path("config/optimizer.yaml"))
     optimizer_type: str = "gurobi"
-    ce_function_type: str = "one"
     alpha: float = 0.0
     max_efficiency: float = 1.0
     bidirectional_charging: bool = False
@@ -67,15 +66,6 @@ class OptimizerConfig(BaseConfig):
     def valid_optimizer_type(cls, v):
         if v.lower() not in ["gurobi", "casadi"]:
             raise ValueError(f"unknown optimizer type [{v}], must be either gurobi or casadi")
-        return v.lower()
-
-    @field_validator("ce_function_type")
-    @classmethod
-    def valid_ce_function_type(cls, v):
-        if v.lower() not in ["one", "constant", "quadratic"]:
-            raise ValueError(
-                f"unknown charging efficiency function type [{v}], must be either one, contant, or quadratic"
-            )
         return v.lower()
 
     @field_validator("alpha", "confidence_level", "energy_std_dev")
