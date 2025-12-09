@@ -49,8 +49,6 @@ def run_main(
     )
     plan = plan.add_grid_tariff(1.3e-4)
 
-    optimizer_config = OptimizerConfig()
-
     # Get optimal initial state
 
     if optimizer_config.optimizer_type == "casadi":
