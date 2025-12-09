@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 from depot_charging_optimization.config import FileConfig, OptimizerConfig
 from depot_charging_optimization.controller import policy_from_solution
-from depot_charging_optimization.core import GurobiOptimizer
+from depot_charging_optimization.core import CasadiOptimizer, GurobiOptimizer
 from depot_charging_optimization.data_models import Input, Solution
 from depot_charging_optimization.environment import Environment
 from depot_charging_optimization.logging import get_logger, suppress_stdout_stderr
@@ -52,7 +52,18 @@ def run_main(
     optimizer_config = OptimizerConfig()
 
     # Get optimal initial state
-    optimizer = GurobiOptimizer(plan, config=optimizer_config)
+
+    if optimizer_config.optimizer_type == "casadi":
+        optimizer = CasadiOptimizer(
+            plan,
+            config=optimizer_config,
+        )
+    else:
+        optimizer = GurobiOptimizer(
+            plan,
+            config=optimizer_config,
+        )
+
     optimizer.build(ce_function_type="quadratic", alpha=optimizer_config.alpha)
     with suppress_stdout_stderr():
         global_solution = optimizer.solve()
