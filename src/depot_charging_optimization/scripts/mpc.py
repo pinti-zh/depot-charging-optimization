@@ -112,7 +112,16 @@ def run_main(
                 f"  [light_sea_green]Optimizing the next {steps_until_reoptimization} steps"
             )
             optimizer_config.initial_soe = current_soe
-            optimizer = GurobiOptimizer(env.plan, config=optimizer_config)
+            if optimizer_config.optimizer_type == "casadi":
+                optimizer = CasadiOptimizer(
+                    env.plan,
+                    config=optimizer_config,
+                )
+            else:
+                optimizer = GurobiOptimizer(
+                    env.plan,
+                    config=optimizer_config,
+                )
             optimizer.build(ce_function_type="quadratic", alpha=optimizer_config.alpha)
             with suppress_stdout_stderr():
                 solution = optimizer.solve()
