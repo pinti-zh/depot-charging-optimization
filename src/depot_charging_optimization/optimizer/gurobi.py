@@ -263,7 +263,6 @@ class GurobiOptimizer:
         assert isinstance(self._time_delta, np.ndarray), "uninitialized optimization variable"
         assert isinstance(self._energy_price, np.ndarray), "uninitialized optimization variable"
         assert isinstance(self._grid_tariff, float), "uninitialized optimization variable"
-        assert self._input_data.grid_tariff is not None
 
         energy_cost = (self._energy_price * self._total_charging_power * self._time_delta[0]).sum()
         power_cost = self._max_charging_power * self._grid_tariff
