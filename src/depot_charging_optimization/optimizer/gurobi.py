@@ -250,11 +250,6 @@ class GurobiOptimizer:
             "initial_soe_envelope",
         )
 
-        if isinstance(self._initial_soe, np.ndarray):
-            self._model.addConstr(
-                soe_first == self._initial_soe,
-            )
-
     def _set_objective(self) -> None:
         # assert all optimization variables are initialized
         assert isinstance(self._total_charging_power, gp.MVar), "uninitialized optimization variable"
