@@ -217,13 +217,13 @@ class GurobiOptimizer:
         assert isinstance(soe_previous, gp.MVar)
         assert isinstance(soe_next, gp.MVar)
         self._model.addConstr(
-            soe_next <=
+            soe_next ==
             soe_previous + self._effective_charging_power * self._time_delta * power_to_soe - self._energy_demand,
             "energy_flow",
         )
 
         self._model.addConstr(
-            soe_next <=
+            soe_next ==
             soe_previous + self._effective_charging_power * self._time_delta * power_to_soe - self._realistic_worst_case,
             "energy_flow_realistic_worst_case",
             )
