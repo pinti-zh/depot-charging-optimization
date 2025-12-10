@@ -10,8 +10,6 @@ class Input(BaseModel):
     num_vehicles: int
     time: list[int]
     energy_demand: list[list[float]]
-    soe_lb: list[float]
-    soe_ub: list[float]
     max_charging_power: float
     battery_capacity: list[float]
     depot_charge: list[list[bool]]
@@ -41,19 +39,6 @@ class Input(BaseModel):
             raise ValueError(f"Field[{info.field_name}] must be strictly ascending")
         return value
 
-    @field_validator("soe_lb", "soe_ub")
-    @classmethod
-    def check_between_0_and_1(cls, value, info):
-        if not all(0 <= v <= 1 for v in value):
-            raise ValueError(f"Field[{info.field_name}] must be between 0 and 1")
-        return value
-
-    @model_validator(mode="after")
-    def check_soe_bounds(self):
-        if not all(lb < ub for lb, ub in zip(self.soe_lb, self.soe_ub)):
-            raise ValueError("Field[soe_lb] must be smaller than Field[soe_ub]")
-        return self
-
     @model_validator(mode="after")
     def check_list_lengths(self):
         n = len(self.time)
@@ -73,10 +58,6 @@ class Input(BaseModel):
             raise ValueError(
                 f"Field[battery_capacity] has length {len(self.battery_capacity)}, expected {self.num_vehicles}"
             )
-        if not len(self.soe_lb) == self.num_vehicles:
-            raise ValueError(f"Field[soe_lb] has length {len(self.soe_lb)}, expected {self.num_vehicles}")
-        if not len(self.soe_ub) == self.num_vehicles:
-            raise ValueError(f"Field[soe_ub] has length {len(self.soe_ub)}, expected {self.num_vehicles}")
         return self
 
     @model_validator(mode="after")
@@ -109,8 +90,6 @@ class Input(BaseModel):
             num_vehicles=self.num_vehicles,
             time=[t - self.time[0] for t in self.time[1:]] + [self.time[-1]],
             energy_demand=[item[1:] + [item[0]] for item in self.energy_demand],
-            soe_lb=self.soe_lb,
-            soe_ub=self.soe_ub,
             max_charging_power=self.max_charging_power,
             battery_capacity=self.battery_capacity,
             depot_charge=[item[1:] + [item[0]] for item in self.depot_charge],
@@ -125,8 +104,6 @@ class Input(BaseModel):
             num_vehicles=self.num_vehicles,
             time=self.time[:n],
             energy_demand=[energy_demand[:n] for energy_demand in self.energy_demand],
-            soe_lb=self.soe_lb,
-            soe_ub=self.soe_ub,
             max_charging_power=self.max_charging_power,
             battery_capacity=self.battery_capacity,
             depot_charge=[depot_charge[:n] for depot_charge in self.depot_charge],
@@ -151,8 +128,6 @@ class Input(BaseModel):
             num_vehicles=self.num_vehicles,
             time=looped_time,
             energy_demand=[energy_demand * loops for energy_demand in self.energy_demand],
-            soe_lb=self.soe_lb,
-            soe_ub=self.soe_ub,
             max_charging_power=self.max_charging_power,
             battery_capacity=self.battery_capacity,
             depot_charge=[depot_charge * loops for depot_charge in self.depot_charge],
@@ -209,8 +184,6 @@ class Input(BaseModel):
             num_vehicles=1,
             time=df["time"].to_list(),
             energy_demand=[df["energy_demand"].to_list()],
-            soe_lb=[0.0],
-            soe_ub=[1.0],
             max_charging_power=max_charging_power,
             battery_capacity=[df["battery_capacity"][0]],
             depot_charge=[df["depot_charge"].to_list()],
@@ -229,12 +202,6 @@ class Input(BaseModel):
 
         if not all(item.num_vehicles == 1 for item in inputs):
             raise ValueError("Inputs can only contain single vehicles")
-
-        if not all(item.soe_lb[0] == inputs[0].soe_lb[0] for item in inputs):
-            raise ValueError("Inputs do not have same SoE lower bound")
-
-        if not all(item.soe_ub[0] == inputs[0].soe_ub[0] for item in inputs):
-            raise ValueError("Inputs do not have same SoE upper bound")
 
         if not all(item.battery_capacity[0] == inputs[0].battery_capacity[0] for item in inputs):
             raise ValueError("Inputs do not have same battery capacity")
@@ -260,8 +227,6 @@ class Input(BaseModel):
             num_vehicles=1,
             time=time,
             energy_demand=energy_demand,
-            soe_lb=inputs[0].soe_lb,
-            soe_ub=inputs[0].soe_ub,
             max_charging_power=inputs[0].max_charging_power,
             battery_capacity=inputs[0].battery_capacity,
             depot_charge=depot_charge,
@@ -281,12 +246,8 @@ class Input(BaseModel):
 
         num_vehicles = sum(item.num_vehicles for item in inputs)
 
-        soe_lb = []
-        soe_ub = []
         battery_capacity = []
         for item in inputs:
-            soe_lb += item.soe_lb
-            soe_ub += item.soe_ub
             battery_capacity += item.battery_capacity
 
         time = []
@@ -311,8 +272,6 @@ class Input(BaseModel):
             num_vehicles=num_vehicles,
             time=time,
             energy_demand=energy_demand,
-            soe_lb=soe_lb,
-            soe_ub=soe_ub,
             max_charging_power=inputs[0].max_charging_power,
             battery_capacity=battery_capacity,
             depot_charge=depot_charge,
@@ -403,8 +362,6 @@ class Input(BaseModel):
             num_vehicles=self.num_vehicles,
             time=extended_time,
             energy_demand=energy_demand,
-            soe_lb=self.soe_lb,
-            soe_ub=self.soe_ub,
             max_charging_power=self.max_charging_power,
             battery_capacity=self.battery_capacity,
             depot_charge=depot_charge,
