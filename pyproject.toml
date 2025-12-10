@@ -24,6 +24,7 @@ dependencies = [
     "kaleido>=1.2.0",
     "tqdm>=4.67.1",
     "jupyter>=1.1.1",
+    "scipy-stubs>=1.16.3.3",
 ]
 
 [project.optional-dependencies]
