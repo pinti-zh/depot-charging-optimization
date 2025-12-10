@@ -121,8 +121,8 @@ def detail_figure(solution: Solution, index: int, show_lower_envelope: bool=True
         )
     )
     for bound in [
-        solution.input_data.soe_lb[index] * solution.input_data.battery_capacity[index],
-        solution.input_data.soe_ub[index] * solution.input_data.battery_capacity[index],
+        0.0,
+        solution.input_data.battery_capacity[index],
     ]:
         fig.add_trace(
             go.Scatter(
