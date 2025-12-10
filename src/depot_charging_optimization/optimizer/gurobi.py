@@ -222,9 +222,13 @@ class GurobiOptimizer:
             "energy_flow",
         )
 
+        lse_previous = self._lower_soe_envelope[:, :-1]
+        lse_next = self._lower_soe_envelope[:, 1:]
+        assert isinstance(lse_previous, gp.MVar)
+        assert isinstance(lse_next, gp.MVar)
         self._model.addConstr(
-            soe_next ==
-            soe_previous + self._effective_charging_power * self._time_delta * power_to_soe - self._realistic_worst_case,
+            lse_next ==
+            lse_previous + self._effective_charging_power * self._time_delta * power_to_soe - self._realistic_worst_case,
             "energy_flow_realistic_worst_case",
             )
 
