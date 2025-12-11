@@ -3,7 +3,7 @@ from gurobipy import GRB
 import numpy as np
 from scipy.stats import norm
 
-from depot_charging_optimization.core import OptimizerConfig
+from depot_charging_optimization.config import OptimizerConfig
 from depot_charging_optimization.data_models import Input, Solution
 from depot_charging_optimization.logging import suppress_stdout_stderr
 
