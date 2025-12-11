@@ -257,7 +257,6 @@ class GurobiOptimizer:
         # assert all optimization variables are initialized
         assert isinstance(self._total_charging_power, gp.MVar), "uninitialized optimization variable"
         assert isinstance(self._max_charging_power, gp.MVar), "uninitialized optimization variable"
-        assert isinstance(self._energy_demand, np.ndarray), "uninitialized optimization variable"
         assert isinstance(self._time_delta, np.ndarray), "uninitialized optimization variable"
         assert isinstance(self._energy_price, np.ndarray), "uninitialized optimization variable"
         assert isinstance(self._grid_tariff, float), "uninitialized optimization variable"
