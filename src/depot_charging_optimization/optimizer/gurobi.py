@@ -79,7 +79,6 @@ class GurobiOptimizer:
                 total_cost=energy_cost + power_cost,
                 energy_cost=energy_cost,
                 power_cost=power_cost,
-                gap=0.0,
                 max_charging_power_used=self._max_charging_power.getAttr("X").item() / self._factor_cp,
                 charging_power=[cp / self._factor_cp for cp in self._charging_power.getAttr("X")],
                 effective_charging_power=[cp / self._factor_cp for cp in self._effective_charging_power.getAttr("X")],

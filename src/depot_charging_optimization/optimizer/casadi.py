@@ -143,7 +143,6 @@ class CasadiOptimizer:
             total_cost=energy_cost + power_cost,
             energy_cost=energy_cost,
             power_cost=power_cost,
-            gap=0.0,
             max_charging_power_used=var_values["max_charging_power"].item() / self._factor_cp,
             charging_power=[cp / self._factor_cp for cp in var_values["charging_power"]],
             effective_charging_power=[cp / self._factor_cp for cp in var_values["effective_charging_power"]],

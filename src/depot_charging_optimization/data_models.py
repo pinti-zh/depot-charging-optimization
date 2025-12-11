@@ -388,19 +388,11 @@ class Solution(BaseModel):
     total_cost: float
     energy_cost: float
     power_cost: float
-    gap: float
     max_charging_power_used: float
     charging_power: list[list[float]]
     effective_charging_power: list[list[float]]
     state_of_energy: list[list[float]]
     lower_soe_envelope: list[list[float]]
-
-    @field_validator("gap")
-    @classmethod
-    def check_between_0_and_1(cls, value, info):
-        if not 0 <= value <= 1:
-            raise ValueError(f"Field[{info.field_name}] must be between 0 and 1")
-        return value
 
     @model_validator(mode="after")
     def check_list_lengths(self):

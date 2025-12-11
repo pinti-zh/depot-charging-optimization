@@ -185,7 +185,6 @@ def run_main(
         total_cost=total_cost,
         energy_cost=energy_cost,
         power_cost=power_cost,
-        gap=0.0,
         max_charging_power_used=max_charging_power,
         charging_power=charging_power,
         effective_charging_power=effective_charging_power,
