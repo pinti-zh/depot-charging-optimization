@@ -1,7 +1,6 @@
 from functools import reduce
 from math import gcd
 
-import pandas as pd
 from pydantic import BaseModel, field_validator, model_validator
 
 
@@ -63,9 +62,11 @@ class Input(BaseModel):
     @model_validator(mode="after")
     def check_no_energy_demand_in_depot(self):
         for vehicle_depot_charge, vehicle_energy_demand in zip(self.depot_charge, self.energy_demand):
-            for dc, demand in zip(vehicle_depot_charge, vehicle_energy_demand):
-                if dc and not (demand == 0.0):
-                    raise ValueError("Nonzero energy demand found while depot charging")
+            energy_demand_in_depot = any(
+                dc and (demand > 0) for dc, demand in zip(vehicle_depot_charge, self.vehicle_energy_demand)
+            )
+            if energy_demand_in_depot:
+                raise ValueError("Nonzero energy demand found while depot charging")
         return self
 
     @model_validator(mode="after")
@@ -83,8 +84,7 @@ class Input(BaseModel):
         if self.energy_price is None:
             rotated_energy_price = None
         else:
-            rotated_energy_price = self.energy_price[1:] + [self.energy_price[0]]
-
+            rotated_energy_price = self.energy_price[1: ] + [self.energy_price[0]] # type: ignore
         return Input(
             num_timesteps=self.num_timesteps,
             num_vehicles=self.num_vehicles,
@@ -107,7 +107,7 @@ class Input(BaseModel):
             max_charging_power=self.max_charging_power,
             battery_capacity=self.battery_capacity,
             depot_charge=[depot_charge[:n] for depot_charge in self.depot_charge],
-            energy_price=self.energy_price[:n] if self.energy_price is not None else None,
+            energy_price=self.energy_price[:n] if self.energy_price is not None else None, # type: ignore
             grid_tariff=self.grid_tariff,
             is_battery=self.is_battery,
         )
@@ -140,7 +140,7 @@ class Input(BaseModel):
         delta_time = []
         for t1, t2 in zip([0] + self.time[:-1], self.time):
             delta_time.append(t2 - t1)
-        return reduce(gcd, delta_time)
+        return int(reduce(gcd, delta_time))
 
     def equalize_timesteps(self, dt: int | None = None) -> "Input":
         max_dt = self.maximum_possible_equal_timestep()
@@ -151,87 +151,6 @@ class Input(BaseModel):
         equalized_timesteps = [dt * (i + 1) for i in range(self.time[-1] // dt)]
 
         return self._extend(equalized_timesteps)
-
-    @classmethod
-    def from_dataframe(cls, df: pd.DataFrame):
-        required_dataframe_columns = [
-            "time",
-            "energy_demand",
-            "depot_charge",
-            "battery_capacity",
-            "max_charging_power",
-        ]
-
-        # assert all dataframes are non-empty
-        if len(df) <= 0:
-            raise ValueError("Dataframe is empty")
-
-        # assert that all dataframes have the required columns
-        for col in required_dataframe_columns:
-            if col not in df.columns:
-                raise ValueError(f"Column [{col}] not found in dataframe")
-
-        # assert consistent scalar values
-        if not all(cap == df["battery_capacity"][0] for cap in df["battery_capacity"]):
-            raise ValueError("Battery capacity columns do not match")
-
-        max_charging_power = df[df["depot_charge"]]["max_charging_power"].max()
-        if not all(mcp == max_charging_power or mcp == 0 for mcp in df[df["depot_charge"]]["max_charging_power"]):
-            raise ValueError("Max charging power columns do not match")
-
-        # create OptimizationInput
-        return cls(
-            num_vehicles=1,
-            time=df["time"].to_list(),
-            energy_demand=[df["energy_demand"].to_list()],
-            max_charging_power=max_charging_power,
-            battery_capacity=[df["battery_capacity"][0]],
-            depot_charge=[df["depot_charge"].to_list()],
-        )
-
-    @classmethod
-    def concatenate(cls, inputs: list["Input"]) -> "Input":
-        if not len(inputs) > 0:
-            raise ValueError("Inputs must not be empty")
-
-        if not all(item.time[-1] == inputs[0].time[-1] for item in inputs):
-            raise ValueError("Inputs do not cover same time period")
-
-        if not all(item.max_charging_power == inputs[0].max_charging_power for item in inputs):
-            raise ValueError("Inputs do not have same max_charging_power")
-
-        if not all(item.num_vehicles == 1 for item in inputs):
-            raise ValueError("Inputs can only contain single vehicles")
-
-        if not all(item.battery_capacity[0] == inputs[0].battery_capacity[0] for item in inputs):
-            raise ValueError("Inputs do not have same battery capacity")
-
-        if not cls.concatenatable(inputs):
-            raise ValueError("Inputs cannot be concatenated")
-
-        time = []
-        for item in inputs:
-            time += item.time
-        time = sorted(list(set(time)))
-
-        extended_inputs = [item._extend(time) for item in inputs]
-
-        energy_demand = [item.energy_demand[0] for item in extended_inputs]
-        depot_charge = [item.depot_charge[0] for item in extended_inputs]
-
-        # [[...], [...], [...], ...] -> [[...]]
-        energy_demand = [[max(values) for values in zip(*energy_demand)]]
-        depot_charge = [[all(values) for values in zip(*depot_charge)]]
-
-        return Input(
-            num_vehicles=1,
-            time=time,
-            energy_demand=energy_demand,
-            max_charging_power=inputs[0].max_charging_power,
-            battery_capacity=inputs[0].battery_capacity,
-            depot_charge=depot_charge,
-            is_battery=inputs[0].is_battery,
-        )
 
     @classmethod
     def combine(cls, inputs: list["Input"]) -> "Input":
@@ -277,31 +196,6 @@ class Input(BaseModel):
             depot_charge=depot_charge,
             is_battery=is_battery,
         )
-
-    @classmethod
-    def concatenatable(cls, cycles):
-        if len(cycles) < 2:
-            return True
-        if len(cycles) > 2:
-            for i, cycle_1 in enumerate(cycles):
-                for cycle_2 in cycles[i + 1 :]:
-                    if not Input.concatenatable([cycle_1, cycle_2]):
-                        return False
-            return True
-        cycle_1, cycle_2 = cycles[0], cycles[1]
-        time_index_1, time_index_2 = 0, 0
-        while (time_index_1 < cycle_1.num_timesteps) and (time_index_2 < cycle_2.num_timesteps):
-            time_1 = cycle_1.time[time_index_1]
-            time_2 = cycle_2.time[time_index_2]
-            depot_charge_1 = cycle_1.depot_charge[0][time_index_1]
-            depot_charge_2 = cycle_2.depot_charge[0][time_index_2]
-            if not (depot_charge_1 or depot_charge_2):
-                return False
-            if time_1 <= time_2:
-                time_index_1 += 1
-            if time_2 <= time_1:
-                time_index_2 += 1
-        return True
 
     def add_grid_tariff(self, grid_tariff: float) -> "Input":
         self.grid_tariff = grid_tariff
