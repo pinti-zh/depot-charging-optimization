@@ -132,6 +132,43 @@ def preprocess_group(group, column_arguments):
     return df
 
 
+def input_from_dataframe(df: pd.DataFrame) -> Input:
+    required_dataframe_columns = [
+        "time",
+        "energy_demand",
+        "depot_charge",
+        "battery_capacity",
+        "max_charging_power",
+    ]
+
+    # assert all dataframes are non-empty
+    if len(df) <= 0:
+        raise ValueError("Dataframe is empty")
+
+    # assert that all dataframes have the required columns
+    for col in required_dataframe_columns:
+        if col not in df.columns:
+            raise ValueError(f"Column [{col}] not found in dataframe")
+
+    # assert consistent scalar values
+    if not all(cap == df["battery_capacity"][0] for cap in df["battery_capacity"]):
+        raise ValueError("Battery capacity columns do not match")
+
+    max_charging_power = df[df["depot_charge"]]["max_charging_power"].max()
+    if not all(mcp == max_charging_power or mcp == 0 for mcp in df[df["depot_charge"]]["max_charging_power"]):
+        raise ValueError("Max charging power columns do not match")
+
+    # create OptimizationInput
+    return Input(
+        num_vehicles=1,
+        time=df["time"].to_list(),
+        energy_demand=[df["energy_demand"].to_list()],
+        max_charging_power=max_charging_power,
+        battery_capacity=[df["battery_capacity"][0]],
+        depot_charge=[df["depot_charge"].to_list()],
+    )
+
+
 @click.command()
 @click.argument("source", type=str)
 @click.option("--target", "-t", type=str, default="data/processed")
@@ -171,7 +208,7 @@ def main(
         logger.info(f"processing [cyan]{group_by}[/cyan] [dark_cyan]{id}")
         processed = preprocess_group(group, column_arguments)
         try:
-            input_data = Input.from_dataframe(processed)
+            input_data = input_from_dataframe(processed)
 
             os.makedirs(target, exist_ok=True)
             file_name = os.path.join(target, f"{id}.json")
