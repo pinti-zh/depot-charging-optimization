@@ -231,7 +231,7 @@ def get_energy_demand_plot_data(solution: Solution) -> PlotData:
         width.append(t2 - t1)
         seconds.append((t1 + t2) // 2)
     x = convert_seconds_to_time(seconds)
-    y = [[ed / (3600 * dt) for ed, dt in zip(solution.input_data.energy_demand[i], solution.input_data.time)]
+    y = [[ed / (1000 * dt) for ed, dt in zip(solution.input_data.energy_demand[i], width)]
          for i in range(solution.input_data.num_vehicles)]
     width = [w * 1000 for w in width]
     return PlotData(x=x, y=y, width=width)
