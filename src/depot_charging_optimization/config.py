@@ -1,9 +1,10 @@
 from functools import wraps
 from pathlib import Path
-from typing import get_origin, ClassVar
+from typing import get_origin, ClassVar, Self
 
 import click
 from pydantic import BaseModel, field_validator
+import yaml
 
 
 class BaseConfig(BaseModel):
@@ -18,6 +19,16 @@ class BaseConfig(BaseModel):
 
     def __str__(self):
         return self.__repr__()
+
+    @classmethod
+    def load_from_dict(cls, config_dict: dict) -> Self:
+        if config_dict["config_file"].exists():
+            with open(config_dict["config_file"]) as f:
+                config_file_dict = yaml.safe_load(f)
+        else:
+            config_file_dict = {}
+        config = cls(**config_file_dict) # type: ignore
+        return config.model_copy(update=config_dict)
 
     @classmethod
     def as_click_options(cls, func):
@@ -73,6 +84,27 @@ class OptimizerConfig(BaseConfig):
     def between_zero_and_one(cls, v):
         if not (0 <= v <= 1):
             raise ValueError(f"Value must be between zero and one, got {v}")
+        return v
+
+class ModelPredictiveControlConfig(BaseConfig):
+    function_argument_name: ClassVar[str] = "mpc_config_cli_arguments"
+    default_config: ClassVar[tuple[str, Path]] = ("mpc_config", Path("config/mpc.yaml"))
+    mpc_energy_std_dev: float = 0.0
+    minutes_until_reoptimization: int = 60
+    num_days: int = 1
+
+    @field_validator("mpc_energy_std_dev")
+    @classmethod
+    def between_zero_and_one(cls, v):
+        if not (0 <= v <= 1):
+            raise ValueError(f"Value must be between zero and one, got {v}")
+        return v
+
+    @field_validator("minutes_until_reoptimization", "num_days")
+    @classmethod
+    def strictly_positive(cls, v):
+        if v <= 0:
+            raise ValueError(f"Value must be strictly positive, got {v}")
         return v
 
 

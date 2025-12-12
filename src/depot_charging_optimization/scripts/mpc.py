@@ -1,33 +1,65 @@
 import json
+from math import gcd
 
 import click
 import pandas as pd
 from tqdm import tqdm
 
-from depot_charging_optimization.config import FileConfig, OptimizerConfig
+from depot_charging_optimization.config import FileConfig, OptimizerConfig, ModelPredictiveControlConfig
 from depot_charging_optimization.controller import policy_from_solution
-from depot_charging_optimization.core import CasadiOptimizer, GurobiOptimizer
 from depot_charging_optimization.data_models import Input, Solution
 from depot_charging_optimization.environment import Environment
 from depot_charging_optimization.logging import get_logger, suppress_stdout_stderr
+from depot_charging_optimization.optimizer.base import Optimizer
+from depot_charging_optimization.optimizer.casadi import CasadiOptimizer
+from depot_charging_optimization.optimizer.gurobi import GurobiOptimizer
 
 
-def run_main(
+def build_optimizer(optimizer_config: OptimizerConfig, input_data: Input) -> Optimizer | None:
+    match optimizer_config.optimizer_type:
+        case "casadi":
+            return CasadiOptimizer(input_data, config=optimizer_config)
+        case "gurobi":
+            return GurobiOptimizer(input_data, config=optimizer_config)
+        case _:
+            return None
+
+
+@click.command()
+# general options
+@click.option("--debug", is_flag=True, default=False, help="print debug messages")
+@FileConfig.as_click_options
+@OptimizerConfig.as_click_options
+@ModelPredictiveControlConfig.as_click_options
+def main(
     debug: bool,
-    steps_until_reoptimization: int,
-    equalize_timesteps: bool,
-    days: int,
-    file_config: FileConfig,
-    optimizer_config: OptimizerConfig,
+    file_config_cli_arguments: dict,
+    mpc_config_cli_arguments: dict,
+    optimizer_config_cli_arguments: dict,
 ):
     if debug:
         logger = get_logger(name="mpc", level="debug")
     else:
         logger = get_logger(name="mpc", level="info")
 
+    if not file_config_cli_arguments["config_file"].exists():
+        logger.warning(f"File config file {file_config_cli_arguments['config_file']} not found")
+
+    if not mpc_config_cli_arguments["config_file"].exists():
+        logger.warning(f"MPC config file {mpc_config_cli_arguments['config_file']} not found")
+
+    if not optimizer_config_cli_arguments["config_file"].exists():
+        logger.warning(f"Optimizer config file {optimizer_config_cli_arguments['config_file']} not found")
+
+    file_config = FileConfig.load_from_dict(file_config_cli_arguments)
+    mpc_config = ModelPredictiveControlConfig.load_from_dict(mpc_config_cli_arguments)
+    optimizer_config = OptimizerConfig.load_from_dict(optimizer_config_cli_arguments)
+
     # log config
     logger.debug("File Config:")
     logger.debug(file_config)
+    logger.debug("MPC Config:")
+    logger.debug(mpc_config)
     logger.debug("Optimizer Config:")
     logger.debug(optimizer_config)
 
@@ -38,57 +70,46 @@ def run_main(
     plan = Input.combine(input_data)
 
     energy_price = pd.read_csv(file_config.energy_price_file)
-    energy_price["energy_price"] /= 3.6e6
-
-    if equalize_timesteps:
-        plan = plan.equalize_timesteps()
-        logger.debug(f"Equalized timesteps to {plan.time[0]}")
-
-    plan = plan.add_energy_price(
-        energy_price["time"].to_list(), energy_price["energy_price"].to_list()
-    )
+    energy_price["energy_price"] /= 3.6e6   # convert to CHF / Joule
 
     grid_tariff = pd.read_csv(file_config.grid_tariff_file)
-    grid_tariff["grid_tariff"] /= 365 * 1.0e6  # convert to CHF / Watt
+    grid_tariff["grid_tariff"] /= (365 * 1.0e6)   # convert to CHF / Watt
 
+    dt = gcd(plan.maximum_possible_equal_timestep(), mpc_config.minutes_until_reoptimization * 60)
+    plan = plan.equalize_timesteps(dt=dt)
+    steps_until_reoptimization = (mpc_config.minutes_until_reoptimization * 60) // dt
+    logger.debug(f"Equalized timesteps to {dt} seconds")
+    logger.debug(f"Reoptimizing after {mpc_config.minutes_until_reoptimization * 60} seconds")
+
+    plan = plan.add_energy_price(energy_price["time"].to_list(), energy_price["energy_price"].to_list())
     plan = plan.add_grid_tariff(grid_tariff["grid_tariff"][0])
 
+    optimizer = build_optimizer(optimizer_config, plan)
+    if optimizer is None:
+        logger.error(f"Unknown optimizer type: {optimizer_config.optimizer_type}")
+        return
+    optimizer.build()
+
     # Get optimal initial state
-
-    if optimizer_config.optimizer_type == "casadi":
-        optimizer = CasadiOptimizer(
-            plan,
-            config=optimizer_config,
-        )
-    else:
-        optimizer = GurobiOptimizer(
-            plan,
-            config=optimizer_config,
-        )
-
-    optimizer.build(ce_function_type="quadratic", alpha=optimizer_config.alpha)
     with suppress_stdout_stderr():
         global_solution = optimizer.solve()
 
-    assert global_solution is not None
+    if global_solution is None:
+        logger.error(f"Optimizer failed to find an initial global solution")
+        return
     initial_soe = [soe[0] for soe in global_solution.state_of_energy]
-    eta_max = 0.95
 
     def charging_efficiency(p):
-        return eta_max * (
-            p - (optimizer_config.alpha) * p**2 / (2 * plan.max_charging_power)
-        )
+        return optimizer_config.max_efficiency * (p - optimizer_config.alpha * p**2 / (2 * plan.max_charging_power))
 
-    env = Environment(
-        plan, initial_soe, charging_efficiency, sigma=optimizer_config.energy_std_dev
-    )
-    looped_plan = plan.loop(days)
+    env = Environment(plan, initial_soe, charging_efficiency, sigma=mpc_config.mpc_energy_std_dev)
+    looped_plan = plan.loop(mpc_config.num_days)
 
-    charging_power = [[] for _ in range(plan.num_vehicles)]
-    effective_charging_power = [[] for _ in range(plan.num_vehicles)]
+    charging_power: list[list[float]] = [[] for _ in range(plan.num_vehicles)]
+    effective_charging_power: list[list[float]] = [[] for _ in range(plan.num_vehicles)]
     state_of_energy = [[initial_soe[vehicle]] for vehicle in range(plan.num_vehicles)]
 
-    num_steps = len(plan.time) * days
+    num_steps = len(plan.time) * mpc_config.num_days
     energy_cost = 0
     max_charging_power = 0
     k = 0
@@ -98,39 +119,24 @@ def run_main(
     logger.info("Running simulation")
     step_generator = range(num_steps) if debug else tqdm(range(num_steps))
     for i in step_generator:
-        logger.debug(f"Step {i + 1}")
+        logger.debug(f"Step {i + 1} (t={i * dt})")
         if any(
-            soe is not None and soe < threshold * cap
-            for soe, threshold, cap in zip(
-                current_soe, plan.soe_lb, plan.battery_capacity
-            )
+                (soe is not None and soe < 0.0) for soe, cap in zip(current_soe, plan.battery_capacity)
         ):
             logger.warning("  [orange1]Invalid state encountered -- stopping early")
             break
 
         # optimize and find policy
         if k == 0:
-            logger.debug(
-                f"  [light_sea_green]Optimizing the next {steps_until_reoptimization} steps"
-            )
+            logger.debug(f"  [light_sea_green]Optimizing the next {steps_until_reoptimization} steps")
             optimizer_config.initial_soe = current_soe
-            if optimizer_config.optimizer_type == "casadi":
-                optimizer = CasadiOptimizer(
-                    env.plan,
-                    config=optimizer_config,
-                )
-            else:
-                optimizer = GurobiOptimizer(
-                    env.plan,
-                    config=optimizer_config,
-                )
-            optimizer.build(ce_function_type="quadratic", alpha=optimizer_config.alpha)
+            optimizer = build_optimizer(optimizer_config, env.plan)
+            assert optimizer is not None
+            optimizer.build()
             with suppress_stdout_stderr():
                 solution = optimizer.solve()
             if solution is None:
-                logger.warning(
-                    "  [orange1]Optimizer encountered infeasible problem -- stopping early"
-                )
+                logger.warning("  [orange1]Optimizer encountered infeasible problem -- stopping early")
                 break
             policy = policy_from_solution(solution, steps_until_reoptimization)
         logger.debug(
@@ -139,9 +145,7 @@ def run_main(
         logger.debug(f"  Policy: ({', '.join([f'{cp:.5f}' for cp in policy[k]])[:-1]})")
 
         # track energy cost and max charging power
-        energy_cost += sum(
-            cp * env.plan.time[0] * env.plan.energy_price[0] for cp in policy[k]
-        )
+        energy_cost += sum(cp * env.plan.time[0] * env.plan.energy_price[0] for cp in policy[k])
         max_charging_power = max(max_charging_power, max(policy[k]))
 
         for vehicle, cp in enumerate(policy[k]):
@@ -154,28 +158,18 @@ def run_main(
             state_of_energy[vehicle].append(env.soe[vehicle])
 
         k = (k + 1) % steps_until_reoptimization
-        logger.debug(
-            "----------------------------------------------------------------------"
-        )
+        logger.debug("----------------------------------------------------------------------")
 
-    power_cost = 1.3e-4 * max_charging_power * days
+    power_cost = 1.3e-4 * max_charging_power * mpc_config.num_days
     total_cost = energy_cost + power_cost
 
     total_cost_str = f"{total_cost:.3f} $"
     energy_cost_str = f"{energy_cost:.3f} $"
     power_cost_str = f"{power_cost:.3f} $"
-    max_cost_string_length = max(
-        map(len, [total_cost_str, energy_cost_str, power_cost_str])
-    )
-    logger.info(
-        f"Total cost of solution:   {' ' * (max_cost_string_length - len(total_cost_str))}{total_cost_str}"
-    )
-    logger.info(
-        f"Energy cost of solution:  {' ' * (max_cost_string_length - len(energy_cost_str))}{energy_cost_str}"
-    )
-    logger.info(
-        f"Power cost of solution:   {' ' * (max_cost_string_length - len(power_cost_str))}{power_cost_str}"
-    )
+    max_cost_string_length = max(map(len, [total_cost_str, energy_cost_str, power_cost_str]))
+    logger.info(f"Total cost of solution:   {' ' * (max_cost_string_length - len(total_cost_str))}{total_cost_str}")
+    logger.info(f"Energy cost of solution:  {' ' * (max_cost_string_length - len(energy_cost_str))}{energy_cost_str}")
+    logger.info(f"Power cost of solution:   {' ' * (max_cost_string_length - len(power_cost_str))}{power_cost_str}")
 
     if len(charging_power[0]) < looped_plan.num_timesteps:
         looped_plan = looped_plan.truncate(len(charging_power[0]))
@@ -195,39 +189,3 @@ def run_main(
     with open(file_config.solution_file, "w") as f:
         f.write(solution.model_dump_json(indent=4))
     logger.info(f"Saved solution to [cyan3]{file_config.solution_file}")
-
-
-@click.command()
-# general options
-@click.option("--debug", is_flag=True, default=False, help="print debug messages")
-@click.option(
-    "--steps-until-reoptimization",
-    type=int,
-    default=10,
-    help="number of steps taken before reoptimizing policy",
-)
-@click.option(
-    "--equalize-timesteps",
-    is_flag=True,
-    default=False,
-    help="equalize timesteps of data",
-)
-@click.option("--days", type=int, default=10, help="number of days simulated")
-@FileConfig.as_click_options
-@OptimizerConfig.as_click_options
-def main(
-    debug: bool,
-    steps_until_reoptimization: int,
-    equalize_timesteps: bool,
-    days: int,
-    file_config: FileConfig,
-    optimizer_config: OptimizerConfig,
-):
-    return run_main(
-        debug=debug,
-        steps_until_reoptimization=steps_until_reoptimization,
-        equalize_timesteps=equalize_timesteps,
-        days=days,
-        file_config=file_config,
-        optimizer_config=optimizer_config,
-    )

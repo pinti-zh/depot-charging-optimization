@@ -28,26 +28,14 @@ def main(
     else:
         logger = get_logger(name="optimize", level="info")
 
-    if file_config_cli_arguments["config_file"].exists():
-        with open(file_config_cli_arguments["config_file"]) as f:
-            file_config_file_dict = yaml.safe_load(f)
-    else:
+    if not file_config_cli_arguments["config_file"].exists():
         logger.warning(f"File config file {file_config_cli_arguments['config_file']} not found")
-        file_config_file_dict = {}
-    del file_config_cli_arguments["config_file"]
 
-    if optimizer_config_cli_arguments["config_file"].exists():
-        with open(optimizer_config_cli_arguments["config_file"]) as f:
-            optimizer_config_file_dict = yaml.safe_load(f)
-    else:
+    if not optimizer_config_cli_arguments["config_file"].exists():
         logger.warning(f"Optimizer config file {optimizer_config_cli_arguments['config_file']} not found")
-        optimizer_config_file_dict = {}
-    del optimizer_config_cli_arguments["config_file"]
 
-    file_config = FileConfig(**file_config_file_dict)
-    file_config = file_config.model_copy(update=file_config_cli_arguments)
-    optimizer_config = OptimizerConfig(**optimizer_config_file_dict)
-    optimizer_config = optimizer_config.model_copy(update=optimizer_config_cli_arguments)
+    file_config = FileConfig.load_from_dict(file_config_cli_arguments)
+    optimizer_config = OptimizerConfig.load_from_dict(optimizer_config_cli_arguments)
 
     # log config
     logger.debug("File Config:")

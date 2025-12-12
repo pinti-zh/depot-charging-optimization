@@ -317,11 +317,13 @@ class CasadiOptimizer:
         }
 
         if isinstance(self._initial_soe, ca.DM):
-            self._constraints["initial_soe"] = {
-                "expr": self._variables["state_of_energy"]["var"][:, 0] - self._initial_soe,
-                "lb": np.zeros(self._input_data.num_vehicles, dtype=float),
-                "ub": np.zeros(self._input_data.num_vehicles, dtype=float),
-            }
+            for i in range(self._input_data.num_vehicles):
+                if not np.isnan(self._initial_soe[i]):
+                    self._constraints[f"initial_soe_{i}"] = {
+                        "expr": self._variables["state_of_energy"]["var"][i, 0] - self._initial_soe[i],
+                        "lb": np.zeros(1, dtype=float),
+                        "ub": np.zeros(1, dtype=float),
+                    }
 
         self._constraints["initial_soe_envelope"] = {
             "expr": self._variables["state_of_energy"]["var"][:, 0]
