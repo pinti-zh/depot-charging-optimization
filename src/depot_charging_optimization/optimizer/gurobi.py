@@ -241,10 +241,12 @@ class GurobiOptimizer:
         )
 
         if isinstance(self._initial_soe, np.ndarray):
-            self._model.addConstr(
-                soe_first == self._initial_soe,
-                "initial_soe",
-            )
+            for i, soe in enumerate(self._initial_soe):
+                if not np.isnan(soe):
+                    soe_first_i = soe_first[i]
+                    assert isinstance(soe_first_i, gp.MVar)
+                    assert isinstance(soe, float)
+                    self._model.addConstr(soe_first_i == soe, f"initial_soe_{i}",)
 
         lse_first = self._lower_soe_envelope[:, 0]
         assert isinstance(lse_first, gp.MVar)
