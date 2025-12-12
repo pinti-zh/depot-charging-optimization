@@ -63,7 +63,7 @@ class Input(BaseModel):
     def check_no_energy_demand_in_depot(self):
         for vehicle_depot_charge, vehicle_energy_demand in zip(self.depot_charge, self.energy_demand):
             energy_demand_in_depot = any(
-                dc and (demand > 0) for dc, demand in zip(vehicle_depot_charge, self.vehicle_energy_demand)
+                dc and (demand > 0) for dc, demand in zip(vehicle_depot_charge, vehicle_energy_demand)
             )
             if energy_demand_in_depot:
                 raise ValueError("Nonzero energy demand found while depot charging")
