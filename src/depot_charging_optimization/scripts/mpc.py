@@ -51,6 +51,8 @@ def run_main(
     grid_tariff = pd.read_csv(file_config.grid_tariff_file)
     grid_tariff["grid_tariff"] /= 365 * 1.0e6  # convert to CHF / Watt
 
+    plan = plan.add_grid_tariff(grid_tariff["grid_tariff"][0])
+
     # Get optimal initial state
 
     if optimizer_config.optimizer_type == "casadi":

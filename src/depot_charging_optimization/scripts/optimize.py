@@ -40,14 +40,15 @@ def run_main(
     data_input = Input.combine(data)
 
     energy_price = pd.read_csv(file_config.energy_price_file)
-    energy_price["energy_price"] /= 3.6e6
+    energy_price["energy_price"] /= 3.6e6  # convert to CHF / Joule
+
+    grid_tariff = pd.read_csv(file_config.grid_tariff_file)
+    grid_tariff["grid_tariff"] /= 365 * 1.0e6  # convert to CHF / Watt
 
     data_input = data_input.add_energy_price(
         energy_price["time"].to_list(), energy_price["energy_price"].to_list()
     )
-
-    grid_tariff = pd.read_csv(file_config.grid_tariff_file)
-    grid_tariff["grid_tariff"] /= 365 * 1.0e6  # convert to CHF / Watt
+    data_input = data_input.add_grid_tariff(grid_tariff["grid_tariff"][0])
 
     # optimization
     start = perf_counter()
