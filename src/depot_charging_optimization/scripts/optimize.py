@@ -13,11 +13,7 @@ from depot_charging_optimization.logging import get_logger, log_stdout
 from depot_charging_optimization.result_store import ResultStore
 
 
-@click.command()
-@click.option("--debug", is_flag=True, default=False, help="print debug messages")
-@FileConfig.as_click_options
-@OptimizerConfig.as_click_options
-def main(
+def run_main(
     debug: bool,
     file_config: FileConfig,
     optimizer_config: OptimizerConfig,
@@ -44,11 +40,15 @@ def main(
     data_input = Input.combine(data)
 
     energy_price = pd.read_csv(file_config.energy_price_file)
-    energy_price["energy_price"] /= 3.6e6
+    energy_price["energy_price"] /= 3.6e6  # convert to CHF / Joule
 
-    data_input = data_input.add_energy_price(energy_price["time"].to_list(), energy_price["energy_price"].to_list())
-    data_input = data_input.add_grid_tariff(1.3e-4)
-    # data_input = data_input.add_grid_tariff(0.57 * 1e-3)
+    grid_tariff = pd.read_csv(file_config.grid_tariff_file)
+    grid_tariff["grid_tariff"] /= 365 * 1.0e6  # convert to CHF / Watt
+
+    data_input = data_input.add_energy_price(
+        energy_price["time"].to_list(), energy_price["energy_price"].to_list()
+    )
+    data_input = data_input.add_grid_tariff(grid_tariff["grid_tariff"][0])
 
     # optimization
     start = perf_counter()
@@ -64,7 +64,9 @@ def main(
             config=optimizer_config,
         )
 
-    optimizer.build(ce_function_type=optimizer_config.ce_function_type, alpha=optimizer_config.alpha)
+    optimizer.build(
+        ce_function_type=optimizer_config.ce_function_type, alpha=optimizer_config.alpha
+    )
 
     # solve
     with log_stdout(logger, level="debug"):
@@ -93,7 +95,9 @@ def main(
         if optimizer.slack["max_charging_power"] > max_slack:
             max_slack = optimizer.slack["max_charging_power"]
             max_slack_location = "Max Charging Power"
-        logger.debug(f"Maximum slack: {max_slack:.3e} (found in [{max_slack_location}] constraints)")
+        logger.debug(
+            f"Maximum slack: {max_slack:.3e} (found in [{max_slack_location}] constraints)"
+        )
 
         # solution information
         logger.info(f"Found solution in {optimization_time:.4f} seconds")
@@ -101,9 +105,15 @@ def main(
         energy_cost = f"{solution.energy_cost:.3f} $"
         power_cost = f"{solution.power_cost:.3f} $"
         max_cost_string_length = max(map(len, [total_cost, energy_cost, power_cost]))
-        logger.info(f"Total cost of solution:   {' ' * (max_cost_string_length - len(total_cost))}{total_cost}")
-        logger.info(f"Energy cost of solution:  {' ' * (max_cost_string_length - len(energy_cost))}{energy_cost}")
-        logger.info(f"Power cost of solution:   {' ' * (max_cost_string_length - len(power_cost))}{power_cost}")
+        logger.info(
+            f"Total cost of solution:   {' ' * (max_cost_string_length - len(total_cost))}{total_cost}"
+        )
+        logger.info(
+            f"Energy cost of solution:  {' ' * (max_cost_string_length - len(energy_cost))}{energy_cost}"
+        )
+        logger.info(
+            f"Power cost of solution:   {' ' * (max_cost_string_length - len(power_cost))}{power_cost}"
+        )
 
         solution_dir = os.path.dirname(file_config.solution_file)
         os.makedirs(solution_dir, exist_ok=True)
@@ -127,3 +137,19 @@ def main(
                 },
             }
         )
+
+
+@click.command()
+@click.option("--debug", is_flag=True, default=False, help="print debug messages")
+@FileConfig.as_click_options
+@OptimizerConfig.as_click_options
+def main(
+    debug: bool,
+    file_config: FileConfig,
+    optimizer_config: OptimizerConfig,
+):
+    return run_main(
+        debug=debug,
+        file_config=file_config,
+        optimizer_config=optimizer_config,
+    )
