@@ -47,7 +47,9 @@ def run_main(
     plan = plan.add_energy_price(
         energy_price["time"].to_list(), energy_price["energy_price"].to_list()
     )
-    plan = plan.add_grid_tariff(1.3e-4)
+
+    grid_tariff = pd.read_csv(file_config.grid_tariff_file)
+    grid_tariff["grid_tariff"] /= 365 * 1.0e6  # convert to CHF / Watt
 
     # Get optimal initial state
 
