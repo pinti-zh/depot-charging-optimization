@@ -84,7 +84,7 @@ class Input(BaseModel):
         if self.energy_price is None:
             rotated_energy_price = None
         else:
-            rotated_energy_price = self.energy_price[1: ] + [self.energy_price[0]] # type: ignore
+            rotated_energy_price = self.energy_price[1:] + [self.energy_price[0]]  # type: ignore
         return Input(
             num_timesteps=self.num_timesteps,
             num_vehicles=self.num_vehicles,
@@ -107,7 +107,7 @@ class Input(BaseModel):
             max_charging_power=self.max_charging_power,
             battery_capacity=self.battery_capacity,
             depot_charge=[depot_charge[:n] for depot_charge in self.depot_charge],
-            energy_price=self.energy_price[:n] if self.energy_price is not None else None, # type: ignore
+            energy_price=self.energy_price[:n] if self.energy_price is not None else None,  # type: ignore
             grid_tariff=self.grid_tariff,
             is_battery=self.is_battery,
         )

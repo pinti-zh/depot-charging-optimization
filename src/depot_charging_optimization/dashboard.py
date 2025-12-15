@@ -4,22 +4,29 @@ import json
 import streamlit as st
 
 from depot_charging_optimization.data_models import Solution
-from depot_charging_optimization.plots import state_of_energy_trajectories_figure, cumulative_charging_power_figure, detail_figure, energy_price_figure, input_data_figure, color_wheel
+from depot_charging_optimization.plots import (
+    color_wheel,
+    cumulative_charging_power_figure,
+    detail_figure,
+    energy_price_figure,
+    input_data_figure,
+    state_of_energy_trajectories_figure,
+)
 
 
 def get_figure_buffer(figure, title=""):
     buf = io.BytesIO()
     figure.update_layout(
-        paper_bgcolor='white',
-        plot_bgcolor='white',
-        font=dict(color='black'),
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+        font=dict(color="black"),
         title=title,
-        title_font_color='black',
-        legend_font_color='black',
+        title_font_color="black",
+        legend_font_color="black",
         margin=dict(l=10, r=10, t=40, b=10),
     )
-    figure.update_xaxes(showgrid=True, gridcolor='lightgrey')
-    figure.update_yaxes(showgrid=True, gridcolor='lightgrey')
+    figure.update_xaxes(showgrid=True, gridcolor="lightgrey")
+    figure.update_yaxes(showgrid=True, gridcolor="lightgrey")
     figure.write_image(buf, format="png")
     buf.seek(0)
     return buf
@@ -102,7 +109,7 @@ with tab_state_of_energy:
         label="Download Plot",
         data=get_figure_buffer(soe_figure, title="State of Energy Trajectories"),
         file_name="state_of_energy_trajectories.png",
-        mime="image/png"
+        mime="image/png",
     )
 
 with tab_charging_power:
@@ -110,7 +117,7 @@ with tab_charging_power:
         label="Download Plot",
         data=get_figure_buffer(cp_figure, title="Cumulative Charging Power"),
         file_name="cumulative_charging_power.png",
-        mime="image/png"
+        mime="image/png",
     )
 
 with tab_detail:
@@ -118,7 +125,7 @@ with tab_detail:
         label="Download Plot",
         data=get_figure_buffer(dt_figure, title="Vehicle Detail"),
         file_name="vehicle_detail.png",
-        mime="image/png"
+        mime="image/png",
     )
 
 with tab_energy_demand:
@@ -126,7 +133,7 @@ with tab_energy_demand:
         label="Download Plot",
         data=get_figure_buffer(ipt_figure, title="Energy Demand"),
         file_name="energy_demand.png",
-        mime="image/png"
+        mime="image/png",
     )
 
 with tab_energy_price:
@@ -134,5 +141,5 @@ with tab_energy_price:
         label="Download Plot",
         data=get_figure_buffer(ep_figure, title="Energy Price"),
         file_name="energy_price.png",
-        mime="image/png"
+        mime="image/png",
     )

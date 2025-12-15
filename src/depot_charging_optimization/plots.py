@@ -25,7 +25,7 @@ def state_of_energy_trajectories_figure(solution: Solution, names: list[str], se
         fig.add_trace(
             go.Scatter(
                 x=plot_data.x,
-                y=plot_data.y[i],   # type: ignore
+                y=plot_data.y[i],  # type: ignore
                 mode="lines",
                 marker=dict(color=color),
                 line=dict(color=color),
@@ -48,7 +48,7 @@ def cumulative_charging_power_figure(solution: Solution, names: list[str], selec
         fig.add_trace(
             go.Bar(
                 x=plot_data_bars.x,
-                y=plot_data_bars.y[i],   # type: ignore
+                y=plot_data_bars.y[i],  # type: ignore
                 width=plot_data_bars.width,  # type: ignore
                 marker_color=color,
                 marker=dict(line=dict(width=0)),
@@ -80,7 +80,7 @@ def energy_price_figure(solution: Solution) -> go.Figure:
     fig.add_trace(
         go.Scatter(
             x=plot_data.x,
-            y=plot_data.y[0],   # type: ignore
+            y=plot_data.y[0],  # type: ignore
             mode="lines",
         )
     )
@@ -91,18 +91,18 @@ def energy_price_figure(solution: Solution) -> go.Figure:
     return fig
 
 
-def detail_figure(solution: Solution, index: int, show_lower_envelope: bool=True) -> go.Figure:
+def detail_figure(solution: Solution, index: int, show_lower_envelope: bool = True) -> go.Figure:
     assert index < solution.input_data.num_vehicles
 
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     color = color_wheel(index)
 
     if show_lower_envelope:
-        lower_envelope_plot_data= get_lower_envelope_plot_data(solution)
+        lower_envelope_plot_data = get_lower_envelope_plot_data(solution)
         fig.add_trace(
             go.Scatter(
                 x=lower_envelope_plot_data.x,
-                y=lower_envelope_plot_data.y[index],    # type: ignore
+                y=lower_envelope_plot_data.y[index],  # type: ignore
                 mode="lines",
                 marker=dict(color=color),
                 line=dict(dash="dot", color=color),
@@ -114,7 +114,7 @@ def detail_figure(solution: Solution, index: int, show_lower_envelope: bool=True
     fig.add_trace(
         go.Scatter(
             x=state_of_energy_plot_data.x,
-            y=state_of_energy_plot_data.y[index],   # type: ignore
+            y=state_of_energy_plot_data.y[index],  # type: ignore
             mode="lines",
             marker=dict(color=color),
             line=dict(color=color),
@@ -127,7 +127,7 @@ def detail_figure(solution: Solution, index: int, show_lower_envelope: bool=True
         fig.add_trace(
             go.Scatter(
                 x=state_of_energy_plot_data.x,
-                y=[bound / 3.6e6 for _ in state_of_energy_plot_data.x], # type: ignore
+                y=[bound / 3.6e6 for _ in state_of_energy_plot_data.x],  # type: ignore
                 mode="lines",
                 marker=dict(color=color),
                 line=dict(color=color, dash="dash"),
@@ -139,8 +139,8 @@ def detail_figure(solution: Solution, index: int, show_lower_envelope: bool=True
     fig.add_trace(
         go.Bar(
             x=charging_power_plot_data.x,
-            y=charging_power_plot_data.y[index],    # type: ignore
-            width=charging_power_plot_data.width,   # type: ignore
+            y=charging_power_plot_data.y[index],  # type: ignore
+            width=charging_power_plot_data.width,  # type: ignore
             marker_color=color,
             marker=dict(line=dict(width=0)),
             opacity=0.4,
@@ -168,7 +168,7 @@ def input_data_figure(solution: Solution, index: int) -> go.Figure:
     fig.add_trace(
         go.Bar(
             x=plot_data.x,
-            y=plot_data.y[index],   # type: ignore
+            y=plot_data.y[index],  # type: ignore
             width=plot_data.width,  # type: ignore
             marker_color="#B82E2E",
             marker=dict(line=dict(width=0)),
@@ -211,8 +211,10 @@ def get_charging_power_plot_data(solution: Solution) -> PlotData:
 
 def get_cumulative_charging_power_plot_data(solution: Solution) -> PlotData:
     x = convert_seconds_to_time(convert_to_interval(solution.input_data.time))
-    cum_cp = [sum(solution.charging_power[i][j] for i in range(solution.input_data.num_vehicles))
-              for j in range(solution.input_data.num_timesteps)]
+    cum_cp = [
+        sum(solution.charging_power[i][j] for i in range(solution.input_data.num_vehicles))
+        for j in range(solution.input_data.num_timesteps)
+    ]
     y = [convert_to_interval([value / 1000 for value in cum_cp], is_y=True)]
     return PlotData(x=x, y=y)  # type: ignore # types are equivalent for lists of length 1
 
@@ -231,8 +233,10 @@ def get_energy_demand_plot_data(solution: Solution) -> PlotData:
         width.append(t2 - t1)
         seconds.append((t1 + t2) // 2)
     x = convert_seconds_to_time(seconds)
-    y = [[ed / (1000 * dt) for ed, dt in zip(solution.input_data.energy_demand[i], width)]
-         for i in range(solution.input_data.num_vehicles)]
+    y = [
+        [ed / (1000 * dt) for ed, dt in zip(solution.input_data.energy_demand[i], width)]
+        for i in range(solution.input_data.num_vehicles)
+    ]
     width = [w * 1000 for w in width]
     return PlotData(x=x, y=y, width=width)
 
@@ -242,9 +246,7 @@ def get_depot_charge_bands(solution: Solution, index: int, color: str, opacity: 
 
     plot_data = get_state_of_energy_plot_data(solution)
     bands = []
-    for x0, x1, dc in zip(
-            plot_data.x[:-1], plot_data.x[1:], solution.input_data.depot_charge[index]
-    ):
+    for x0, x1, dc in zip(plot_data.x[:-1], plot_data.x[1:], solution.input_data.depot_charge[index]):
         if dc:
             bands.append(
                 dict(
@@ -287,7 +289,7 @@ def convert_seconds_to_time(seconds: list[int] | list[float]) -> list[str]:
     return [(start + timedelta(seconds=s)).isoformat() for s in seconds]
 
 
-def convert_to_interval(values: list[int] | list[float], is_y: bool=False) -> list[int] | list[float]:
+def convert_to_interval(values: list[int] | list[float], is_y: bool = False) -> list[int] | list[float]:
     intervals = [value for value in values for _ in range(2)]
     if is_y:
         return intervals

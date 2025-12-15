@@ -1,10 +1,10 @@
 from functools import wraps
 from pathlib import Path
-from typing import get_origin, ClassVar, Self
+from typing import ClassVar, Self, get_origin
 
 import click
-from pydantic import BaseModel, field_validator
 import yaml
+from pydantic import BaseModel, field_validator
 
 
 class BaseConfig(BaseModel):
@@ -13,8 +13,10 @@ class BaseConfig(BaseModel):
 
     def __repr__(self):
         return "\n".join(
-            [f"{field[0]}: [{field[1].annotation}] = {self.model_dump()[field[0]]} "
-             for field in self.__class__.model_fields.items()]
+            [
+                f"{field[0]}: [{field[1].annotation}] = {self.model_dump()[field[0]]} "
+                for field in self.__class__.model_fields.items()
+            ]
         )
 
     def __str__(self):
@@ -27,7 +29,7 @@ class BaseConfig(BaseModel):
                 config_file_dict = yaml.safe_load(f)
         else:
             config_file_dict = {}
-        config = cls(**config_file_dict) # type: ignore
+        config = cls(**config_file_dict)  # type: ignore
         return config.model_copy(update=config_dict)
 
     @classmethod
@@ -48,9 +50,7 @@ class BaseConfig(BaseModel):
                 **{k: v for k, v in kwargs.items() if k not in options and k != config_file_argument_name},
             )
 
-        wrapper = click.option(
-            f"--{config_file_argument_name.replace("_", "-")}", type=Path
-        )(wrapper)
+        wrapper = click.option(f"--{config_file_argument_name.replace('_', '-')}", type=Path)(wrapper)
 
         for name, info in reversed(options.items()):
             if get_origin(info.annotation) is not None:
@@ -85,6 +85,7 @@ class OptimizerConfig(BaseConfig):
         if not (0 <= v <= 1):
             raise ValueError(f"Value must be between zero and one, got {v}")
         return v
+
 
 class ModelPredictiveControlConfig(BaseConfig):
     function_argument_name: ClassVar[str] = "mpc_config_cli_arguments"

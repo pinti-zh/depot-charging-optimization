@@ -1,6 +1,6 @@
 import gurobipy as gp
-from gurobipy import GRB
 import numpy as np
+from gurobipy import GRB
 from scipy.stats import norm
 
 from depot_charging_optimization.config import OptimizerConfig
@@ -9,7 +9,7 @@ from depot_charging_optimization.logging import suppress_stdout_stderr
 
 
 class GurobiOptimizer:
-    def __init__(self, input_data: Input, config: OptimizerConfig=OptimizerConfig()):
+    def __init__(self, input_data: Input, config: OptimizerConfig = OptimizerConfig()):
         self._input_data: Input = input_data
         self._config: OptimizerConfig = config
 
@@ -28,12 +28,12 @@ class GurobiOptimizer:
         self._state_of_energy: gp.MVar | None = None
         self._lower_soe_envelope: gp.MVar | None = None
 
-        self._initial_soe: np.ndarray | None = None            # constant once initialized
-        self._energy_demand: np.ndarray | None = None          # constant once initialized
-        self._realistic_worst_case: np.ndarray | None = None   # constant once initialized
-        self._time_delta: np.ndarray | None = None             # constant once initialized
-        self._energy_price: np.ndarray | None = None           # constant once initialized
-        self._grid_tariff: float | None = None                 # constant once initialized
+        self._initial_soe: np.ndarray | None = None  # constant once initialized
+        self._energy_demand: np.ndarray | None = None  # constant once initialized
+        self._realistic_worst_case: np.ndarray | None = None  # constant once initialized
+        self._time_delta: np.ndarray | None = None  # constant once initialized
+        self._energy_price: np.ndarray | None = None  # constant once initialized
+        self._grid_tariff: float | None = None  # constant once initialized
 
         # auxiliary constants: scaling factors
         self._factor_cp: float = 1.0 / self._input_data.max_charging_power
@@ -66,10 +66,7 @@ class GurobiOptimizer:
             factor = self._factor_cp * self._factor_ep
 
             energy_cost = (
-                    self._total_charging_power.getAttr("X")
-                    * self._time_delta[0]
-                    * self._energy_price
-                    / factor
+                self._total_charging_power.getAttr("X") * self._time_delta[0] * self._energy_price / factor
             ).sum()
 
             power_cost = self._max_charging_power.getAttr("X").item() * self._grid_tariff / factor
@@ -99,8 +96,7 @@ class GurobiOptimizer:
         assert self._input_data.is_battery is not None
         if self._config.bidirectional_charging:
             bidirectional_charging_mask = np.ones(
-                (self._input_data.num_vehicles, self._input_data.num_timesteps),
-                dtype=bool
+                (self._input_data.num_vehicles, self._input_data.num_timesteps), dtype=bool
             )
         else:
             bidirectional_charging_mask = np.hstack(
@@ -126,7 +122,7 @@ class GurobiOptimizer:
         )
 
         self._total_charging_power = self._model.addMVar(
-            (self._input_data.num_timesteps, ),
+            (self._input_data.num_timesteps,),
             lb=0.0,
             ub=1.0 * self._input_data.num_vehicles,
             name="total_charging_power",
@@ -134,7 +130,7 @@ class GurobiOptimizer:
         )
 
         self._max_charging_power = self._model.addMVar(
-            (1, ),
+            (1,),
             lb=0.0,
             ub=1.0 * self._input_data.num_vehicles,
             name="max_charging_power",
@@ -168,10 +164,13 @@ class GurobiOptimizer:
         )
 
         self._time_delta = np.vstack(
-            [np.array(
-                [t2 - t1 for t1, t2 in zip([0] + self._input_data.time[:-1], self._input_data.time)],
-                dtype=float,
-            )] * self._input_data.num_vehicles
+            [
+                np.array(
+                    [t2 - t1 for t1, t2 in zip([0] + self._input_data.time[:-1], self._input_data.time)],
+                    dtype=float,
+                )
+            ]
+            * self._input_data.num_vehicles
         )
 
         assert self._input_data.energy_price is not None
@@ -194,9 +193,8 @@ class GurobiOptimizer:
 
         self._model.addConstr(
             self._effective_charging_power
-            <= self._config.max_efficiency * (
-                    self._charging_power - (self._config.alpha / 2) * self._charging_power ** 2
-            ),
+            <= self._config.max_efficiency
+            * (self._charging_power - (self._config.alpha / 2) * self._charging_power**2),
             "charging_efficiency",
         )
 
@@ -216,8 +214,8 @@ class GurobiOptimizer:
         assert isinstance(soe_previous, gp.MVar)
         assert isinstance(soe_next, gp.MVar)
         self._model.addConstr(
-            soe_next ==
-            soe_previous + self._effective_charging_power * self._time_delta * power_to_soe - self._energy_demand,
+            soe_next
+            == soe_previous + self._effective_charging_power * self._time_delta * power_to_soe - self._energy_demand,
             "energy_flow",
         )
 
@@ -226,10 +224,12 @@ class GurobiOptimizer:
         assert isinstance(lse_previous, gp.MVar)
         assert isinstance(lse_next, gp.MVar)
         self._model.addConstr(
-            lse_next ==
-            lse_previous + self._effective_charging_power * self._time_delta * power_to_soe - self._realistic_worst_case,
+            lse_next
+            == lse_previous
+            + self._effective_charging_power * self._time_delta * power_to_soe
+            - self._realistic_worst_case,
             "energy_flow_realistic_worst_case",
-            )
+        )
 
         soe_first = self._state_of_energy[:, 0]
         soe_last = self._state_of_energy[:, -1]
@@ -246,7 +246,10 @@ class GurobiOptimizer:
                     soe_first_i = soe_first[i]
                     assert isinstance(soe_first_i, gp.MVar)
                     assert isinstance(soe, float)
-                    self._model.addConstr(soe_first_i == soe, f"initial_soe_{i}",)
+                    self._model.addConstr(
+                        soe_first_i == soe,
+                        f"initial_soe_{i}",
+                    )
 
         lse_first = self._lower_soe_envelope[:, 0]
         assert isinstance(lse_first, gp.MVar)

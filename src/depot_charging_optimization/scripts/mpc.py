@@ -5,7 +5,7 @@ import click
 import pandas as pd
 from tqdm import tqdm
 
-from depot_charging_optimization.config import FileConfig, OptimizerConfig, ModelPredictiveControlConfig
+from depot_charging_optimization.config import FileConfig, ModelPredictiveControlConfig, OptimizerConfig
 from depot_charging_optimization.controller import policy_from_solution
 from depot_charging_optimization.data_models import Input, Solution
 from depot_charging_optimization.environment import Environment
@@ -95,7 +95,7 @@ def main(
         global_solution = optimizer.solve()
 
     if global_solution is None:
-        logger.error(f"Optimizer failed to find an initial global solution")
+        logger.error("Optimizer failed to find an initial global solution")
         return
     initial_soe = [soe[0] for soe in global_solution.state_of_energy]
 
