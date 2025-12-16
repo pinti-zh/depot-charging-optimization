@@ -1,0 +1,3 @@
+mpc_energy_std_dev: 0.0
+minutes_until_reoptimization: 60
+num_days: 5
