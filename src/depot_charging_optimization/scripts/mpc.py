@@ -25,13 +25,7 @@ def build_optimizer(optimizer_config: OptimizerConfig, input_data: Input) -> Opt
             return None
 
 
-@click.command()
-# general options
-@click.option("--debug", is_flag=True, default=False, help="print debug messages")
-@FileConfig.as_click_options
-@OptimizerConfig.as_click_options
-@ModelPredictiveControlConfig.as_click_options
-def main(
+def run_main(
     debug: bool,
     file_config_cli_arguments: dict,
     mpc_config_cli_arguments: dict,
@@ -70,10 +64,10 @@ def main(
     plan = Input.combine(input_data)
 
     energy_price = pd.read_csv(file_config.energy_price_file)
-    energy_price["energy_price"] /= 3.6e6   # convert to CHF / Joule
+    energy_price["energy_price"] /= 3.6e6  # convert to CHF / Joule
 
     grid_tariff = pd.read_csv(file_config.grid_tariff_file)
-    grid_tariff["grid_tariff"] /= (365 * 1.0e6)   # convert to CHF / Watt
+    grid_tariff["grid_tariff"] /= 365 * 1.0e6  # convert to CHF / Watt
 
     dt = gcd(plan.maximum_possible_equal_timestep(), mpc_config.minutes_until_reoptimization * 60)
     plan = plan.equalize_timesteps(dt=dt)
@@ -120,9 +114,7 @@ def main(
     step_generator = range(num_steps) if debug else tqdm(range(num_steps))
     for i in step_generator:
         logger.debug(f"Step {i + 1} (t={i * dt})")
-        if any(
-                (soe is not None and soe < 0.0) for soe, cap in zip(current_soe, plan.battery_capacity)
-        ):
+        if any((soe is not None and soe < 0.0) for soe, cap in zip(current_soe, plan.battery_capacity)):
             logger.warning("  [orange1]Invalid state encountered -- stopping early")
             break
 
@@ -189,3 +181,17 @@ def main(
     with open(file_config.solution_file, "w") as f:
         f.write(solution.model_dump_json(indent=4))
     logger.info(f"Saved solution to [cyan3]{file_config.solution_file}")
+
+
+@click.command()
+@click.option("--debug", is_flag=True, default=False, help="print debug messages")
+@FileConfig.as_click_options
+@OptimizerConfig.as_click_options
+@ModelPredictiveControlConfig.as_click_options
+def main(
+    debug: bool,
+    file_config_cli_arguments: dict,
+    mpc_config_cli_arguments: dict,
+    optimizer_config_cli_arguments: dict,
+):
+    return run_main(debug, file_config_cli_arguments, mpc_config_cli_arguments, optimizer_config_cli_arguments)

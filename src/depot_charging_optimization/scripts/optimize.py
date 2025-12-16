@@ -13,11 +13,7 @@ from depot_charging_optimization.optimizer.casadi import CasadiOptimizer
 from depot_charging_optimization.optimizer.gurobi import GurobiOptimizer
 
 
-@click.command()
-@click.option("--debug", is_flag=True, default=False, help="print debug messages")
-@FileConfig.as_click_options
-@OptimizerConfig.as_click_options
-def main(
+def run_main(
     debug: bool,
     file_config_cli_arguments: dict,
     optimizer_config_cli_arguments: dict,
@@ -108,3 +104,15 @@ def main(
         with open(file_config.solution_file, "w") as f:
             f.write(solution.model_dump_json(indent=4))
         logger.info(f"Saved solution to [cyan3]{file_config.solution_file}")
+
+
+@click.command()
+@click.option("--debug", is_flag=True, default=False, help="print debug messages")
+@FileConfig.as_click_options
+@OptimizerConfig.as_click_options
+def main(
+    debug: bool,
+    file_config_cli_arguments: dict,
+    optimizer_config_cli_arguments: dict,
+):
+    return run_main(debug, file_config_cli_arguments, optimizer_config_cli_arguments)
