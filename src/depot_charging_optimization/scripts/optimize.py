@@ -15,22 +15,13 @@ from depot_charging_optimization.optimizer.gurobi import GurobiOptimizer
 
 def run_main(
     debug: bool,
-    file_config_cli_arguments: dict,
-    optimizer_config_cli_arguments: dict,
+    file_config: FileConfig,
+    optimizer_config: OptimizerConfig,
 ):
     if debug:
         logger = get_logger(name="optimize", level="debug")
     else:
         logger = get_logger(name="optimize", level="info")
-
-    if not file_config_cli_arguments["config_file"].exists():
-        logger.warning(f"File config file {file_config_cli_arguments['config_file']} not found")
-
-    if not optimizer_config_cli_arguments["config_file"].exists():
-        logger.warning(f"Optimizer config file {optimizer_config_cli_arguments['config_file']} not found")
-
-    file_config = FileConfig.load_from_dict(file_config_cli_arguments)
-    optimizer_config = OptimizerConfig.load_from_dict(optimizer_config_cli_arguments)
 
     # log config
     logger.debug("File Config:")
@@ -115,4 +106,7 @@ def main(
     file_config_cli_arguments: dict,
     optimizer_config_cli_arguments: dict,
 ):
-    return run_main(debug, file_config_cli_arguments, optimizer_config_cli_arguments)
+    file_config = FileConfig.load_from_dict(file_config_cli_arguments)
+    optimizer_config = OptimizerConfig.load_from_dict(optimizer_config_cli_arguments)
+
+    return run_main(debug, file_config, optimizer_config)
