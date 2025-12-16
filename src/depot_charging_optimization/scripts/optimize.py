@@ -6,11 +6,11 @@ import click
 import pandas as pd
 
 from depot_charging_optimization.config import FileConfig, OptimizerConfig
+from depot_charging_optimization.data_models import Input
+from depot_charging_optimization.logging import get_logger, log_stdout
 from depot_charging_optimization.optimizer.base import Optimizer
 from depot_charging_optimization.optimizer.casadi import CasadiOptimizer
 from depot_charging_optimization.optimizer.gurobi import GurobiOptimizer
-from depot_charging_optimization.data_models import Input
-from depot_charging_optimization.logging import get_logger, log_stdout
 
 
 @click.command()
@@ -58,10 +58,10 @@ def main(
     input_data = Input.combine(data)
 
     energy_price = pd.read_csv(file_config.energy_price_file)
-    energy_price["energy_price"] /= 3.6e6   # convert to CHF / Joule
+    energy_price["energy_price"] /= 3.6e6  # convert to CHF / Joule
 
     grid_tariff = pd.read_csv(file_config.grid_tariff_file)
-    grid_tariff["grid_tariff"] /= (365 * 1.0e6)   # convert to CHF / Watt
+    grid_tariff["grid_tariff"] /= 365 * 1.0e6  # convert to CHF / Watt
 
     input_data = input_data.add_energy_price(energy_price["time"].to_list(), energy_price["energy_price"].to_list())
     input_data = input_data.add_grid_tariff(grid_tariff["grid_tariff"][0])
