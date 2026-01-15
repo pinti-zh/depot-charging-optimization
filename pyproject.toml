@@ -26,6 +26,10 @@ dependencies = [
     "jupyter>=1.1.1",
     "scipy-stubs>=1.16.3.3",
     "types-pyyaml>=6.0.12.20250915",
+    "requests-cache>=1.2.1",
+    "requests>=2.32.5",
+    "protobuf>=6.33.0",
+    "gtfs-realtime-bindings>=2.0.0",
 ]
 
 [project.optional-dependencies]
@@ -41,7 +45,7 @@ mpc = "depot_charging_optimization.scripts.mpc:main"
 simulate = "depot_charging_optimization.scripts.simulate:main"
 clean-data = "depot_charging_optimization.scripts.clean_data:main"
 preprocess-data = "depot_charging_optimization.scripts.preprocess_data:main"
-dashboard= "depot_charging_optimization.scripts.dashboard_runner:main"
+dashboard = "depot_charging_optimization.scripts.dashboard_runner:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
