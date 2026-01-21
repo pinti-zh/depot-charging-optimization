@@ -1,4 +1,5 @@
 from math import sqrt
+from random import gauss
 
 from pydantic import BaseModel, model_validator
 
@@ -101,7 +102,7 @@ class Environment:
                 energy_delta.append(self.time_delta[self.timestep] * self.charger.effective_charging_power(policy[i]))
             else:
                 energy_delta.append(0.0)
-            energy_delta[i] -= self.plan.energy_demand[i][self.timestep]
+            energy_delta[i] -= (self.plan.energy_demand[i][self.timestep]) * gauss(1, self.energy_std_dev)
 
         self.timestep += 1
         self.state.update_soe(energy_delta)
