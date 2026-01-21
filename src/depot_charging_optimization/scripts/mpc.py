@@ -101,6 +101,7 @@ def run_main(
         assert env.state is not None
         if not env.state.is_valid():
             logger.warning("  [orange1]Invalid state encountered -- stopping early")
+            logger.warning(env.state)
             break
 
         # optimize and find policy

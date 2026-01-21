@@ -32,7 +32,7 @@ class State(BaseModel):
             self.state_of_energy[i] = min(self.state_of_energy[i] + energy[i], self.battery_capacity[i])
 
     def is_valid(self):
-        return all(soe >= 0.0 for soe in self.state_of_energy)
+        return all((soe >= -1.0e-6 * cap) for soe, cap in zip(self.state_of_energy, self.battery_capacity))
 
 
 class Charger:
