@@ -90,18 +90,9 @@ class OptimizerConfig(BaseConfig):
 class ModelPredictiveControlConfig(BaseConfig):
     function_argument_name: ClassVar[str] = "mpc_config_cli_arguments"
     default_config: ClassVar[tuple[str, Path]] = ("mpc_config", Path("config/mpc.yaml"))
-    mpc_energy_std_dev: float = 0.0
     minutes_until_reoptimization: int = 60
-    num_days: int = 1
 
-    @field_validator("mpc_energy_std_dev")
-    @classmethod
-    def between_zero_and_one(cls, v):
-        if not (0 <= v <= 1):
-            raise ValueError(f"Value must be between zero and one, got {v}")
-        return v
-
-    @field_validator("minutes_until_reoptimization", "num_days")
+    @field_validator("minutes_until_reoptimization")
     @classmethod
     def strictly_positive(cls, v):
         if v <= 0:
@@ -122,3 +113,19 @@ class FileConfig(BaseConfig):
     def file_exists(cls, v):
         assert v.exists()
         return v
+
+
+class EnvironmentConfig(BaseConfig):
+    function_argument_name: ClassVar[str] = "env_config_cli_arguments"
+    default_config: ClassVar[tuple[str, Path]] = ("env_config", Path("config/env.yaml"))
+    env_energy_std_dev: float = 0.0
+    num_days: int = 1
+    charger_max_charging_power: float = 0.0
+    charger_max_efficiency: float = 1.0
+    charger_loss_coefficient: float = 0.0
+
+
+class HeuristicConfig(BaseConfig):
+    function_argument_name: ClassVar[str] = "heuristic_config_cli_arguments"
+    default_config: ClassVar[tuple[str, Path]] = ("heuristic_config", Path("config/heuristic.yaml"))
+    heuristic_type: str = "charge_on_arrival"

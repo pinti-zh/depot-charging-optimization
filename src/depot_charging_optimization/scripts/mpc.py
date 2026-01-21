@@ -1,13 +1,19 @@
 import json
+import os
 from math import gcd
 
 import click
 import pandas as pd
 from tqdm import tqdm
 
-from depot_charging_optimization.config import FileConfig, ModelPredictiveControlConfig, OptimizerConfig
+from depot_charging_optimization.config import (
+    EnvironmentConfig,
+    FileConfig,
+    ModelPredictiveControlConfig,
+    OptimizerConfig,
+)
 from depot_charging_optimization.controller import policy_from_solution
-from depot_charging_optimization.data_models import Input, Solution
+from depot_charging_optimization.data_models import Input
 from depot_charging_optimization.environment import Environment
 from depot_charging_optimization.logging import get_logger, suppress_stdout_stderr
 from depot_charging_optimization.optimizer.base import Optimizer
@@ -28,6 +34,7 @@ def build_optimizer(optimizer_config: OptimizerConfig, input_data: Input) -> Opt
 def run_main(
     debug: bool,
     file_config: FileConfig,
+    env_config: EnvironmentConfig,
     mpc_config: ModelPredictiveControlConfig,
     optimizer_config: OptimizerConfig,
 ):
@@ -39,6 +46,8 @@ def run_main(
     # log config
     logger.debug("File Config:")
     logger.debug(file_config)
+    logger.debug("Environment Config:")
+    logger.debug(env_config)
     logger.debug("MPC Config:")
     logger.debug(mpc_config)
     logger.debug("Optimizer Config:")
@@ -80,36 +89,25 @@ def run_main(
         return
     initial_soe = [soe[0] for soe in global_solution.state_of_energy]
 
-    def charging_efficiency(p):
-        return optimizer_config.max_efficiency * (p - optimizer_config.alpha * p**2 / (2 * plan.max_charging_power))
-
-    env = Environment(plan, initial_soe, charging_efficiency, sigma=mpc_config.mpc_energy_std_dev)
-    looped_plan = plan.loop(mpc_config.num_days)
-
-    charging_power: list[list[float]] = [[] for _ in range(plan.num_vehicles)]
-    effective_charging_power: list[list[float]] = [[] for _ in range(plan.num_vehicles)]
-    state_of_energy = [[initial_soe[vehicle]] for vehicle in range(plan.num_vehicles)]
-
-    num_steps = len(plan.time) * mpc_config.num_days
-    energy_cost = 0
-    max_charging_power = 0
-    k = 0
-    policy = None
-    current_soe = initial_soe
+    env = Environment(plan, config=env_config)
+    env.reset(initial_soe)
 
     logger.info("Running simulation")
-    step_generator = range(num_steps) if debug else tqdm(range(num_steps))
+    step_generator = range(env.plan.num_timesteps) if debug else tqdm(range(env.plan.num_timesteps))
+    k = 0
+    policy = []
     for i in step_generator:
         logger.debug(f"Step {i + 1} (t={i * dt})")
-        if any((soe is not None and soe < 0.0) for soe, cap in zip(current_soe, plan.battery_capacity)):
+        assert env.state is not None
+        if not env.state.is_valid():
             logger.warning("  [orange1]Invalid state encountered -- stopping early")
             break
 
         # optimize and find policy
         if k == 0:
             logger.debug(f"  [light_sea_green]Optimizing the next {steps_until_reoptimization} steps")
-            optimizer_config.initial_soe = current_soe
-            optimizer = build_optimizer(optimizer_config, env.plan)
+            optimizer_config.initial_soe = env.state.state_of_energy
+            optimizer = build_optimizer(optimizer_config, plan)
             assert optimizer is not None
             optimizer.build()
             with suppress_stdout_stderr():
@@ -118,53 +116,31 @@ def run_main(
                 logger.warning("  [orange1]Optimizer encountered infeasible problem -- stopping early")
                 break
             policy = policy_from_solution(solution, steps_until_reoptimization)
+            assert len(policy) == steps_until_reoptimization
+        env.step(policy[k])
+        plan = plan.rotate()
         logger.debug(
-            f"  Current SoE: ({', '.join([f'{soe:.5f}' if soe is not None else '---' for soe in current_soe])[:-1]})"
+            f"  Current SoE: ({', '.join([f'{soe:.5f}' if soe is not None else '---' for soe in env.state.state_of_energy])[:-1]})"
         )
         logger.debug(f"  Policy: ({', '.join([f'{cp:.5f}' for cp in policy[k]])[:-1]})")
-
-        # track energy cost and max charging power
-        energy_cost += sum(cp * env.plan.time[0] * env.plan.energy_price[0] for cp in policy[k])
-        max_charging_power = max(max_charging_power, max(policy[k]))
-
-        for vehicle, cp in enumerate(policy[k]):
-            charging_power[vehicle].append(cp)
-            effective_charging_power[vehicle].append(charging_efficiency(cp))
-
-        # update state of energy
-        current_soe = env.step(policy[k])
-        for vehicle, soe in enumerate(current_soe):
-            state_of_energy[vehicle].append(env.soe[vehicle])
 
         k = (k + 1) % steps_until_reoptimization
         logger.debug("----------------------------------------------------------------------")
 
-    power_cost = 1.3e-4 * max_charging_power * mpc_config.num_days
-    total_cost = energy_cost + power_cost
+    solution = env.get_solution()
 
-    total_cost_str = f"{total_cost:.3f} $"
-    energy_cost_str = f"{energy_cost:.3f} $"
-    power_cost_str = f"{power_cost:.3f} $"
-    max_cost_string_length = max(map(len, [total_cost_str, energy_cost_str, power_cost_str]))
-    logger.info(f"Total cost of solution:   {' ' * (max_cost_string_length - len(total_cost_str))}{total_cost_str}")
-    logger.info(f"Energy cost of solution:  {' ' * (max_cost_string_length - len(energy_cost_str))}{energy_cost_str}")
-    logger.info(f"Power cost of solution:   {' ' * (max_cost_string_length - len(power_cost_str))}{power_cost_str}")
+    # print solution
+    total_cost = f"{solution.total_cost:.3f} $"
+    energy_cost = f"{solution.energy_cost:.3f} $"
+    power_cost = f"{solution.power_cost:.3f} $"
 
-    if len(charging_power[0]) < looped_plan.num_timesteps:
-        looped_plan = looped_plan.truncate(len(charging_power[0]))
+    max_cost_string_length = max(map(len, [total_cost, energy_cost, power_cost]))
+    logger.info(f"Total cost of solution:   {' ' * (max_cost_string_length - len(total_cost))}{total_cost}")
+    logger.info(f"Energy cost of solution:  {' ' * (max_cost_string_length - len(energy_cost))}{energy_cost}")
+    logger.info(f"Power cost of solution:   {' ' * (max_cost_string_length - len(power_cost))}{power_cost}")
 
-    solution = Solution(
-        input_data=looped_plan,
-        total_cost=total_cost,
-        energy_cost=energy_cost,
-        power_cost=power_cost,
-        max_charging_power_used=max_charging_power,
-        charging_power=charging_power,
-        effective_charging_power=effective_charging_power,
-        state_of_energy=state_of_energy,
-        lower_soe_envelope=state_of_energy,
-    )
-
+    solution_dir = os.path.dirname(file_config.solution_file)
+    os.makedirs(solution_dir, exist_ok=True)
     with open(file_config.solution_file, "w") as f:
         f.write(solution.model_dump_json(indent=4))
     logger.info(f"Saved solution to [cyan3]{file_config.solution_file}")
@@ -173,16 +149,19 @@ def run_main(
 @click.command()
 @click.option("--debug", is_flag=True, default=False, help="print debug messages")
 @FileConfig.as_click_options
+@EnvironmentConfig.as_click_options
 @OptimizerConfig.as_click_options
 @ModelPredictiveControlConfig.as_click_options
 def main(
     debug: bool,
     file_config_cli_arguments: dict,
+    env_config_cli_arguments: dict,
     mpc_config_cli_arguments: dict,
     optimizer_config_cli_arguments: dict,
 ):
     file_config = FileConfig.load_from_dict(file_config_cli_arguments)
+    env_config = EnvironmentConfig.load_from_dict(env_config_cli_arguments)
     mpc_config = ModelPredictiveControlConfig.load_from_dict(mpc_config_cli_arguments)
     optimizer_config = OptimizerConfig.load_from_dict(optimizer_config_cli_arguments)
 
-    return run_main(debug, file_config, mpc_config, optimizer_config)
+    return run_main(debug, file_config, env_config, mpc_config, optimizer_config)
