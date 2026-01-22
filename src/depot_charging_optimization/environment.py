@@ -76,7 +76,7 @@ class Environment:
         self.energy_std_dev: float = config.env_energy_std_dev
         self.state_history: list[State] = []
         self.policy_history: list[list[float]] = []
-        self.time_delta: list[float] = [t2 - t1 for t1, t2 in zip([0] + self.plan.time[:-1], self.plan.time)]
+        self.time_delta: list[int] = [t2 - t1 for t1, t2 in zip([0] + self.plan.time[:-1], self.plan.time)]
 
     def reset(self, initial_soe: list[float]):
         assert len(initial_soe) == self.plan.num_vehicles

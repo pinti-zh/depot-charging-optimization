@@ -11,6 +11,7 @@ from depot_charging_optimization.logging import get_logger
 from depot_charging_optimization.simulator import (
     HeuristicFunction,
     charge_on_arrival,
+    peak_shaving,
 )
 
 
@@ -60,7 +61,16 @@ def run_main(
     env = Environment(data_input, config=env_config)
 
     # heuristic algorithm
-    heuristic: HeuristicFunction = charge_on_arrival
+    heuristic: HeuristicFunction | None = None
+    match heuristic_config.heuristic_type:
+        case "charge_on_arrival":
+            heuristic = charge_on_arrival
+        case "peak_shaving":
+            heuristic = peak_shaving
+        case _:
+            logger.error(f"Unknown heuristic type: {heuristic_config.heuristic_type}")
+
+    assert heuristic is not None
 
     env.reset(data_input.battery_capacity)
 
