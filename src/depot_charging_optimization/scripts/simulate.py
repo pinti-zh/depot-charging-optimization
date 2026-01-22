@@ -1,5 +1,6 @@
 import json
 import os
+from functools import partial
 
 import click
 import pandas as pd
@@ -66,7 +67,10 @@ def run_main(
         case "charge_on_arrival":
             heuristic = charge_on_arrival
         case "peak_shaving":
-            heuristic = peak_shaving
+            heuristic = partial(
+                peak_shaving,
+                max_power_ratio=heuristic_config.max_charging_power_allowed / env_config.charger_max_charging_power,
+            )
         case _:
             logger.error(f"Unknown heuristic type: {heuristic_config.heuristic_type}")
 

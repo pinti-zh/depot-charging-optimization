@@ -4,10 +4,10 @@ from depot_charging_optimization.environment import Environment
 
 
 class HeuristicFunction(Protocol):
-    def __call__(self, env: Environment, *args, **kwargs) -> list[float]: ...
+    def __call__(self, env: Environment) -> list[float]: ...
 
 
-def charge_on_arrival(env: Environment, *args, **kwargs) -> list[float]:
+def charge_on_arrival(env: Environment) -> list[float]:
     policy = []
     dt = env.time_delta[env.timestep]
     assert env.state is not None

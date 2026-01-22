@@ -1,1 +1,2 @@
 heuristic_type: charge_on_arrival
+max_charging_power_allowed: 150000.0

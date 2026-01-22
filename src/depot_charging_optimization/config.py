@@ -129,3 +129,4 @@ class HeuristicConfig(BaseConfig):
     function_argument_name: ClassVar[str] = "heuristic_config_cli_arguments"
     default_config: ClassVar[tuple[str, Path]] = ("heuristic_config", Path("config/heuristic.yaml"))
     heuristic_type: str = "charge_on_arrival"
+    max_charging_power_allowed: float = 0.0
