@@ -57,6 +57,8 @@ class Input(BaseModel):
             raise ValueError(
                 f"Field[battery_capacity] has length {len(self.battery_capacity)}, expected {self.num_vehicles}"
             )
+        if not len(self.is_battery) == self.num_vehicles:
+            raise ValueError(f"Field[is_battery] has length {len(self.is_battery)}, expected {self.num_vehicles}")
         return self
 
     @model_validator(mode="after")
