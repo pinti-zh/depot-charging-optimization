@@ -211,11 +211,14 @@ class Input(BaseModel):
         if not len(energy_price) == len(energy_time):
             raise ValueError("Energy time and price must have equal length")
         # check that energy time is ascending
-        if not all(energy_time[i] <= energy_time[i + 1] for i in range(len(energy_time) - 1)):
+        if not all(energy_time[i] < energy_time[i + 1] for i in range(len(energy_time) - 1)):
             raise ValueError("Cannot add energy price, time is not ascending")
         # check that time is positive
         if not all(t_i > 0 for t_i in energy_time):
             raise ValueError("Cannot add energy price, time is not positive")
+        # check that time horizon matches
+        if not energy_time[-1] == self.time[-1]:
+            raise ValueError("Cannot add energy price, time horizon does not match")
 
         time = sorted(list(set(self.time + energy_time)))
         current_energy_price_index = 0
