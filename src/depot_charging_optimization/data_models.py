@@ -117,6 +117,8 @@ class Input(BaseModel):
         )
 
     def loop(self, loops: int) -> "Input":
+        if loops <= 0:
+            raise ValueError(f"Invalid number of loops, tried looping {loops} times")
         if self.energy_price is None:
             looped_energy_price = None
         else:
