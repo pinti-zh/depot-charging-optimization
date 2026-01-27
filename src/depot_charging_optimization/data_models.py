@@ -101,6 +101,8 @@ class Input(BaseModel):
         )
 
     def truncate(self, n: int) -> "Input":
+        if n <= 0:
+            raise ValueError(f"Invalid truncation, tried truncating to {n} steps")
         return Input(
             num_timesteps=min(self.num_timesteps, n),
             num_vehicles=self.num_vehicles,
