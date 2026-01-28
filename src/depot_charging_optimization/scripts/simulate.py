@@ -39,7 +39,7 @@ def run_main(
 
     if len(file_config.data_files) < 1:
         logger.error("No data files specified.")
-        return
+        return None
 
     logger.info("Reading files:")
     for i, file in enumerate(file_config.data_files):
@@ -111,6 +111,8 @@ def run_main(
     with open(file_config.solution_file, "w") as f:
         f.write(solution.model_dump_json(indent=4))
     logger.info(f"Saved solution to [cyan3]{file_config.solution_file}")
+
+    return solution
 
 
 @click.command()
