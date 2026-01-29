@@ -96,6 +96,7 @@ class Environment:
         if self.timestep >= self.plan.num_timesteps:
             return self.state
         assert len(policy) == self.plan.num_vehicles
+        policy = [p * dc for dc, p in zip(self.state.in_depot, policy)]
         energy_delta = []
         for i in range(self.state.num_vehicles):
             if self.state.in_depot[i]:
