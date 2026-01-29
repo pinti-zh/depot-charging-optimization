@@ -3,33 +3,6 @@ import pytest
 from depot_charging_optimization.data_models import Input
 
 
-@pytest.fixture
-def valid_input_data():
-    data = {
-        "num_vehicles": 3,
-        "time": [300, 600, 1200, 1500, 3000],
-        "energy_demand": [
-            [0.0, 0.0, 10.0, 10.0, 0.0],
-            [0.0, 10.0, 20.0, 10.0, 0.0],
-            [20.0, 0.0, 10.0, 0.0, 10.0],
-        ],
-        "max_charging_power": 1.0,
-        "battery_capacity": [30.0, 30.0, 30.0],
-        "depot_charge": [
-            [True, True, False, False, True],
-            [True, False, False, False, True],
-            [False, True, False, True, False],
-        ],
-        "is_battery": [False, False, False],
-    }
-    return data
-
-
-@pytest.fixture
-def valid_input(valid_input_data):
-    return Input(**valid_input_data)
-
-
 class TestInputCreation:
     def test_valid_input(self, valid_input):
         input_instance = valid_input.model_copy()
