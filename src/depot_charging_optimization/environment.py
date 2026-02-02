@@ -96,7 +96,6 @@ class Environment:
         if self.timestep >= self.plan.num_timesteps:
             return self.state
         assert len(policy) == self.plan.num_vehicles
-        policy = [p * dc for dc, p in zip(self.state.in_depot, policy)]
         energy_delta = []
         for i in range(self.state.num_vehicles):
             if self.state.in_depot[i]:
@@ -113,10 +112,24 @@ class Environment:
         self.policy_history.append(policy)
         return self.state
 
+    def _get_charging_power_used(self) -> list[list[float]]:
+        charged_energy = []
+        reshaped_energy_demand = [[ed[i] for ed in self.plan.energy_demand] for i in range(self.plan.num_timesteps)]
+        for ed, state_before, state_after in zip(
+            reshaped_energy_demand, self.state_history[:-1], self.state_history[1:]
+        ):
+            soe_before = state_before.state_of_energy
+            soe_after = state_after.state_of_energy
+            charged_energy.append([after - (before - e) for e, before, after in zip(ed, soe_before, soe_after)])
+        charging_power_used = []
+        for dt, ed in zip(self.time_delta, charged_energy):
+            charging_power_used.append([self.charger.inverse_effective_charging_power(e / dt) for e in ed])
+        return charging_power_used
+
     def get_solution(self) -> Solution:
-        charging_power = [list(column) for column in zip(*self.policy_history)]
+        charging_power = [list(column) for column in zip(*self._get_charging_power_used())]
         effective_charging_power = [list(map(self.charger.effective_charging_power, cp)) for cp in charging_power]
-        total_charging_power = [sum(policy) for policy in self.policy_history]
+        total_charging_power = [sum(cp) for cp in self._get_charging_power_used()]
         energy_used = []
         for cp, t1, t2 in zip(total_charging_power, [0] + self.plan.time[:-1], self.plan.time):
             energy_used.append(cp * (t2 - t1))
