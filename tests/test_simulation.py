@@ -105,3 +105,28 @@ class TestEnvironment:
 
         solution = env.get_solution()
         assert solution.total_cost == 36 * 1.0 + 5.0 * 2e-2
+
+    def test_simulation_solution_constant_policy_ce(self, valid_input):
+        input_instance = valid_input.model_copy()
+        input_instance = input_instance.add_energy_price([300, 600, 1200, 1500, 3000], [1.0] * 5)
+        input_instance = input_instance.add_grid_tariff(5.0)
+        max_charging_power = 1.0
+        max_charging_efficiency = 0.5
+        loss_coefficient = 1.0
+        env = Environment(
+            input_instance,
+            EnvironmentConfig(
+                charger_max_charging_power=max_charging_power,
+                charger_max_efficiency=max_charging_efficiency,
+                charger_loss_coefficient=loss_coefficient,
+            ),
+        )
+
+        env.reset(input_instance.battery_capacity)
+
+        policy = [1e-2] * 3
+        for t in range(input_instance.num_timesteps):
+            env.step(policy)
+
+        solution = env.get_solution()
+        assert abs(solution.total_cost - (36 * 1.0 + 5.0 * 2e-2)) < 1e-6
