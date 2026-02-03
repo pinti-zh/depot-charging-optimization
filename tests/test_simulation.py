@@ -77,7 +77,7 @@ class TestEnvironment:
         for t in range(input_instance.num_timesteps):
             env.step(policy)
 
-        assert env.state.state_of_energy == [10.0, -10.0, -10.0]
+        assert env.state.state_of_energy == [20.0, 0.0, 0.0]
 
     def test_state_evolution_constant_policy(self, valid_input):
         input_instance = valid_input.model_copy()
@@ -89,7 +89,7 @@ class TestEnvironment:
         for t in range(input_instance.num_timesteps):
             env.step(policy)
 
-        assert env.state.state_of_energy == [25.0, 5.0, -4.0]
+        assert env.state.state_of_energy == [35.0, 15.0, 6.0]
 
     def test_simulation_solution_constant_policy(self, valid_input):
         input_instance = valid_input.model_copy()

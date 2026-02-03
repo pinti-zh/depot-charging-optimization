@@ -29,7 +29,7 @@ def valid_input_data():
             [20.0, 0.0, 10.0, 0.0, 10.0],
         ],
         "max_charging_power": 1.0,
-        "battery_capacity": [30.0, 30.0, 30.0],
+        "battery_capacity": [40.0, 40.0, 40.0],
         "depot_charge": [
             [True, True, False, False, True],
             [True, False, False, False, True],
