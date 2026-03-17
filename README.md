@@ -86,19 +86,6 @@ Optionally, run the following command to run the unit tests.
 pytest
 ```
 
-### Cleaning the Data
-
-To clean the data run
-```bash
-clean-data data/raw/vehicle_cycle_energy.csv data/clean/vehicle_cycle_energy.csv
-```
-
-### Preprocessing the Data
-To preprocess the data run
-```bash
-preprocess-data data/clean/vehicle_cycle_energy.csv -t data/processed
-```
-
 ### Optimization
 
 Hyper-parameters can be adjusted in the config files inside the config/ directory. Alternatively, they can be supplied as command line arguments.
@@ -111,19 +98,14 @@ Run the following command to run the optimization.
 ```bash
 optimize
 ```
-To use a battery add `data/processed/battery.json` to data_files in `config/file.yaml`
+To use a battery add `data/battery.json` to data_files in `config/file.yaml`
 
 ### Plotting Results
-
-Before plotting the results run
-```bash
-./fix.bash
-```
 
 To see the results run
 
 ```bash
-plot
+dashboard
 ```
 
 The results will be shown as a dashboard in the browser on localhost:8000.
@@ -134,8 +116,7 @@ Adjust the *confidence_level* and *energy_std_dev* in `config/optimizer.yaml` to
 
 To run model predictive control run
 ```bash
-mpc --equalize-timesteps --steps-until-reoptimization 60 --days 5
+mpc
 ```
 
-This will run MPC with uniform timesteps and re-optimize once per hour. The simulation will span 5 days.
-
+This will run MPC with uniform timesteps and re-optimize once per hour. The simulation will span one day.

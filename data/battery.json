@@ -1,0 +1,30 @@
+{
+    "num_timesteps": 1,
+    "num_vehicles": 1,
+    "time": [
+        86400
+    ],
+    "energy_demand": [
+        [
+            0.0
+        ]
+    ],
+    "soe_lb": [
+        0.0
+    ],
+    "soe_ub": [
+        1.0
+    ],
+    "max_charging_power": 150000.0,
+    "battery_capacity": [
+        1800000000.0
+    ],
+    "depot_charge": [
+        [
+            true
+        ]
+    ],
+    "energy_price": null,
+    "grid_tariff": null,
+    "is_battery": [true]
+}

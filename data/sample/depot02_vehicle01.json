@@ -1,0 +1,30 @@
+{
+  "num_timesteps": 15,
+  "num_vehicles": 1,
+  "time": [
+    21600,
+    25200,
+    28800,
+    32400,
+    36000,
+    39600,
+    43200,
+    50400,
+    54000,
+    57600,
+    61200,
+    64800,
+    68400,
+    72000,
+    86400
+  ],
+  "energy_demand": [
+    [0.0, 108000000.0, 108000000.0, 108000000.0, 108000000.0, 108000000.0, 108000000.0, 0.0, 108000000.0, 108000000.0, 108000000.0, 108000000.0, 108000000.0, 108000000.0, 0.0]
+  ],
+  "max_charging_power": 150000.0,
+  "battery_capacity": [1080000000.0],
+  "depot_charge": [
+    [true, false, false, false, false, false, false, true, false, false, false, false, false, false, true]
+  ],
+  "is_battery": [false]
+}

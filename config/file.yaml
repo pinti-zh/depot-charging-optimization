@@ -1,6 +1,15 @@
 data_files:
-  - data/processed/858581801_MAXI_1.json
-  - data/processed/858581801_MAXI_2.json
-  - data/processed/858581801_MAXI_3.json
+  # - data/sample/depot01_vehicle01.json
+  # - data/sample/depot02_vehicle01.json
+  # - data/sample/depot02_vehicle02.json
+  # - data/sample/depot02_vehicle03.json
+  - data/sample/depot03_vehicle01.json
+  - data/sample/depot03_vehicle02.json
+  - data/sample/depot03_vehicle03.json
+  - data/sample/depot03_vehicle04.json
+  - data/sample/depot03_vehicle05.json
+  - data/sample/depot03_vehicle06.json
+  - data/sample/depot03_vehicle07.json
+  - data/sample/depot03_vehicle08.json
 energy_price_file: data/energy_price.csv
 solution_file: outputs/solutions/solution.json
