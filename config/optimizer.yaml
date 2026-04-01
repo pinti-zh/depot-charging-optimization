@@ -1,4 +1,4 @@
-optimizer_type: gurobi
+optimizer_type: casadi
 alpha: 0.105263157895
 max_efficiency: 0.95
 bidirecional_charging: false
