@@ -2,6 +2,14 @@
 
 ![alt text](assets/title_image.png "Title")
 
+## Introduction
+
+This repository focuses on optimizing charging strategies for electric bus depots. The core objective is to determine when each bus should be charged and at what power level, ensuring operational readiness while minimizing energy costs.
+
+For a comprehensive explanation of the methodology, assumptions, and results, please refer to the accompanying thesis:
+
+👉 [Depot Charging Optimization for Electric Bus Fleets](https://doi.org/10.3929/ethz-c-000787335)
+
 ## Installation
 
 Follow these steps to install and set up the project locally.
@@ -120,3 +128,28 @@ mpc
 ```
 
 This will run MPC with uniform timesteps and re-optimize once per hour. The simulation will span one day.
+
+## Acknowledgements
+
+**Main Contributors:**
+- Luca Pinter [IDSC]
+- Fabio Widmer [IDSC]
+
+### Special Thanks
+We would also like to thank the following organizations and individuals for their support and contributions:
+
+- **Organizations**
+  - PostAuto Switzerland
+  - Zurich Information Security & Privacy Center (ZISC)
+  - Institute for Dynamic Systems and Control (IDSC), ETH Zürich
+
+- **Individuals**
+  - **Eric Imstepf [PostAuto]** - for making the collaboration with PostAuto seamless, always bringing enthusiasm and encouragement to the project.
+  - **Julien Burri [PostAuto]** - for providing valuable feedback on real-world constraints during the project collaboration with PostAuto.
+  - **Anina Leuch & Lars Schmutz [PostAuto]** - for providing data from PostAuto, offering valuable feedback, and consistently participating in our monthly meetings. 
+  - **Dr. Kari Kostiainen [ZISC]** - for supporting the project through ZISC and making collaboration effortless by keeping formalities and bureaucracy to a minimum.
+  - **Prof. Dr. Christopher Onder [IDSC]** – for his support as head of the IDSC research group.
+
+## License
+
+This project is released under the **MIT License**.
