@@ -2,7 +2,7 @@
 
 ![alt text](assets/title_image.png "Title")
 
-## Introduction
+## Project Overview
 
 This repository focuses on optimizing charging strategies for electric bus depots. The core objective is to determine when each bus should be charged and at what power level, ensuring operational readiness while minimizing energy costs.
 
