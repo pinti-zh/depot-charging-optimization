@@ -2,14 +2,20 @@ import casadi as ca
 import numpy as np
 from scipy.stats import norm
 
-from depot_charging_optimization.config import OptimizerConfig
+from depot_charging_optimization.config import EnvironmentConfig, OptimizerConfig
 from depot_charging_optimization.data_models import Input, Solution
 
 
 class CasadiOptimizer:
-    def __init__(self, input_data: Input, config: OptimizerConfig = OptimizerConfig()):
+    def __init__(
+        self,
+        input_data: Input,
+        config: OptimizerConfig = OptimizerConfig(),
+        env_config: EnvironmentConfig = EnvironmentConfig(),
+    ):
         self._input_data: Input = input_data
         self._config: OptimizerConfig = config
+        self._env_config: EnvironmentConfig = env_config
 
         self._built: bool = False
 
@@ -42,7 +48,7 @@ class CasadiOptimizer:
         self._ubg = None
 
         # auxiliary constants: scaling factors
-        self._factor_cp: float = 1.0 / self._input_data.max_charging_power
+        self._factor_cp: float = 1.0 / self._env_config.charger_max_charging_power
         self._factor_soe: float = 1.0 / max(self._input_data.battery_capacity)
         assert self._input_data.energy_price is not None
         self._factor_ep: float = 1.0 / max(self._input_data.energy_price)
@@ -191,8 +197,10 @@ class CasadiOptimizer:
             self._input_data.num_timesteps,
         )
         self._variables["total_charging_power"]["lb"] = np.zeros(self._input_data.num_timesteps, dtype=float)
-        self._variables["total_charging_power"]["ub"] = self._input_data.num_vehicles * np.ones(
-            self._input_data.num_timesteps, dtype=float
+        self._variables["total_charging_power"]["ub"] = (
+            self._env_config.total_max_charging_power
+            / self._env_config.charger_max_charging_power
+            * np.ones(self._input_data.num_timesteps, dtype=float)
         )
 
         self._variables["max_charging_power"]["var"] = ca.SX.sym("max_charging_power", 1)

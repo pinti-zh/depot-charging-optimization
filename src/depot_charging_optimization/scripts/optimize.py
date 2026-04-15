@@ -5,7 +5,7 @@ from time import perf_counter
 import click
 import pandas as pd
 
-from depot_charging_optimization.config import FileConfig, OptimizerConfig
+from depot_charging_optimization.config import EnvironmentConfig, FileConfig, OptimizerConfig
 from depot_charging_optimization.data_models import Input
 from depot_charging_optimization.logging import get_logger, log_stdout
 from depot_charging_optimization.optimizer.base import Optimizer
@@ -17,6 +17,7 @@ def run_main(
     debug: bool,
     file_config: FileConfig,
     optimizer_config: OptimizerConfig,
+    environment_config: EnvironmentConfig,
 ):
     if debug:
         logger = get_logger(name="optimize", level="debug")
@@ -28,6 +29,8 @@ def run_main(
     logger.debug(file_config)
     logger.debug("Optimizer Config:")
     logger.debug(optimizer_config)
+    logger.debug("Environment Config:")
+    logger.debug(environment_config)
 
     data = []
 
@@ -57,9 +60,9 @@ def run_main(
     optimizer: Optimizer | None = None
     match optimizer_config.optimizer_type:
         case "casadi":
-            optimizer = CasadiOptimizer(input_data, config=optimizer_config)
+            optimizer = CasadiOptimizer(input_data, config=optimizer_config, env_config=environment_config)
         case "gurobi":
-            optimizer = GurobiOptimizer(input_data, config=optimizer_config)
+            optimizer = GurobiOptimizer(input_data, config=optimizer_config, env_config=environment_config)
         case _:
             logger.error(f"Unknown optimizer type: {optimizer_config.optimizer_type}")
             return
@@ -101,12 +104,15 @@ def run_main(
 @click.option("--debug", is_flag=True, default=False, help="print debug messages")
 @FileConfig.as_click_options
 @OptimizerConfig.as_click_options
+@EnvironmentConfig.as_click_options
 def main(
     debug: bool,
     file_config_cli_arguments: dict,
     optimizer_config_cli_arguments: dict,
+    env_config_cli_arguments: dict,
 ):
     file_config = FileConfig.load_from_dict(file_config_cli_arguments)
     optimizer_config = OptimizerConfig.load_from_dict(optimizer_config_cli_arguments)
+    environment_config = EnvironmentConfig.load_from_dict(env_config_cli_arguments)
 
-    return run_main(debug, file_config, optimizer_config)
+    return run_main(debug, file_config, optimizer_config, environment_config)

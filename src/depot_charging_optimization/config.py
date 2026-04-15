@@ -120,6 +120,7 @@ class EnvironmentConfig(BaseConfig):
     default_config: ClassVar[tuple[str, Path]] = ("env_config", Path("config/env.yaml"))
     env_energy_std_dev: float = 0.0
     num_days: int = 1
+    total_max_charging_power: float = 0.0
     charger_max_charging_power: float = 0.0
     charger_max_efficiency: float = 1.0
     charger_loss_coefficient: float = 0.0

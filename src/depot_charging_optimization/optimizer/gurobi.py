@@ -3,15 +3,21 @@ import numpy as np
 from gurobipy import GRB
 from scipy.stats import norm
 
-from depot_charging_optimization.config import OptimizerConfig
+from depot_charging_optimization.config import EnvironmentConfig, OptimizerConfig
 from depot_charging_optimization.data_models import Input, Solution
 from depot_charging_optimization.logging import suppress_stdout_stderr
 
 
 class GurobiOptimizer:
-    def __init__(self, input_data: Input, config: OptimizerConfig = OptimizerConfig()):
+    def __init__(
+        self,
+        input_data: Input,
+        config: OptimizerConfig = OptimizerConfig(),
+        env_config: EnvironmentConfig = EnvironmentConfig(),
+    ):
         self._input_data: Input = input_data
         self._config: OptimizerConfig = config
+        self._env_config: EnvironmentConfig = env_config
 
         self._built: bool = False
 
@@ -36,7 +42,7 @@ class GurobiOptimizer:
         self._grid_tariff: float | None = None  # constant once initialized
 
         # auxiliary constants: scaling factors
-        self._factor_cp: float = 1.0 / self._input_data.max_charging_power
+        self._factor_cp: float = 1.0 / self._env_config.charger_max_charging_power
         self._factor_soe: float = 1.0 / max(self._input_data.battery_capacity)
         assert self._input_data.energy_price is not None
         self._factor_ep: float = 1.0 / max(self._input_data.energy_price)
@@ -124,7 +130,7 @@ class GurobiOptimizer:
         self._total_charging_power = self._model.addMVar(
             (self._input_data.num_timesteps,),
             lb=0.0,
-            ub=1.0 * self._input_data.num_vehicles,
+            ub=self._env_config.total_max_charging_power / self._env_config.charger_max_charging_power,
             name="total_charging_power",
             vtype=GRB.CONTINUOUS,
         )
