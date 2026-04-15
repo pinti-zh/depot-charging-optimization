@@ -1,6 +1,6 @@
 import pytest
 
-from depot_charging_optimization.config import OptimizerConfig
+from depot_charging_optimization.config import OptimizerConfig, EnvironmentConfig
 from depot_charging_optimization.data_models import Input, Solution
 
 
@@ -28,8 +28,12 @@ def test_casadi_optimizer_build_and_solve(valid_input, bidirectional):
         energy_std_dev=0.0,
         initial_soe=None,
     )
+    env_config = EnvironmentConfig(
+        total_max_charging_power=5.0,
+        charger_max_charging_power=1.0,
+    )
 
-    opt = CasadiOptimizer(inp, config=config)
+    opt = CasadiOptimizer(inp, config=config, env_config=env_config)
     opt.build()
     sol = opt.solve()
 
@@ -74,9 +78,13 @@ def test_gurobi_optimizer_build_and_solve(valid_input, bidirectional):
         energy_std_dev=0.0,
         initial_soe=None,
     )
+    env_config = EnvironmentConfig(
+        total_max_charging_power=5.0,
+        charger_max_charging_power=1.0,
+    )
 
     try:
-        opt = GurobiOptimizer(inp, config=config)
+        opt = GurobiOptimizer(inp, config=config, env_config=env_config)
         opt.build()
         sol = opt.solve()
     except Exception as e:  # License or runtime issues should skip the test
