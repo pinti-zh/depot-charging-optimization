@@ -64,7 +64,7 @@ class BaseConfig(BaseModel):
 class OptimizerConfig(BaseConfig):
     function_argument_name: ClassVar[str] = "optimizer_config_cli_arguments"
     default_config: ClassVar[tuple[str, Path]] = ("optimizer_config", Path("config/optimizer.yaml"))
-    optimizer_type: str = "gurobi"
+    optimizer_type: str = "casadi"
     alpha: float = 0.0
     max_efficiency: float = 1.0
     bidirectional_charging: bool = False
