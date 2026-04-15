@@ -1,6 +1,6 @@
 import pytest
 
-from depot_charging_optimization.config import OptimizerConfig, EnvironmentConfig
+from depot_charging_optimization.config import EnvironmentConfig, OptimizerConfig
 from depot_charging_optimization.data_models import Input, Solution
 
 
