@@ -55,7 +55,7 @@ class Charger:
             )
 
     def inverse_effective_charging_power(self, effective_charging_power: float) -> float:
-        if effective_charging_power > self.max_possible_effective_charging_power():
+        if effective_charging_power > self.max_possible_effective_charging_power() + 1.0e-6:
             raise ValueError(f"Effective charging power {effective_charging_power} is not achievable")
         if self.loss_coefficient == 0:
             return effective_charging_power / self.max_efficiency
