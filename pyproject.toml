@@ -2,7 +2,7 @@
 name = "depot-charging-optimization"
 version = "0.0.1"
 description = "Depot Charging Optimization"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.14"
 dependencies = [
     "casadi==3.7.0",
     "pandas-stubs==2.3.2.250926",
@@ -45,7 +45,7 @@ preprocess-data = "depot_charging_optimization.scripts.preprocess_data:main"
 dashboard = "depot_charging_optimization.scripts.dashboard_runner:main"
 
 [tool.setuptools]
-package-dir = {"" = "src"}
+package-dir = { "" = "src" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
