@@ -21,12 +21,12 @@ from depot_charging_optimization.optimizer.casadi import CasadiOptimizer
 from depot_charging_optimization.optimizer.gurobi import GurobiOptimizer
 
 
-def build_optimizer(optimizer_config: OptimizerConfig, input_data: Input) -> Optimizer | None:
+def build_optimizer(optimizer_config: OptimizerConfig, env_config: EnvironmentConfig, input_data: Input) -> Optimizer | None:
     match optimizer_config.optimizer_type:
         case "casadi":
-            return CasadiOptimizer(input_data, config=optimizer_config)
+            return CasadiOptimizer(input_data, config=optimizer_config, env_config=env_config)
         case "gurobi":
-            return GurobiOptimizer(input_data, config=optimizer_config)
+            return GurobiOptimizer(input_data, config=optimizer_config, env_config=env_config)
         case _:
             return None
 
@@ -74,7 +74,7 @@ def run_main(
     plan = plan.add_energy_price(energy_price["time"].to_list(), energy_price["energy_price"].to_list())
     plan = plan.add_grid_tariff(grid_tariff["grid_tariff"][0])
 
-    optimizer = build_optimizer(optimizer_config, plan)
+    optimizer = build_optimizer(optimizer_config, env_config, plan)
     if optimizer is None:
         logger.error(f"Unknown optimizer type: {optimizer_config.optimizer_type}")
         return
@@ -108,7 +108,7 @@ def run_main(
         if k == 0:
             logger.debug(f"  [light_sea_green]Optimizing the next {steps_until_reoptimization} steps")
             optimizer_config.initial_soe = env.state.state_of_energy
-            optimizer = build_optimizer(optimizer_config, plan)
+            optimizer = build_optimizer(optimizer_config, env_config, plan)
             assert optimizer is not None
             optimizer.build()
             with suppress_stdout_stderr():
