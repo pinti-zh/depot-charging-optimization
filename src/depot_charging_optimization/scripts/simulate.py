@@ -56,7 +56,9 @@ def run_main(
     grid_tariff = pd.read_csv(file_config.grid_tariff_file)
     grid_tariff["grid_tariff"] /= 365 * 1.0e6  # convert to CHF / Watt
 
-    data_input = data_input.add_energy_price(energy_price["time"].to_list(), energy_price["energy_price"].to_list())
+    data_input = data_input.add_energy_price(
+        energy_price["time"].to_list(), energy_price["energy_price"].to_list()
+    )
     data_input = data_input.add_grid_tariff(grid_tariff["grid_tariff"][0])
 
     env = Environment(data_input, config=env_config)
@@ -69,7 +71,8 @@ def run_main(
         case "peak_shaving":
             heuristic = partial(
                 peak_shaving,
-                max_power_ratio=heuristic_config.max_charging_power_allowed / env_config.charger_max_charging_power,
+                max_power_ratio=heuristic_config.max_charging_power_allowed
+                / env_config.charger_max_charging_power,
             )
         case _:
             logger.error(f"Unknown heuristic type: {heuristic_config.heuristic_type}")
@@ -102,9 +105,15 @@ def run_main(
     power_cost = f"{solution.power_cost:.3f} $"
 
     max_cost_string_length = max(map(len, [total_cost, energy_cost, power_cost]))
-    logger.info(f"Total cost of solution:   {' ' * (max_cost_string_length - len(total_cost))}{total_cost}")
-    logger.info(f"Energy cost of solution:  {' ' * (max_cost_string_length - len(energy_cost))}{energy_cost}")
-    logger.info(f"Power cost of solution:   {' ' * (max_cost_string_length - len(power_cost))}{power_cost}")
+    logger.info(
+        f"Total cost of solution:   {' ' * (max_cost_string_length - len(total_cost))}{total_cost}"
+    )
+    logger.info(
+        f"Energy cost of solution:  {' ' * (max_cost_string_length - len(energy_cost))}{energy_cost}"
+    )
+    logger.info(
+        f"Power cost of solution:   {' ' * (max_cost_string_length - len(power_cost))}{power_cost}"
+    )
 
     solution_dir = os.path.dirname(file_config.solution_file)
     os.makedirs(solution_dir, exist_ok=True)

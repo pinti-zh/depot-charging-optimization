@@ -52,20 +52,27 @@ class Input(BaseModel):
                 f"Field[energy_demand] has length {len(self.energy_demand)}, expected {self.num_vehicles}"
             )
         if not len(self.depot_charge) == self.num_vehicles:
-            raise ValueError(f"Field[depot_charge] has length {len(self.depot_charge)}, expected {self.num_vehicles}")
+            raise ValueError(
+                f"Field[depot_charge] has length {len(self.depot_charge)}, expected {self.num_vehicles}"
+            )
         if not len(self.battery_capacity) == self.num_vehicles:
             raise ValueError(
                 f"Field[battery_capacity] has length {len(self.battery_capacity)}, expected {self.num_vehicles}"
             )
         if not len(self.is_battery) == self.num_vehicles:
-            raise ValueError(f"Field[is_battery] has length {len(self.is_battery)}, expected {self.num_vehicles}")
+            raise ValueError(
+                f"Field[is_battery] has length {len(self.is_battery)}, expected {self.num_vehicles}"
+            )
         return self
 
     @model_validator(mode="after")
     def check_no_energy_demand_in_depot(self):
-        for vehicle_depot_charge, vehicle_energy_demand in zip(self.depot_charge, self.energy_demand):
+        for vehicle_depot_charge, vehicle_energy_demand in zip(
+            self.depot_charge, self.energy_demand
+        ):
             energy_demand_in_depot = any(
-                dc and (demand > 0) for dc, demand in zip(vehicle_depot_charge, vehicle_energy_demand)
+                dc and (demand > 0)
+                for dc, demand in zip(vehicle_depot_charge, vehicle_energy_demand)
             )
             if energy_demand_in_depot:
                 raise ValueError("Nonzero energy demand found while depot charging")
@@ -153,7 +160,9 @@ class Input(BaseModel):
         dt = dt or max_dt
 
         if gcd(max_dt, dt) != dt:
-            raise ValueError(f"Incompatible dt for equalizing timestep: dt = {dt}, must be divisor of {max_dt}")
+            raise ValueError(
+                f"Incompatible dt for equalizing timestep: dt = {dt}, must be divisor of {max_dt}"
+            )
         equalized_timesteps = [dt * (i + 1) for i in range(self.time[-1] // dt)]
 
         return self._extend(equalized_timesteps)
@@ -304,13 +313,17 @@ class Solution(BaseModel):
 
         # assert all list contain [num_vehicles] lists
         if not len(self.charging_power) == num_vehicles:
-            raise ValueError(f"Field[charging_power] has length {len(self.charging_power)}, expected {num_vehicles}")
+            raise ValueError(
+                f"Field[charging_power] has length {len(self.charging_power)}, expected {num_vehicles}"
+            )
         if not len(self.effective_charging_power) == num_vehicles:
             raise ValueError(
                 f"Field[effective_charging_power] has length {len(self.effective_charging_power)}, expected {num_vehicles}"
             )
         if not len(self.state_of_energy) == num_vehicles:
-            raise ValueError(f"Field[state_of_energy] has length {len(self.state_of_energy)}, expected {num_vehicles}")
+            raise ValueError(
+                f"Field[state_of_energy] has length {len(self.state_of_energy)}, expected {num_vehicles}"
+            )
 
         if not len(self.lower_soe_envelope) == num_vehicles:
             raise ValueError(

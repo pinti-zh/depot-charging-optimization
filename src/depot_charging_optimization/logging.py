@@ -36,7 +36,9 @@ def get_logger(name="my_logger", level="info"):
 
     logger = logging.getLogger(name)
     logger.setLevel(log_level)
-    handler = RichHandler(console=Console(theme=theme, file=sys.stderr), markup=True, rich_tracebacks=True)
+    handler = RichHandler(
+        console=Console(theme=theme, file=sys.stderr), markup=True, rich_tracebacks=True
+    )
     formatter = logging.Formatter("%(message)s", datefmt="[%X]")
     handler.setFormatter(formatter)
     logger.handlers = [handler]

@@ -88,6 +88,17 @@ With all the dependencies installed, the project is now ready to be used.
 
 ## Usage
 
+### Code Style
+
+This project uses **ruff** for formatting and linting (including import sorting). All rules are configured in `pyproject.toml`.
+
+Run the formatter and linter before committing:
+
+```bash
+ruff format .        # auto-format code
+ruff check --fix .   # lint and auto-fix imports + style issues
+```
+
 ### Unit Tests
 Optionally, run the following command to run the unit tests.
 ```bash

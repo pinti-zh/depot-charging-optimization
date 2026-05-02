@@ -53,16 +53,22 @@ def run_main(
     grid_tariff = pd.read_csv(file_config.grid_tariff_file)
     grid_tariff["grid_tariff"] /= 365 * 1.0e6  # convert to CHF / Watt
 
-    input_data = input_data.add_energy_price(energy_price["time"].to_list(), energy_price["energy_price"].to_list())
+    input_data = input_data.add_energy_price(
+        energy_price["time"].to_list(), energy_price["energy_price"].to_list()
+    )
     input_data = input_data.add_grid_tariff(grid_tariff["grid_tariff"][0])
 
     # optimization
     optimizer: Optimizer | None = None
     match optimizer_config.optimizer_type:
         case "casadi":
-            optimizer = CasadiOptimizer(input_data, config=optimizer_config, env_config=environment_config)
+            optimizer = CasadiOptimizer(
+                input_data, config=optimizer_config, env_config=environment_config
+            )
         case "gurobi":
-            optimizer = GurobiOptimizer(input_data, config=optimizer_config, env_config=environment_config)
+            optimizer = GurobiOptimizer(
+                input_data, config=optimizer_config, env_config=environment_config
+            )
         case _:
             logger.error(f"Unknown optimizer type: {optimizer_config.optimizer_type}")
             return
@@ -89,9 +95,15 @@ def run_main(
         power_cost = f"{solution.power_cost:.3f} $"
 
         max_cost_string_length = max(map(len, [total_cost, energy_cost, power_cost]))
-        logger.info(f"Total cost of solution:   {' ' * (max_cost_string_length - len(total_cost))}{total_cost}")
-        logger.info(f"Energy cost of solution:  {' ' * (max_cost_string_length - len(energy_cost))}{energy_cost}")
-        logger.info(f"Power cost of solution:   {' ' * (max_cost_string_length - len(power_cost))}{power_cost}")
+        logger.info(
+            f"Total cost of solution:   {' ' * (max_cost_string_length - len(total_cost))}{total_cost}"
+        )
+        logger.info(
+            f"Energy cost of solution:  {' ' * (max_cost_string_length - len(energy_cost))}{energy_cost}"
+        )
+        logger.info(
+            f"Power cost of solution:   {' ' * (max_cost_string_length - len(power_cost))}{power_cost}"
+        )
 
         solution_dir = os.path.dirname(file_config.solution_file)
         os.makedirs(solution_dir, exist_ok=True)
