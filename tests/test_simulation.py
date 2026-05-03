@@ -34,7 +34,9 @@ class TestState:
     def test_state_evolution(self, valid_initial_state, energy_delta):
         state_instance = valid_initial_state.model_copy()
         state_instance.update_soe([energy_delta, energy_delta])
-        assert state_instance.state_of_energy == [soe + energy_delta for soe in state_instance.battery_capacity]
+        assert state_instance.state_of_energy == [
+            soe + energy_delta for soe in state_instance.battery_capacity
+        ]
 
     def test_state_evolution_over_capacity(self, valid_initial_state):
         state_instance = valid_initial_state.model_copy()

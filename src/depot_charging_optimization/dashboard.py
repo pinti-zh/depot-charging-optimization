@@ -67,7 +67,9 @@ with tab_state_of_energy:
         for i in range(solution.input_data.num_vehicles):
             with st.container(horizontal=True, border=True, width=150):
                 soe_selection.append(st.checkbox(" ", key=f"soe-{i}", value=True))
-                st.html(f"<span style='color: {color_wheel(i)}; font-weight: bold;'>{names[i]}</span>")
+                st.html(
+                    f"<span style='color: {color_wheel(i)}; font-weight: bold;'>{names[i]}</span>"
+                )
     soe_figure = state_of_energy_trajectories_figure(solution, names, soe_selection)
     st.plotly_chart(soe_figure, width="stretch")
 
@@ -78,7 +80,9 @@ with tab_charging_power:
         for i in range(solution.input_data.num_vehicles):
             with st.container(horizontal=True, border=True, width=150):
                 cp_selection.append(st.checkbox(" ", key=f"cp-{i}", value=True))
-                st.html(f"<span style='color: {color_wheel(i)}; font-weight: bold;'>{names[i]}</span>")
+                st.html(
+                    f"<span style='color: {color_wheel(i)}; font-weight: bold;'>{names[i]}</span>"
+                )
     cp_figure = cumulative_charging_power_figure(solution, names, cp_selection)
     st.plotly_chart(cp_figure, width="stretch")
 
@@ -86,7 +90,9 @@ with tab_detail:
     st.header("Vehicle Detail")
     detail_index = st.selectbox("Vehicle", names)
     show_lower_envelope = st.checkbox("Show Lower Envelope", value=False)
-    dt_figure = detail_figure(solution, names.index(detail_index), show_lower_envelope=show_lower_envelope)
+    dt_figure = detail_figure(
+        solution, names.index(detail_index), show_lower_envelope=show_lower_envelope
+    )
     st.plotly_chart(dt_figure, width="stretch")
 
 st.subheader("Inputs")

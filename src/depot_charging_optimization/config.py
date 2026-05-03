@@ -47,10 +47,16 @@ class BaseConfig(BaseModel):
             return func(
                 *args,
                 **{cls.function_argument_name: config},
-                **{k: v for k, v in kwargs.items() if k not in options and k != config_file_argument_name},
+                **{
+                    k: v
+                    for k, v in kwargs.items()
+                    if k not in options and k != config_file_argument_name
+                },
             )
 
-        wrapper = click.option(f"--{config_file_argument_name.replace('_', '-')}", type=Path)(wrapper)
+        wrapper = click.option(f"--{config_file_argument_name.replace('_', '-')}", type=Path)(
+            wrapper
+        )
 
         for name, info in reversed(options.items()):
             if get_origin(info.annotation) is not None:
