@@ -101,8 +101,17 @@ class TestInputCreation:
 class TestInputMethods:
     def test_add_valid_energy_price(self, valid_input):
         input_instance = valid_input.model_copy()
-        input_instance = input_instance.add_energy_price([300, 900, 1200, 1500, 3000], [1.0, 1.0, 2.0, 3.0, 1.0])
-        assert input_instance.energy_price == [1.0, 1.0, 1.0, 2.0, 3.0, 1.0]  # 300 - 600 and 600 - 900 extension
+        input_instance = input_instance.add_energy_price(
+            [300, 900, 1200, 1500, 3000], [1.0, 1.0, 2.0, 3.0, 1.0]
+        )
+        assert input_instance.energy_price == [
+            1.0,
+            1.0,
+            1.0,
+            2.0,
+            3.0,
+            1.0,
+        ]  # 300 - 600 and 600 - 900 extension
 
     @pytest.mark.parametrize(
         "energy_price",
@@ -136,18 +145,25 @@ class TestInputMethods:
 
     def test_rotate(self, valid_input):
         input_instance = valid_input.model_copy()
-        time_delta = [t2 - t1 for t1, t2 in zip([0] + input_instance.time[:-1], input_instance.time)]
+        time_delta = [
+            t2 - t1 for t1, t2 in zip([0] + input_instance.time[:-1], input_instance.time)
+        ]
         rotated_input_instance = input_instance.rotate()
         rotated_time_delta = [
-            t2 - t1 for t1, t2 in zip([0] + rotated_input_instance.time[:-1], rotated_input_instance.time)
+            t2 - t1
+            for t1, t2 in zip([0] + rotated_input_instance.time[:-1], rotated_input_instance.time)
         ]
 
         rotation_map = [4, 0, 1, 2, 3]
         for i, rotated_i in enumerate(rotation_map):
             assert time_delta[i] == rotated_time_delta[rotated_i]
-            for ed, rotated_ed in zip(input_instance.energy_demand, rotated_input_instance.energy_demand):
+            for ed, rotated_ed in zip(
+                input_instance.energy_demand, rotated_input_instance.energy_demand
+            ):
                 assert ed[i] == rotated_ed[rotated_i]
-            for dc, rotated_dc in zip(input_instance.depot_charge, rotated_input_instance.depot_charge):
+            for dc, rotated_dc in zip(
+                input_instance.depot_charge, rotated_input_instance.depot_charge
+            ):
                 assert dc[i] == rotated_dc[rotated_i]
 
     @pytest.mark.parametrize(
@@ -187,7 +203,11 @@ class TestInputMethods:
         assert len(looped_input_instance.time) == num * len(input_instance.time)
         original_length = len(input_instance.time)
         for i, t in enumerate(looped_input_instance.time):
-            assert t == input_instance.time[i % original_length] + (i // original_length) * input_instance.time[-1]
+            assert (
+                t
+                == input_instance.time[i % original_length]
+                + (i // original_length) * input_instance.time[-1]
+            )
 
         for ed, looped_ed in zip(input_instance.energy_demand, looped_input_instance.energy_demand):
             for i, value in enumerate(looped_ed):

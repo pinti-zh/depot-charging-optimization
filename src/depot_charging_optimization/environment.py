@@ -20,7 +20,9 @@ class State(BaseModel):
                 f"Field[state_of_energy] has length {len(self.state_of_energy)}, {self.num_vehicles} expected"
             )
         if not len(self.in_depot) == self.num_vehicles:
-            raise ValueError(f"Field[in_depot] has length {len(self.in_depot)}, {self.num_vehicles} expected")
+            raise ValueError(
+                f"Field[in_depot] has length {len(self.in_depot)}, {self.num_vehicles} expected"
+            )
         if not len(self.battery_capacity) == self.num_vehicles:
             raise ValueError(
                 f"Field[battery_capacity] has length {len(self.battery_capacity)}, {self.num_vehicles} expected"
@@ -30,10 +32,14 @@ class State(BaseModel):
     def update_soe(self, energy: list[float]):
         assert len(energy) == self.num_vehicles
         for i in range(self.num_vehicles):
-            self.state_of_energy[i] = min(self.state_of_energy[i] + energy[i], self.battery_capacity[i])
+            self.state_of_energy[i] = min(
+                self.state_of_energy[i] + energy[i], self.battery_capacity[i]
+            )
 
     def is_valid(self):
-        return all((soe >= -1.0e-6 * cap) for soe, cap in zip(self.state_of_energy, self.battery_capacity))
+        return all(
+            (soe >= -1.0e-6 * cap) for soe, cap in zip(self.state_of_energy, self.battery_capacity)
+        )
 
 
 class Charger:
@@ -51,12 +57,15 @@ class Charger:
         else:
             charging_power = min(charging_power, self.max_charging_power)
             return self.max_efficiency * (
-                charging_power - (self.loss_coefficient / 2) * charging_power**2 / self.max_charging_power
+                charging_power
+                - (self.loss_coefficient / 2) * charging_power**2 / self.max_charging_power
             )
 
     def inverse_effective_charging_power(self, effective_charging_power: float) -> float:
         if effective_charging_power > self.max_possible_effective_charging_power() + 1.0e-6:
-            raise ValueError(f"Effective charging power {effective_charging_power} is not achievable")
+            raise ValueError(
+                f"Effective charging power {effective_charging_power} is not achievable"
+            )
         if self.loss_coefficient == 0:
             return effective_charging_power / self.max_efficiency
         kappa = self.loss_coefficient / self.max_charging_power
@@ -69,14 +78,18 @@ class Environment:
         self.plan: Input = plan.model_copy(deep=True).loop(config.num_days)
         self.config: EnvironmentConfig = config
         self.charger: Charger = Charger(
-            config.charger_max_charging_power, config.charger_max_efficiency, config.charger_loss_coefficient
+            config.charger_max_charging_power,
+            config.charger_max_efficiency,
+            config.charger_loss_coefficient,
         )
         self.state: State | None = None
         self.timestep: int = 0
         self.energy_std_dev: float = config.env_energy_std_dev
         self.state_history: list[State] = []
         self.policy_history: list[list[float]] = []
-        self.time_delta: list[int] = [t2 - t1 for t1, t2 in zip([0] + self.plan.time[:-1], self.plan.time)]
+        self.time_delta: list[int] = [
+            t2 - t1 for t1, t2 in zip([0] + self.plan.time[:-1], self.plan.time)
+        ]
 
     def reset(self, initial_soe: list[float]):
         assert len(initial_soe) == self.plan.num_vehicles
@@ -99,36 +112,51 @@ class Environment:
         energy_delta = []
         for i in range(self.state.num_vehicles):
             if self.state.in_depot[i]:
-                energy_delta.append(self.time_delta[self.timestep] * self.charger.effective_charging_power(policy[i]))
+                energy_delta.append(
+                    self.time_delta[self.timestep]
+                    * self.charger.effective_charging_power(policy[i])
+                )
             else:
                 energy_delta.append(0.0)
-            energy_delta[i] -= (self.plan.energy_demand[i][self.timestep]) * gauss(1, self.energy_std_dev)
+            energy_delta[i] -= (self.plan.energy_demand[i][self.timestep]) * gauss(
+                1, self.energy_std_dev
+            )
 
         self.timestep += 1
         self.state.update_soe(energy_delta)
         if self.timestep < self.plan.num_timesteps:
-            self.state.in_depot = [self.plan.depot_charge[i][self.timestep] for i in range(self.state.num_vehicles)]
+            self.state.in_depot = [
+                self.plan.depot_charge[i][self.timestep] for i in range(self.state.num_vehicles)
+            ]
         self.state_history.append(self.state.model_copy(deep=True))
         self.policy_history.append(policy)
         return self.state
 
     def _get_charging_power_used(self) -> list[list[float]]:
         charged_energy = []
-        reshaped_energy_demand = [[ed[i] for ed in self.plan.energy_demand] for i in range(self.plan.num_timesteps)]
+        reshaped_energy_demand = [
+            [ed[i] for ed in self.plan.energy_demand] for i in range(self.plan.num_timesteps)
+        ]
         for ed, state_before, state_after in zip(
             reshaped_energy_demand, self.state_history[:-1], self.state_history[1:]
         ):
             soe_before = state_before.state_of_energy
             soe_after = state_after.state_of_energy
-            charged_energy.append([after - (before - e) for e, before, after in zip(ed, soe_before, soe_after)])
+            charged_energy.append(
+                [after - (before - e) for e, before, after in zip(ed, soe_before, soe_after)]
+            )
         charging_power_used = []
         for dt, ed in zip(self.time_delta, charged_energy):
-            charging_power_used.append([self.charger.inverse_effective_charging_power(e / dt) for e in ed])
+            charging_power_used.append(
+                [self.charger.inverse_effective_charging_power(e / dt) for e in ed]
+            )
         return charging_power_used
 
     def get_solution(self) -> Solution:
         charging_power = [list(column) for column in zip(*self._get_charging_power_used())]
-        effective_charging_power = [list(map(self.charger.effective_charging_power, cp)) for cp in charging_power]
+        effective_charging_power = [
+            list(map(self.charger.effective_charging_power, cp)) for cp in charging_power
+        ]
         total_charging_power = [sum(cp) for cp in self._get_charging_power_used()]
         energy_used = []
         for cp, t1, t2 in zip(total_charging_power, [0] + self.plan.time[:-1], self.plan.time):
@@ -137,7 +165,9 @@ class Environment:
         assert self.plan.grid_tariff is not None
         energy_cost = sum(p * e for p, e in zip(self.plan.energy_price, energy_used))
         power_cost = max(total_charging_power) * self.plan.grid_tariff * self.config.num_days
-        state_of_energy = [list(column) for column in zip(*(state.state_of_energy for state in self.state_history))]
+        state_of_energy = [
+            list(column) for column in zip(*(state.state_of_energy for state in self.state_history))
+        ]
         return Solution(
             input_data=self.plan.model_copy(deep=True).truncate(len(total_charging_power)),
             total_cost=energy_cost + power_cost,

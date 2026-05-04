@@ -14,7 +14,9 @@ class TestConstantEfficiencyCharger:
     )
     def test_max_possible_effective_charging_power(self, max_efficiency, max_charging_power):
         charger = Charger(max_charging_power, max_efficiency, 0.0)
-        assert charger.max_possible_effective_charging_power() == max_efficiency * max_charging_power
+        assert (
+            charger.max_possible_effective_charging_power() == max_efficiency * max_charging_power
+        )
 
     @pytest.mark.parametrize(
         "max_efficiency",
@@ -57,7 +59,9 @@ class TestConstantEfficiencyCharger:
         max_charging_power = 100.0
         charger = Charger(max_charging_power, max_efficiency, 0.0)
         assert (
-            charger.inverse_effective_charging_power(charger.effective_charging_power(charging_power))
+            charger.inverse_effective_charging_power(
+                charger.effective_charging_power(charging_power)
+            )
             == charging_power
         )
 
@@ -74,7 +78,9 @@ class TestQuadraticEfficiencyCharger:
     def test_max_possible_effective_charging_power(self, max_efficiency, loss_coefficient):
         max_charging_power = 100.0
         charger = Charger(max_charging_power, max_efficiency, loss_coefficient)
-        assert charger.max_possible_effective_charging_power() == max_efficiency * 100.0 * (1 - loss_coefficient / 2)
+        assert charger.max_possible_effective_charging_power() == max_efficiency * 100.0 * (
+            1 - loss_coefficient / 2
+        )
 
     @pytest.mark.parametrize(
         "max_efficiency",
@@ -88,7 +94,10 @@ class TestQuadraticEfficiencyCharger:
         max_charging_power = 100.0
         charger = Charger(max_charging_power, max_efficiency, loss_coefficient)
         assert charger.effective_charging_power(0.0) == 0.0
-        assert charger.effective_charging_power(max_charging_power) == charger.max_possible_effective_charging_power()
+        assert (
+            charger.effective_charging_power(max_charging_power)
+            == charger.max_possible_effective_charging_power()
+        )
 
     @pytest.mark.parametrize(
         "max_efficiency",
@@ -102,7 +111,12 @@ class TestQuadraticEfficiencyCharger:
         max_charging_power = 100.0
         charger = Charger(max_charging_power, max_efficiency, loss_coefficient)
         assert charger.inverse_effective_charging_power(0.0) == 0.0
-        assert charger.inverse_effective_charging_power(charger.max_possible_effective_charging_power()) == 100.0
+        assert (
+            charger.inverse_effective_charging_power(
+                charger.max_possible_effective_charging_power()
+            )
+            == 100.0
+        )
 
     @pytest.mark.parametrize(
         "max_efficiency",
@@ -121,7 +135,9 @@ class TestQuadraticEfficiencyCharger:
         charger = Charger(max_charging_power, max_efficiency, loss_coefficient)
         assert (
             abs(
-                charger.inverse_effective_charging_power(charger.effective_charging_power(charging_power))
+                charger.inverse_effective_charging_power(
+                    charger.effective_charging_power(charging_power)
+                )
                 - charging_power
             )
             < 1e-6

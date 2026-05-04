@@ -21,7 +21,9 @@ from depot_charging_optimization.optimizer.casadi import CasadiOptimizer
 from depot_charging_optimization.optimizer.gurobi import GurobiOptimizer
 
 
-def build_optimizer(optimizer_config: OptimizerConfig, env_config: EnvironmentConfig, input_data: Input) -> Optimizer | None:
+def build_optimizer(
+    optimizer_config: OptimizerConfig, env_config: EnvironmentConfig, input_data: Input
+) -> Optimizer | None:
     match optimizer_config.optimizer_type:
         case "casadi":
             return CasadiOptimizer(input_data, config=optimizer_config, env_config=env_config)
@@ -71,7 +73,9 @@ def run_main(
     logger.debug(f"Equalized timesteps to {dt} seconds")
     logger.debug(f"Reoptimizing after {mpc_config.minutes_until_reoptimization * 60} seconds")
 
-    plan = plan.add_energy_price(energy_price["time"].to_list(), energy_price["energy_price"].to_list())
+    plan = plan.add_energy_price(
+        energy_price["time"].to_list(), energy_price["energy_price"].to_list()
+    )
     plan = plan.add_grid_tariff(grid_tariff["grid_tariff"][0])
 
     optimizer = build_optimizer(optimizer_config, env_config, plan)
@@ -106,7 +110,9 @@ def run_main(
 
         # optimize and find policy
         if k == 0:
-            logger.debug(f"  [light_sea_green]Optimizing the next {steps_until_reoptimization} steps")
+            logger.debug(
+                f"  [light_sea_green]Optimizing the next {steps_until_reoptimization} steps"
+            )
             optimizer_config.initial_soe = env.state.state_of_energy
             optimizer = build_optimizer(optimizer_config, env_config, plan)
             assert optimizer is not None
@@ -114,7 +120,9 @@ def run_main(
             with suppress_stdout_stderr():
                 solution = optimizer.solve()
             if solution is None:
-                logger.warning("  [orange1]Optimizer encountered infeasible problem -- stopping early")
+                logger.warning(
+                    "  [orange1]Optimizer encountered infeasible problem -- stopping early"
+                )
                 break
             policy = policy_from_solution(solution, steps_until_reoptimization)
             assert len(policy) == steps_until_reoptimization
@@ -136,9 +144,15 @@ def run_main(
     power_cost = f"{solution.power_cost:.3f} $"
 
     max_cost_string_length = max(map(len, [total_cost, energy_cost, power_cost]))
-    logger.info(f"Total cost of solution:   {' ' * (max_cost_string_length - len(total_cost))}{total_cost}")
-    logger.info(f"Energy cost of solution:  {' ' * (max_cost_string_length - len(energy_cost))}{energy_cost}")
-    logger.info(f"Power cost of solution:   {' ' * (max_cost_string_length - len(power_cost))}{power_cost}")
+    logger.info(
+        f"Total cost of solution:   {' ' * (max_cost_string_length - len(total_cost))}{total_cost}"
+    )
+    logger.info(
+        f"Energy cost of solution:  {' ' * (max_cost_string_length - len(energy_cost))}{energy_cost}"
+    )
+    logger.info(
+        f"Power cost of solution:   {' ' * (max_cost_string_length - len(power_cost))}{power_cost}"
+    )
 
     solution_dir = os.path.dirname(file_config.solution_file)
     os.makedirs(solution_dir, exist_ok=True)

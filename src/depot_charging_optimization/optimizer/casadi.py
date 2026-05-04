@@ -96,15 +96,9 @@ class CasadiOptimizer:
         assert isinstance(self._x, ca.SX)
         assert isinstance(self._objective, ca.SX)
         assert isinstance(self._g, ca.SX)
-        assert isinstance(
-            self._time_delta, ca.DM
-        ), "uninitialized optimization variable"
-        assert isinstance(
-            self._energy_price, ca.DM
-        ), "uninitialized optimization variable"
-        assert isinstance(
-            self._grid_tariff, float
-        ), "uninitialized optimization variable"
+        assert isinstance(self._time_delta, ca.DM), "uninitialized optimization variable"
+        assert isinstance(self._energy_price, ca.DM), "uninitialized optimization variable"
+        assert isinstance(self._grid_tariff, float), "uninitialized optimization variable"
 
         nlp = {
             "x": self._x,
@@ -151,35 +145,23 @@ class CasadiOptimizer:
         assert isinstance(time_delta, ca.DM), "uninitialized optimization variable"
 
         energy_cost = ca.sum1(
-            var_values["total_charging_power"]
-            * time_delta.T
-            * self._energy_price
-            / factor
+            var_values["total_charging_power"] * time_delta.T * self._energy_price / factor
         )
 
-        power_cost = (
-            var_values["max_charging_power"].item() * self._grid_tariff / factor
-        )
+        power_cost = var_values["max_charging_power"].item() * self._grid_tariff / factor
 
         return Solution(
             input_data=self._input_data,
             total_cost=energy_cost + power_cost,
             energy_cost=energy_cost,
             power_cost=power_cost,
-            max_charging_power_used=var_values["max_charging_power"].item()
-            / self._factor_cp,
-            charging_power=[
-                cp / self._factor_cp for cp in var_values["charging_power"]
-            ],
+            max_charging_power_used=var_values["max_charging_power"].item() / self._factor_cp,
+            charging_power=[cp / self._factor_cp for cp in var_values["charging_power"]],
             effective_charging_power=[
                 cp / self._factor_cp for cp in var_values["effective_charging_power"]
             ],
-            state_of_energy=[
-                soe / self._factor_soe for soe in var_values["state_of_energy"]
-            ],
-            lower_soe_envelope=[
-                soe / self._factor_soe for soe in var_values["lower_soe_envelope"]
-            ],
+            state_of_energy=[soe / self._factor_soe for soe in var_values["state_of_energy"]],
+            lower_soe_envelope=[soe / self._factor_soe for soe in var_values["lower_soe_envelope"]],
         )
 
     def _set_variables(self) -> None:
@@ -202,9 +184,7 @@ class CasadiOptimizer:
                 * self._input_data.num_timesteps
             )
 
-        depot_charge_mask: np.ndarray = np.array(
-            self._input_data.depot_charge, dtype=bool
-        )
+        depot_charge_mask: np.ndarray = np.array(self._input_data.depot_charge, dtype=bool)
 
         self._variables["charging_power"]["var"] = ca.SX.sym(
             "charging_power",
@@ -224,9 +204,7 @@ class CasadiOptimizer:
         self._variables["effective_charging_power"]["lb"] = (
             -2 * bidirectional_charging_mask * depot_charge_mask
         ).astype(float)
-        self._variables["effective_charging_power"]["ub"] = depot_charge_mask.astype(
-            float
-        )
+        self._variables["effective_charging_power"]["ub"] = depot_charge_mask.astype(float)
 
         self._variables["total_charging_power"]["var"] = ca.SX.sym(
             "total_charging_power",
@@ -241,12 +219,10 @@ class CasadiOptimizer:
             * np.ones(self._input_data.num_timesteps, dtype=float)
         )
 
-        self._variables["max_charging_power"]["var"] = ca.SX.sym(
-            "max_charging_power", 1
-        )
+        self._variables["max_charging_power"]["var"] = ca.SX.sym("max_charging_power", 1)
         self._variables["max_charging_power"]["lb"] = np.zeros((1,), dtype=float)
-        self._variables["max_charging_power"]["ub"] = (
-            self._input_data.num_vehicles * np.ones((1,), dtype=float)
+        self._variables["max_charging_power"]["ub"] = self._input_data.num_vehicles * np.ones(
+            (1,), dtype=float
         )
 
         self._variables["state_of_energy"]["var"] = ca.SX.sym(
@@ -318,41 +294,34 @@ class CasadiOptimizer:
 
     def _set_constraints(self) -> None:
         # assert all optimization variables are initialized
-        assert isinstance(
-            self._variables["charging_power"]["var"], ca.SX
-        ), "uninitialized optimization variable"
-        assert isinstance(
-            self._variables["effective_charging_power"]["var"], ca.SX
-        ), "uninitialized optimization variable"
-        assert isinstance(
-            self._variables["total_charging_power"]["var"], ca.SX
-        ), "uninitialized optimization variable"
-        assert isinstance(
-            self._variables["max_charging_power"]["var"], ca.SX
-        ), "uninitialized optimization variable"
-        assert isinstance(
-            self._variables["state_of_energy"]["var"], ca.SX
-        ), "uninitialized optimization variable"
-        assert isinstance(
-            self._variables["lower_soe_envelope"]["var"], ca.SX
-        ), "uninitialized optimization variable"
-        assert isinstance(
-            self._energy_demand, ca.DM
-        ), "uninitialized optimization variable"
-        assert isinstance(
-            self._realistic_worst_case, ca.DM
-        ), "uninitialized optimization variable"
-        assert isinstance(
-            self._time_delta, ca.DM
-        ), "uninitialized optimization variable"
+        assert isinstance(self._variables["charging_power"]["var"], ca.SX), (
+            "uninitialized optimization variable"
+        )
+        assert isinstance(self._variables["effective_charging_power"]["var"], ca.SX), (
+            "uninitialized optimization variable"
+        )
+        assert isinstance(self._variables["total_charging_power"]["var"], ca.SX), (
+            "uninitialized optimization variable"
+        )
+        assert isinstance(self._variables["max_charging_power"]["var"], ca.SX), (
+            "uninitialized optimization variable"
+        )
+        assert isinstance(self._variables["state_of_energy"]["var"], ca.SX), (
+            "uninitialized optimization variable"
+        )
+        assert isinstance(self._variables["lower_soe_envelope"]["var"], ca.SX), (
+            "uninitialized optimization variable"
+        )
+        assert isinstance(self._energy_demand, ca.DM), "uninitialized optimization variable"
+        assert isinstance(self._realistic_worst_case, ca.DM), "uninitialized optimization variable"
+        assert isinstance(self._time_delta, ca.DM), "uninitialized optimization variable"
 
         self._constraints["charging_efficiency"] = {
             "expr": self._variables["effective_charging_power"]["var"]
             - self._config.max_efficiency
             * (
                 self._variables["charging_power"]["var"]
-                - (self._config.alpha / 2)
-                * self._variables["charging_power"]["var"] ** 2
+                - (self._config.alpha / 2) * self._variables["charging_power"]["var"] ** 2
             ),
             "lb": -float("inf")
             * np.ones(
@@ -385,9 +354,7 @@ class CasadiOptimizer:
         self._constraints["energy_flow"] = {
             "expr": self._variables["state_of_energy"]["var"][:, 1:]
             - self._variables["state_of_energy"]["var"][:, :-1]
-            - self._variables["effective_charging_power"]["var"]
-            * self._time_delta
-            * power_to_soe
+            - self._variables["effective_charging_power"]["var"] * self._time_delta * power_to_soe
             + self._energy_demand,
             "lb": np.zeros(
                 (self._input_data.num_vehicles, self._input_data.num_timesteps),
@@ -402,9 +369,7 @@ class CasadiOptimizer:
         self._constraints["energy_flow_realistic_worst_case"] = {
             "expr": self._variables["lower_soe_envelope"]["var"][:, 1:]
             - self._variables["lower_soe_envelope"]["var"][:, :-1]
-            - self._variables["effective_charging_power"]["var"]
-            * self._time_delta
-            * power_to_soe
+            - self._variables["effective_charging_power"]["var"] * self._time_delta * power_to_soe
             + self._realistic_worst_case,
             "lb": np.zeros(
                 (self._input_data.num_vehicles, self._input_data.num_timesteps),
@@ -442,32 +407,22 @@ class CasadiOptimizer:
 
     def _set_objective(self) -> None:
         # assert all optimization variables are initialized
-        assert isinstance(
-            self._variables["total_charging_power"]["var"], ca.SX
-        ), "uninitialized optimization variable"
-        assert isinstance(
-            self._variables["max_charging_power"]["var"], ca.SX
-        ), "uninitialized optimization variable"
-        assert isinstance(
-            self._energy_demand, ca.DM
-        ), "uninitialized optimization variable"
-        assert isinstance(
-            self._time_delta, ca.DM
-        ), "uninitialized optimization variable"
-        assert isinstance(
-            self._energy_price, ca.DM
-        ), "uninitialized optimization variable"
-        assert isinstance(
-            self._grid_tariff, float
-        ), "uninitialized optimization variable"
+        assert isinstance(self._variables["total_charging_power"]["var"], ca.SX), (
+            "uninitialized optimization variable"
+        )
+        assert isinstance(self._variables["max_charging_power"]["var"], ca.SX), (
+            "uninitialized optimization variable"
+        )
+        assert isinstance(self._energy_demand, ca.DM), "uninitialized optimization variable"
+        assert isinstance(self._time_delta, ca.DM), "uninitialized optimization variable"
+        assert isinstance(self._energy_price, ca.DM), "uninitialized optimization variable"
+        assert isinstance(self._grid_tariff, float), "uninitialized optimization variable"
 
         time_delta = self._time_delta[0, :]  # get one-dimensional vector
         assert isinstance(time_delta, ca.DM), "uninitialized optimization variable"
 
         energy_cost = ca.sum1(
-            self._energy_price
-            * self._variables["total_charging_power"]["var"]
-            * time_delta.T
+            self._energy_price * self._variables["total_charging_power"]["var"] * time_delta.T
         )
         power_cost = self._variables["max_charging_power"]["var"] * self._grid_tariff
 
