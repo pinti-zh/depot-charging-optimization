@@ -15,7 +15,7 @@ def _augment_input_with_prices(inp: Input) -> Input:
 
 @pytest.mark.parametrize("bidirectional", [False, True])
 def test_casadi_optimizer_build_and_solve(valid_input, bidirectional):
-    casadi = pytest.importorskip("casadi")
+    pytest.importorskip("casadi")
     from depot_charging_optimization.optimizer.casadi import CasadiOptimizer
 
     inp = _augment_input_with_prices(valid_input.model_copy())
@@ -64,7 +64,7 @@ def test_casadi_optimizer_build_and_solve(valid_input, bidirectional):
 
 @pytest.mark.parametrize("bidirectional", [False, True])
 def test_gurobi_optimizer_build_and_solve(valid_input, bidirectional):
-    gp = pytest.importorskip("gurobipy")
+    pytest.importorskip("gurobipy")
 
     from depot_charging_optimization.optimizer.gurobi import GurobiOptimizer
 

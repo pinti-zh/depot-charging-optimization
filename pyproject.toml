@@ -57,3 +57,26 @@ build-backend = "setuptools.build_meta"
 [tool.mypy]
 python_executable = ".venv/bin/python"
 ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort (import sorting)
+]
+ignore = [
+    "E501", # line too long (handled by formatter)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["depot_charging_optimization"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

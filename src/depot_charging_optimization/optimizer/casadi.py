@@ -324,13 +324,9 @@ class CasadiOptimizer:
                 - (self._config.alpha / 2) * self._variables["charging_power"]["var"] ** 2
             ),
             "lb": -float("inf")
-            * np.ones(
-                (self._input_data.num_vehicles, self._input_data.num_timesteps),
-                dtype=float,
-            ),
+            * np.ones((self._input_data.num_vehicles, self._input_data.num_timesteps), dtype=float),
             "ub": np.zeros(
-                (self._input_data.num_vehicles, self._input_data.num_timesteps),
-                dtype=float,
+                (self._input_data.num_vehicles, self._input_data.num_timesteps), dtype=float
             ),
         }
 
@@ -357,12 +353,10 @@ class CasadiOptimizer:
             - self._variables["effective_charging_power"]["var"] * self._time_delta * power_to_soe
             + self._energy_demand,
             "lb": np.zeros(
-                (self._input_data.num_vehicles, self._input_data.num_timesteps),
-                dtype=float,
+                (self._input_data.num_vehicles, self._input_data.num_timesteps), dtype=float
             ),
             "ub": np.zeros(
-                (self._input_data.num_vehicles, self._input_data.num_timesteps),
-                dtype=float,
+                (self._input_data.num_vehicles, self._input_data.num_timesteps), dtype=float
             ),
         }
 
@@ -372,12 +366,10 @@ class CasadiOptimizer:
             - self._variables["effective_charging_power"]["var"] * self._time_delta * power_to_soe
             + self._realistic_worst_case,
             "lb": np.zeros(
-                (self._input_data.num_vehicles, self._input_data.num_timesteps),
-                dtype=float,
+                (self._input_data.num_vehicles, self._input_data.num_timesteps), dtype=float
             ),
             "ub": np.zeros(
-                (self._input_data.num_vehicles, self._input_data.num_timesteps),
-                dtype=float,
+                (self._input_data.num_vehicles, self._input_data.num_timesteps), dtype=float
             ),
         }
 
