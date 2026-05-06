@@ -64,7 +64,7 @@ class Charger:
     def inverse_effective_charging_power(self, effective_charging_power: float) -> float:
         if effective_charging_power > self.max_possible_effective_charging_power() + 1.0e-6:
             raise ValueError(
-                f"Effective charging power {effective_charging_power} is not achievable"
+                f"Effective charging power {effective_charging_power} is not achievable, maximum is {self.max_possible_effective_charging_power()}"
             )
         if self.loss_coefficient == 0:
             return effective_charging_power / self.max_efficiency
@@ -86,6 +86,7 @@ class Environment:
         self.timestep: int = 0
         self.energy_std_dev: float = config.env_energy_std_dev
         self.state_history: list[State] = []
+        self.energy_demand_history: list[list[float]] = []
         self.policy_history: list[list[float]] = []
         self.time_delta: list[int] = [
             t2 - t1 for t1, t2 in zip([0] + self.plan.time[:-1], self.plan.time)
@@ -102,6 +103,7 @@ class Environment:
         self.timestep = 0
         self.state_history = [self.state.model_copy(deep=True)]
         self.policy_history = []
+        self.energy_demand_history = []
 
     def step(self, policy: list[float]) -> State:
         if self.state is None:
@@ -110,6 +112,7 @@ class Environment:
             return self.state
         assert len(policy) == self.plan.num_vehicles
         energy_delta = []
+        energy_demand_step = []
         for i in range(self.state.num_vehicles):
             if self.state.in_depot[i]:
                 energy_delta.append(
@@ -118,11 +121,14 @@ class Environment:
                 )
             else:
                 energy_delta.append(0.0)
-            energy_delta[i] -= (self.plan.energy_demand[i][self.timestep]) * gauss(
+            energy_demand_with_disturbance = self.plan.energy_demand[i][self.timestep] * gauss(
                 1, self.energy_std_dev
             )
+            energy_demand_step.append(energy_demand_with_disturbance)
+            energy_delta[i] -= energy_demand_with_disturbance
 
         self.timestep += 1
+        self.energy_demand_history.append(energy_demand_step)
         self.state.update_soe(energy_delta)
         if self.timestep < self.plan.num_timesteps:
             self.state.in_depot = [
@@ -134,11 +140,8 @@ class Environment:
 
     def _get_charging_power_used(self) -> list[list[float]]:
         charged_energy = []
-        reshaped_energy_demand = [
-            [ed[i] for ed in self.plan.energy_demand] for i in range(self.plan.num_timesteps)
-        ]
         for ed, state_before, state_after in zip(
-            reshaped_energy_demand, self.state_history[:-1], self.state_history[1:]
+            self.energy_demand_history, self.state_history[:-1], self.state_history[1:]
         ):
             soe_before = state_before.state_of_energy
             soe_after = state_after.state_of_energy
