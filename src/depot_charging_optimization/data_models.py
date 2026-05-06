@@ -12,7 +12,8 @@ class Input(BaseModel):
     max_charging_power: float
     battery_capacity: list[float]
     depot_charge: list[list[bool]]
-    energy_price: list[float] | None = None
+    energy_buy_price: list[float] | None = None
+    energy_sell_price: list[float] | None = None
     grid_tariff: float | None = None
     is_battery: list[bool] | None = None
 
@@ -90,10 +91,14 @@ class Input(BaseModel):
         return self
 
     def rotate(self) -> "Input":
-        if self.energy_price is None:
-            rotated_energy_price = None
+        if self.energy_buy_price is None:
+            rotated_energy_buy_price = None
         else:
-            rotated_energy_price = self.energy_price[1:] + [self.energy_price[0]]  # type: ignore
+            rotated_energy_buy_price = self.energy_buy_price[1:] + [self.energy_buy_price[0]]  # type: ignore
+        if self.energy_sell_price is None:
+            rotated_energy_sell_price = None
+        else:
+            rotated_energy_sell_price = self.energy_sell_price[1:] + [self.energy_sell_price[0]]  # type: ignore
         return Input(
             num_timesteps=self.num_timesteps,
             num_vehicles=self.num_vehicles,
@@ -102,7 +107,8 @@ class Input(BaseModel):
             max_charging_power=self.max_charging_power,
             battery_capacity=self.battery_capacity,
             depot_charge=[item[1:] + [item[0]] for item in self.depot_charge],
-            energy_price=rotated_energy_price,
+            energy_buy_price=rotated_energy_buy_price,
+            energy_sell_price=rotated_energy_sell_price,
             grid_tariff=self.grid_tariff,
             is_battery=self.is_battery,
         )
@@ -118,7 +124,12 @@ class Input(BaseModel):
             max_charging_power=self.max_charging_power,
             battery_capacity=self.battery_capacity,
             depot_charge=[depot_charge[:n] for depot_charge in self.depot_charge],
-            energy_price=self.energy_price[:n] if self.energy_price is not None else None,  # type: ignore
+            energy_buy_price=self.energy_buy_price[:n]
+            if self.energy_buy_price is not None
+            else None,  # type: ignore
+            energy_sell_price=self.energy_sell_price[:n]
+            if self.energy_sell_price is not None
+            else None,  # type: ignore
             grid_tariff=self.grid_tariff,
             is_battery=self.is_battery,
         )
@@ -126,10 +137,14 @@ class Input(BaseModel):
     def loop(self, loops: int) -> "Input":
         if loops <= 0:
             raise ValueError(f"Invalid number of loops, tried looping {loops} times")
-        if self.energy_price is None:
-            looped_energy_price = None
+        if self.energy_buy_price is None:
+            looped_energy_buy_price = None
         else:
-            looped_energy_price = self.energy_price * loops
+            looped_energy_buy_price = self.energy_buy_price * loops
+        if self.energy_sell_price is None:
+            looped_energy_sell_price = None
+        else:
+            looped_energy_sell_price = self.energy_sell_price * loops
 
         looped_time = []
         max_time = max(self.time)
@@ -144,7 +159,8 @@ class Input(BaseModel):
             max_charging_power=self.max_charging_power,
             battery_capacity=self.battery_capacity,
             depot_charge=[depot_charge * loops for depot_charge in self.depot_charge],
-            energy_price=looped_energy_price,
+            energy_buy_price=looped_energy_buy_price,
+            energy_sell_price=looped_energy_sell_price,
             grid_tariff=self.grid_tariff,
             is_battery=self.is_battery,
         )
@@ -216,12 +232,14 @@ class Input(BaseModel):
         self.grid_tariff = grid_tariff
         return self
 
-    def add_energy_price(self, energy_time: list[int], energy_price: list[float]) -> "Input":
+    def add_energy_price(
+        self, energy_time: list[int], energy_buy_price: list[float], energy_sell_price: list[float]
+    ) -> "Input":
         # check that energy price is not empty
-        if not len(energy_price) > 0:
+        if not len(energy_time) > 0:
             raise ValueError("Energy time must not be empty")
         # check that energy time and price have equal length
-        if not len(energy_price) == len(energy_time):
+        if not (len(energy_buy_price) == len(energy_time) == len(energy_sell_price)):
             raise ValueError("Energy time and price must have equal length")
         # check that energy time is ascending
         if not all(energy_time[i] < energy_time[i + 1] for i in range(len(energy_time) - 1)):
@@ -235,14 +253,17 @@ class Input(BaseModel):
 
         time = sorted(list(set(self.time + energy_time)))
         current_energy_price_index = 0
-        extended_energy_price = []
+        extended_energy_buy_price = []
+        extended_energy_sell_price = []
         for t_i in time:
-            extended_energy_price.append(energy_price[current_energy_price_index])
+            extended_energy_buy_price.append(energy_buy_price[current_energy_price_index])
+            extended_energy_sell_price.append(energy_sell_price[current_energy_price_index])
             if t_i == energy_time[current_energy_price_index]:
                 current_energy_price_index += 1
 
         extended_input = self._extend(time)
-        extended_input.energy_price = extended_energy_price
+        extended_input.energy_buy_price = extended_energy_buy_price
+        extended_input.energy_sell_price = extended_energy_sell_price
         return extended_input
 
     def _extend(self, extended_time: list[int]) -> "Input":
