@@ -1,6 +1,5 @@
 import casadi as ca
 import numpy as np
-from scipy.stats import norm
 
 from depot_charging_optimization.config import EnvironmentConfig, OptimizerConfig
 from depot_charging_optimization.data_models import Input, Solution
@@ -257,9 +256,8 @@ class CasadiOptimizer:
             np.array(self._input_data.energy_demand, dtype=float) * self._factor_soe
         )
 
-        z = float(norm.ppf((1 - self._config.confidence_level) / 2))
-        self._realistic_worst_case = self._energy_demand + ca.DM(
-            np.abs(self._energy_demand * self._config.energy_std_dev * z)
+        self._realistic_worst_case = self._energy_demand * ca.DM(
+            1.0 + self._config.assumed_energy_demand_max_relative_error
         )
 
         self._time_delta = ca.DM(

@@ -2,5 +2,4 @@ optimizer_type: casadi
 alpha: 0.105263157895
 max_efficiency: 0.95
 bidirectional_charging: false
-confidence_level: 0.0
-energy_std_dev: 0.0
+assumed_energy_demand_max_relative_error: 0.25

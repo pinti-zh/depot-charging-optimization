@@ -74,8 +74,7 @@ class OptimizerConfig(BaseConfig):
     alpha: float = 0.0
     max_efficiency: float = 1.0
     bidirectional_charging: bool = False
-    confidence_level: float = 0.0
-    energy_std_dev: float = 0.0
+    assumed_energy_demand_max_relative_error: float = 0.0
     initial_soe: list[float | None] | None = None
 
     @field_validator("optimizer_type")
@@ -85,7 +84,7 @@ class OptimizerConfig(BaseConfig):
             raise ValueError(f"unknown optimizer type [{v}], must be either gurobi or casadi")
         return v.lower()
 
-    @field_validator("alpha", "confidence_level", "energy_std_dev")
+    @field_validator("alpha")
     @classmethod
     def between_zero_and_one(cls, v):
         if not (0 <= v <= 1):
