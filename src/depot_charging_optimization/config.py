@@ -124,7 +124,7 @@ class FileConfig(BaseConfig):
 class EnvironmentConfig(BaseConfig):
     function_argument_name: ClassVar[str] = "env_config_cli_arguments"
     default_config: ClassVar[tuple[str, Path]] = ("env_config", Path("config/env.yaml"))
-    env_energy_std_dev: float = 0.0
+    energy_demand_max_relative_error: float = 0.0
     num_days: int = 1
     total_max_charging_power: float = 0.0
     charger_max_charging_power: float = 0.0

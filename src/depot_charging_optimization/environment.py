@@ -1,5 +1,5 @@
 from math import sqrt
-from random import gauss
+from random import uniform
 
 from pydantic import BaseModel, model_validator
 
@@ -84,7 +84,7 @@ class Environment:
         )
         self.state: State | None = None
         self.timestep: int = 0
-        self.energy_std_dev: float = config.env_energy_std_dev
+        self.energy_demand_max_relative_error: float = config.energy_demand_max_relative_error
         self.state_history: list[State] = []
         self.energy_demand_history: list[list[float]] = []
         self.policy_history: list[list[float]] = []
@@ -121,8 +121,8 @@ class Environment:
                 )
             else:
                 energy_delta.append(0.0)
-            energy_demand_with_disturbance = self.plan.energy_demand[i][self.timestep] * gauss(
-                1, self.energy_std_dev
+            energy_demand_with_disturbance = self.plan.energy_demand[i][self.timestep] * uniform(
+                1 - self.energy_demand_max_relative_error, 1 + self.energy_demand_max_relative_error
             )
             energy_demand_step.append(energy_demand_with_disturbance)
             energy_delta[i] -= energy_demand_with_disturbance
