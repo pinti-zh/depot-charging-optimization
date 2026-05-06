@@ -174,7 +174,8 @@ class CasadiOptimizer:
         assert self._input_data.is_battery is not None
         if self._config.bidirectional_charging:
             bidirectional_charging_mask = np.ones(
-                (self._input_data.num_vehicles, self._input_data.num_timesteps), dtype=bool
+                (self._input_data.num_vehicles, self._input_data.num_timesteps),
+                dtype=bool,
             )
         else:
             bidirectional_charging_mask = np.hstack(
@@ -229,10 +230,12 @@ class CasadiOptimizer:
             self._input_data.num_timesteps + 1,
         )
         self._variables["state_of_energy"]["lb"] = np.zeros(
-            (self._input_data.num_vehicles, self._input_data.num_timesteps + 1), dtype=float
+            (self._input_data.num_vehicles, self._input_data.num_timesteps + 1),
+            dtype=float,
         )
         self._variables["state_of_energy"]["ub"] = np.ones(
-            (self._input_data.num_vehicles, self._input_data.num_timesteps + 1), dtype=float
+            (self._input_data.num_vehicles, self._input_data.num_timesteps + 1),
+            dtype=float,
         )
 
         self._variables["lower_soe_envelope"]["var"] = ca.SX.sym(
@@ -241,10 +244,12 @@ class CasadiOptimizer:
             self._input_data.num_timesteps + 1,
         )
         self._variables["lower_soe_envelope"]["lb"] = np.zeros(
-            (self._input_data.num_vehicles, self._input_data.num_timesteps + 1), dtype=float
+            (self._input_data.num_vehicles, self._input_data.num_timesteps + 1),
+            dtype=float,
         )
         self._variables["lower_soe_envelope"]["ub"] = np.ones(
-            (self._input_data.num_vehicles, self._input_data.num_timesteps + 1), dtype=float
+            (self._input_data.num_vehicles, self._input_data.num_timesteps + 1),
+            dtype=float,
         )
 
         if self._config.initial_soe is not None:
@@ -325,6 +330,8 @@ class CasadiOptimizer:
 
         self._constraints["total_charging_power"] = {
             "expr": ca.reshape(ca.sum1(self._variables["charging_power"]["var"]), -1, 1)
+            + np.array(self._input_data.building_load, dtype=float) * self._factor_cp
+            - np.array(self._input_data.pv_production, dtype=float) * self._factor_cp
             - self._variables["total_charging_power"]["var"],
             "lb": -float("inf") * np.ones(self._input_data.num_timesteps, dtype=float),
             "ub": np.zeros(self._input_data.num_timesteps, dtype=float),

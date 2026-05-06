@@ -12,6 +12,8 @@ class Input(BaseModel):
     max_charging_power: float
     battery_capacity: list[float]
     depot_charge: list[list[bool]]
+    building_load: list[float]
+    pv_production: list[float]
     energy_price: list[float] | None = None
     grid_tariff: float | None = None
     is_battery: list[bool] | None = None
@@ -47,6 +49,14 @@ class Input(BaseModel):
             raise ValueError(f"Entry of Field[energy_demand] does not have expected length {n}")
         if not all(len(v) == n for v in self.depot_charge):
             raise ValueError(f"Entry of Field[depot_charge] does not have expected length {n}")
+        if not len(self.building_load) == n:
+            raise ValueError(
+                f"Field[building_load] has length {len(self.building_load)}, expected {n}"
+            )
+        if not len(self.pv_production) == n:
+            raise ValueError(
+                f"Field[pv_production] has length {len(self.pv_production)}, expected {n}"
+            )
         if not len(self.energy_demand) == self.num_vehicles:
             raise ValueError(
                 f"Field[energy_demand] has length {len(self.energy_demand)}, expected {self.num_vehicles}"
@@ -102,6 +112,8 @@ class Input(BaseModel):
             max_charging_power=self.max_charging_power,
             battery_capacity=self.battery_capacity,
             depot_charge=[item[1:] + [item[0]] for item in self.depot_charge],
+            building_load=self.building_load[1:] + [self.building_load[0]],
+            pv_production=self.pv_production[1:] + [self.pv_production[0]],
             energy_price=rotated_energy_price,
             grid_tariff=self.grid_tariff,
             is_battery=self.is_battery,
@@ -118,6 +130,8 @@ class Input(BaseModel):
             max_charging_power=self.max_charging_power,
             battery_capacity=self.battery_capacity,
             depot_charge=[depot_charge[:n] for depot_charge in self.depot_charge],
+            building_load=self.building_load[:n],
+            pv_production=self.pv_production[:n],
             energy_price=self.energy_price[:n] if self.energy_price is not None else None,  # type: ignore
             grid_tariff=self.grid_tariff,
             is_battery=self.is_battery,
@@ -144,6 +158,8 @@ class Input(BaseModel):
             max_charging_power=self.max_charging_power,
             battery_capacity=self.battery_capacity,
             depot_charge=[depot_charge * loops for depot_charge in self.depot_charge],
+            building_load=self.building_load * loops,
+            pv_production=self.pv_production * loops,
             energy_price=looped_energy_price,
             grid_tariff=self.grid_tariff,
             is_battery=self.is_battery,
@@ -209,6 +225,8 @@ class Input(BaseModel):
             max_charging_power=inputs[0].max_charging_power,
             battery_capacity=battery_capacity,
             depot_charge=depot_charge,
+            building_load=extended_inputs[0].building_load,
+            pv_production=extended_inputs[0].pv_production,
             is_battery=is_battery,
         )
 
@@ -258,12 +276,16 @@ class Input(BaseModel):
 
         energy_demand: list[list[float]] = [[] for _ in range(self.num_vehicles)]
         depot_charge: list[list[bool]] = [[] for _ in range(self.num_vehicles)]
+        building_load: list[float] = []
+        pv_production: list[float] = []
         for t1, t2 in zip([0] + extended_time[:-1], extended_time):
             index = self._index_of_time_interval(t1, t2)
             if index == 0:
                 dt = self.time[index]
             else:
                 dt = self.time[index] - self.time[index - 1]
+            building_load.append(self.building_load[index] * ((t2 - t1) / dt))
+            pv_production.append(self.pv_production[index] * ((t2 - t1) / dt))
             for vehicle in range(self.num_vehicles):
                 ed = self.energy_demand[vehicle][index] * ((t2 - t1) / dt)
                 dc = self.depot_charge[vehicle][index]
@@ -277,6 +299,8 @@ class Input(BaseModel):
             max_charging_power=self.max_charging_power,
             battery_capacity=self.battery_capacity,
             depot_charge=depot_charge,
+            building_load=building_load,
+            pv_production=pv_production,
             is_battery=self.is_battery,
         )
 

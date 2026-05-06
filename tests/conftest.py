@@ -35,6 +35,8 @@ def valid_input_data():
             [True, False, False, False, True],
             [False, True, False, True, False],
         ],
+        "building_load": [0.001, 0.002, 0.003, 0.005, 0.006],
+        "pv_production": [0.01, 0.0, 0.01, 0.02, 0.03],
         "is_battery": [False, False, False],
     }
     return data
