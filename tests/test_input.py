@@ -102,9 +102,9 @@ class TestInputMethods:
     def test_add_valid_energy_price(self, valid_input):
         input_instance = valid_input.model_copy()
         input_instance = input_instance.add_energy_price(
-            [300, 900, 1200, 1500, 3000], [1.0, 1.0, 2.0, 3.0, 1.0]
+            [300, 900, 1200, 1500, 3000], [1.0, 1.0, 2.0, 3.0, 1.0], [1.0, 1.0, 2.0, 3.0, 1.0]
         )
-        assert input_instance.energy_price == [
+        assert input_instance.energy_buy_price == [
             1.0,
             1.0,
             1.0,
@@ -116,13 +116,13 @@ class TestInputMethods:
     @pytest.mark.parametrize(
         "energy_price",
         [
-            ([], []),  # empty
-            ([-60, 3000], [1.0, 1.0]),  # negative time
-            ([0, 3000], [1.0, 1.0]),  # zero time
-            ([60, 6000], [1.0, 1.0]),  # too long time horizon
-            ([60, 1000], [1.0, 1.0]),  # too short time horizon
-            ([60, 60, 3000], [1.0, 1.0, 1.0]),  # non-increasing time
-            ([60, 3000], [1.0]),  # list length missmatch
+            ([], [], []),  # empty
+            ([-60, 3000], [1.0, 1.0], [1.0, 1.0]),  # negative time
+            ([0, 3000], [1.0, 1.0], [1.0, 1.0]),  # zero time
+            ([60, 6000], [1.0, 1.0], [1.0, 1.0]),  # too long time horizon
+            ([60, 1000], [1.0, 1.0], [1.0, 1.0]),  # too short time horizon
+            ([60, 60, 3000], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0]),  # non-increasing time
+            ([60, 3000], [1.0], [1.0]),  # list length missmatch
         ],
     )
     def test_add_invalid_energy_price(self, valid_input, energy_price):

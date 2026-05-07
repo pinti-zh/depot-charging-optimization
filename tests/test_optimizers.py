@@ -8,7 +8,7 @@ def _augment_input_with_prices(inp: Input) -> Input:
     # Ensure energy_price and grid_tariff are present for optimizers
     energy_time = [300, 600, 1200, 1500, 3000]
     energy_price = [1.0] * len(energy_time)
-    inp = inp.add_energy_price(energy_time, energy_price)
+    inp = inp.add_energy_price(energy_time, energy_price, energy_price)
     inp = inp.add_grid_tariff(5.0)
     return inp
 
@@ -24,8 +24,7 @@ def test_casadi_optimizer_build_and_solve(valid_input, bidirectional):
         alpha=0.0,
         max_efficiency=1.0,
         bidirectional_charging=bidirectional,
-        confidence_level=0.0,
-        energy_std_dev=0.0,
+        assumed_energy_demand_max_relative_error=0.0,
         initial_soe=None,
     )
     env_config = EnvironmentConfig(
@@ -74,8 +73,7 @@ def test_gurobi_optimizer_build_and_solve(valid_input, bidirectional):
         alpha=0.0,
         max_efficiency=1.0,
         bidirectional_charging=bidirectional,
-        confidence_level=0.0,
-        energy_std_dev=0.0,
+        assumed_energy_demand_max_relative_error=0.0,
         initial_soe=None,
     )
     env_config = EnvironmentConfig(
