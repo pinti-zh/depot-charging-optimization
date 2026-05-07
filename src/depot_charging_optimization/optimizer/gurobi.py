@@ -32,12 +32,14 @@ class GurobiOptimizer:
         self._max_charging_power: gp.MVar | None = None
         self._state_of_energy: gp.MVar | None = None
         self._lower_soe_envelope: gp.MVar | None = None
+        self._relaxed_energy_cost: gp.MVar | None = None
 
         self._initial_soe: np.ndarray | None = None  # constant once initialized
         self._energy_demand: np.ndarray | None = None  # constant once initialized
         self._realistic_worst_case: np.ndarray | None = None  # constant once initialized
         self._time_delta: np.ndarray | None = None  # constant once initialized
-        self._energy_price: np.ndarray | None = None  # constant once initialized
+        self._energy_buy_price: np.ndarray | None = None  # constant once initialized
+        self._energy_sell_price: np.ndarray | None = None  # constant once initialized
         self._grid_tariff: float | None = None  # constant once initialized
 
         # auxiliary constants: scaling factors
@@ -67,17 +69,26 @@ class GurobiOptimizer:
         assert isinstance(self._state_of_energy, gp.MVar), "uninitialized optimization variable"
         assert isinstance(self._lower_soe_envelope, gp.MVar), "uninitialized optimization variable"
         assert isinstance(self._time_delta, np.ndarray), "uninitialized optimization variable"
-        assert isinstance(self._energy_price, np.ndarray), "uninitialized optimization variable"
+        assert isinstance(self._energy_buy_price, np.ndarray), "uninitialized optimization variable"
+        assert isinstance(self._energy_sell_price, np.ndarray), (
+            "uninitialized optimization variable"
+        )
         assert isinstance(self._grid_tariff, float), "uninitialized optimization variable"
 
         self._model.optimize()
         if self._model.Status == GRB.OPTIMAL:
             factor = self._factor_cp * self._factor_ep
 
+            energy_price = np.where(
+                self._total_charging_power.getAttr("X") >= 0,
+                self._energy_buy_price,
+                self._energy_sell_price,
+            )
+
             energy_cost = (
                 self._total_charging_power.getAttr("X")
                 * self._time_delta[0]
-                * self._energy_price
+                * energy_price
                 / factor
             ).sum()
 
@@ -143,7 +154,8 @@ class GurobiOptimizer:
 
         self._total_charging_power = self._model.addMVar(
             (self._input_data.num_timesteps,),
-            lb=0.0,
+            lb=-self._env_config.total_max_charging_power
+            / self._env_config.charger_max_charging_power,
             ub=self._env_config.total_max_charging_power
             / self._env_config.charger_max_charging_power,
             name="total_charging_power",
@@ -152,7 +164,6 @@ class GurobiOptimizer:
 
         self._max_charging_power = self._model.addMVar(
             (1,),
-            lb=0.0,
             ub=1.0 * self._input_data.num_vehicles,
             name="max_charging_power",
             vtype=GRB.CONTINUOUS,
@@ -172,6 +183,14 @@ class GurobiOptimizer:
             ub=1.0,
             name="lower_soe_envelope",
             vtype=GRB.CONTINUOUS,
+        )
+
+        self._relaxed_energy_cost = self._model.addMVar(
+            (self._input_data.num_timesteps,),
+            name="relaxed_energy_cost",
+            vtype=GRB.CONTINUOUS,
+            lb=float("-inf"),
+            ub=float("inf"),
         )
 
         if self._config.initial_soe is not None:
@@ -199,7 +218,12 @@ class GurobiOptimizer:
         )
 
         assert self._input_data.energy_buy_price is not None
-        self._energy_price = np.array(self._input_data.energy_buy_price, dtype=float) * self._factor_ep
+        self._energy_buy_price = (
+            np.array(self._input_data.energy_buy_price, dtype=float) * self._factor_ep
+        )
+        self._energy_sell_price = (
+            np.array(self._input_data.energy_sell_price, dtype=float) * self._factor_ep
+        )
 
         assert self._input_data.grid_tariff is not None
         self._grid_tariff = self._input_data.grid_tariff * self._factor_ep
@@ -213,6 +237,7 @@ class GurobiOptimizer:
         assert isinstance(self._total_charging_power, gp.MVar), (
             "uninitialized optimization variable"
         )
+        assert isinstance(self._relaxed_energy_cost, gp.MVar), "uninitialized optimization variable"
         assert isinstance(self._max_charging_power, gp.MVar), "uninitialized optimization variable"
         assert isinstance(self._state_of_energy, gp.MVar), "uninitialized optimization variable"
         assert isinstance(self._lower_soe_envelope, gp.MVar), "uninitialized optimization variable"
@@ -221,6 +246,10 @@ class GurobiOptimizer:
             "uninitialized optimization variable"
         )
         assert isinstance(self._time_delta, np.ndarray), "uninitialized optimization variable"
+        assert isinstance(self._energy_buy_price, np.ndarray), "uninitialized optimization variable"
+        assert isinstance(self._energy_sell_price, np.ndarray), (
+            "uninitialized optimization variable"
+        )
 
         self._model.addConstr(
             self._effective_charging_power
@@ -291,17 +320,27 @@ class GurobiOptimizer:
             "initial_soe_envelope",
         )
 
+        self._model.addConstr(
+            self._relaxed_energy_cost >= self._total_charging_power * self._energy_buy_price,
+            "relaxed_energy_cost_buy_price",
+        )
+
+        self._model.addConstr(
+            self._relaxed_energy_cost >= self._total_charging_power * self._energy_sell_price,
+            "relaxed_energy_cost_sell_price",
+        )
+
     def _set_objective(self) -> None:
         # assert all optimization variables are initialized
         assert isinstance(self._total_charging_power, gp.MVar), (
             "uninitialized optimization variable"
         )
         assert isinstance(self._max_charging_power, gp.MVar), "uninitialized optimization variable"
+        assert isinstance(self._relaxed_energy_cost, gp.MVar), "uninitialized optimization variable"
         assert isinstance(self._time_delta, np.ndarray), "uninitialized optimization variable"
-        assert isinstance(self._energy_price, np.ndarray), "uninitialized optimization variable"
         assert isinstance(self._grid_tariff, float), "uninitialized optimization variable"
 
-        energy_cost = (self._energy_price * self._total_charging_power * self._time_delta[0]).sum()
+        energy_cost = (self._relaxed_energy_cost * self._time_delta[0]).sum()  # type: ignore
         power_cost = self._max_charging_power * self._grid_tariff
 
         self._model.setObjective(energy_cost + power_cost, GRB.MINIMIZE)
