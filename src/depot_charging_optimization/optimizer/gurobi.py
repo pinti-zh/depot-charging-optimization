@@ -256,7 +256,15 @@ class GurobiOptimizer:
             self._effective_charging_power
             <= self._config.max_efficiency
             * (self._charging_power - (self._config.alpha / 2) * self._charging_power**2),
-            "charging_efficiency",
+            "charging_efficiency_positive",
+        )
+
+        self._model.addConstr(
+            self._effective_charging_power
+            <= 1
+            / self._config.max_efficiency
+            * (self._charging_power - (self._config.alpha / 2) * self._charging_power**2),
+            "charging_efficiency_negative",
         )
 
         self._model.addConstr(

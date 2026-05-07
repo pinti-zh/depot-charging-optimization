@@ -341,7 +341,7 @@ class CasadiOptimizer:
         assert isinstance(self._energy_buy_price, ca.DM), "uninitialized optimization variable"
         assert isinstance(self._energy_sell_price, ca.DM), "uninitialized optimization variable"
 
-        self._constraints["charging_efficiency"] = {
+        self._constraints["charging_efficiency_positive"] = {
             "expr": self._variables["effective_charging_power"]["var"]
             - self._config.max_efficiency
             * (
@@ -350,6 +350,21 @@ class CasadiOptimizer:
             ),
             "lb": -float("inf")
             * np.ones((self._input_data.num_vehicles, self._input_data.num_timesteps), dtype=float),
+            "ub": np.zeros(
+                (self._input_data.num_vehicles, self._input_data.num_timesteps), dtype=float
+            ),
+        }
+
+        self._constraints["charging_efficiency_negative"] = {
+            "expr": self._variables["effective_charging_power"]["var"]
+                    - 1
+                    / self._config.max_efficiency
+                    * (
+                            self._variables["charging_power"]["var"]
+                            - (self._config.alpha / 2) * self._variables["charging_power"]["var"] ** 2
+                    ),
+            "lb": -float("inf")
+                  * np.ones((self._input_data.num_vehicles, self._input_data.num_timesteps), dtype=float),
             "ub": np.zeros(
                 (self._input_data.num_vehicles, self._input_data.num_timesteps), dtype=float
             ),
