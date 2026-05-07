@@ -221,6 +221,7 @@ class GurobiOptimizer:
         self._energy_buy_price = (
             np.array(self._input_data.energy_buy_price, dtype=float) * self._factor_ep
         )
+        assert self._input_data.energy_sell_price is not None
         self._energy_sell_price = (
             np.array(self._input_data.energy_sell_price, dtype=float) * self._factor_ep
         )
