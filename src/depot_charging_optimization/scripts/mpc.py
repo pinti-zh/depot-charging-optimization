@@ -74,7 +74,9 @@ def run_main(
     logger.debug(f"Reoptimizing after {mpc_config.minutes_until_reoptimization * 60} seconds")
 
     plan = plan.add_energy_price(
-        energy_price["time"].to_list(), energy_price["energy_price"].to_list()
+        energy_price["time"].to_list(),
+        energy_price["energy_price"].to_list(),
+        energy_price["energy_price"].to_list(),
     )
     plan = plan.add_grid_tariff(grid_tariff["grid_tariff"][0])
 

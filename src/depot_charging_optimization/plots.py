@@ -224,9 +224,9 @@ def get_cumulative_charging_power_plot_data(solution: Solution) -> PlotData:
 
 
 def get_energy_price_plot_data(solution: Solution) -> PlotData:
-    assert solution.input_data.energy_price is not None
+    assert solution.input_data.energy_buy_price is not None
     x = convert_seconds_to_time(convert_to_interval(solution.input_data.time))
-    y = [[ep * 3.6e6 for ep in convert_to_interval(solution.input_data.energy_price, is_y=True)]]
+    y = [[ep * 3.6e6 for ep in convert_to_interval(solution.input_data.energy_buy_price, is_y=True)]]
     return PlotData(x=x, y=y)
 
 

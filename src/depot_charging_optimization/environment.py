@@ -164,9 +164,9 @@ class Environment:
         energy_used = []
         for cp, t1, t2 in zip(total_charging_power, [0] + self.plan.time[:-1], self.plan.time):
             energy_used.append(cp * (t2 - t1))
-        assert self.plan.energy_price is not None
+        assert self.plan.energy_buy_price is not None
         assert self.plan.grid_tariff is not None
-        energy_cost = sum(p * e for p, e in zip(self.plan.energy_price, energy_used))
+        energy_cost = sum(p * e for p, e in zip(self.plan.energy_buy_price, energy_used))
         power_cost = max(total_charging_power) * self.plan.grid_tariff * self.config.num_days
         state_of_energy = [
             list(column) for column in zip(*(state.state_of_energy for state in self.state_history))
