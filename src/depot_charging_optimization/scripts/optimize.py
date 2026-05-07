@@ -54,7 +54,9 @@ def run_main(
     grid_tariff["grid_tariff"] /= 365 * 1.0e6  # convert to CHF / Watt
 
     input_data = input_data.add_energy_price(
-        energy_price["time"].to_list(), energy_price["energy_price"].to_list()
+        energy_price["time"].to_list(),
+        energy_price["energy_price"].to_list(),
+        energy_price["energy_price"].to_list(),
     )
     input_data = input_data.add_grid_tariff(grid_tariff["grid_tariff"][0])
 

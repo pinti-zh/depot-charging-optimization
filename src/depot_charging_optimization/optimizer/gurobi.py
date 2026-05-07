@@ -43,8 +43,8 @@ class GurobiOptimizer:
         # auxiliary constants: scaling factors
         self._factor_cp: float = 1.0 / self._env_config.charger_max_charging_power
         self._factor_soe: float = 1.0 / max(self._input_data.battery_capacity)
-        assert self._input_data.energy_price is not None
-        self._factor_ep: float = 1.0 / max(self._input_data.energy_price)
+        assert self._input_data.energy_buy_price is not None
+        self._factor_ep: float = 1.0 / max(self._input_data.energy_buy_price)
 
     def build(self) -> None:
         self._set_variables()
@@ -198,8 +198,8 @@ class GurobiOptimizer:
             * self._input_data.num_vehicles
         )
 
-        assert self._input_data.energy_price is not None
-        self._energy_price = np.array(self._input_data.energy_price, dtype=float) * self._factor_ep
+        assert self._input_data.energy_buy_price is not None
+        self._energy_price = np.array(self._input_data.energy_buy_price, dtype=float) * self._factor_ep
 
         assert self._input_data.grid_tariff is not None
         self._grid_tariff = self._input_data.grid_tariff * self._factor_ep
