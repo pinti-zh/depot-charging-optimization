@@ -106,7 +106,8 @@ To enable autoformatting on save in VS Code, add the following to your `.vscode/
   "editor.defaultFormatter": "charliermarsh.ruff",
   "editor.formatOnSave": true,
   "editor.codeActionsOnSave": {
-    "source.fixAll.ruff": "explicit"
+    "source.fixAll.ruff": "explicit",
+    "source.organizeImports.ruff": "explicit"
   }
 }
 ```
